@@ -192,7 +192,7 @@ font-weight: 700;
 letter-spacing: 0.12em;
 text-transform: none;
 width: auto; height: auto;
-padding: 4px 13px 6px;
+padding: 3.5px 13px 6.5px;
   background: transparent;
   border: 1px solid rgba(192,201,192,0.38);
   box-shadow: none;
@@ -734,7 +734,7 @@ footer p { margin: 0; line-height: 1.6; font-family: 'Jura', sans-serif; font-si
 <div class="gold-legend" id="goldLegend">
   <span class="gold-dot-sample"></span>complete open chord
 </div>
-<div style="text-align:center;margin-top:16px;padding-bottom:24px;"><button class="map-btn" id="mapBtn" onclick="toggleMap()">Merge</button></div>
+<div style="text-align:center;margin-top:16px;padding-bottom:24px;"><button class="map-btn" id="mapBtn" onclick="toggleMap()">merge</button></div>
 <div style="margin:0 auto;max-width:900px;padding:32px 20px 8px;text-align:center;">
   <button class="spiel-btn" id="spielBtn" onclick="toggleSpiel()">About the Map</button>
 </div>
@@ -1159,7 +1159,7 @@ function toggleMap() {
   mapMode = !mapMode;
   const btn = document.getElementById('mapBtn');
   btn.classList.toggle('active', mapMode);
-  btn.textContent = mapMode ? 'Split' : 'Merge';
+  btn.textContent = mapMode ? 'split' : 'merge';
   renderPage();
 }
 
