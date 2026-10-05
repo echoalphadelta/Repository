@@ -353,7 +353,7 @@ border-radius: 2px;
   <div id="tonicDisplay" class="hidden" style="margin-top:0.6rem;">
     <span id="tonicLabel"></span>
   </div>
-  <div id="certBanner" style="display:none;margin-top:0.5rem;font-family:'Jura', sans-serif;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,166,35,0.6);"></div>
+  <div id="certBanner" style="display:none;margin-top:0.5rem;text-align:center;line-height:1.8;font-family:'Jura', sans-serif;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,166,35,0.6);"></div>
 </div>
 
 <!-- MID: fretboard + controls -->
@@ -926,7 +926,7 @@ drawFretboard();
   const banner = document.getElementById('certBanner');
 
   if (phase === '1') {
-    banner.textContent = 'Certification · Phase 1 of 3 · Standard · 10/10 under 3s to pass';
+    banner.innerHTML = 'Certification<br>Phase 1 of 3 &nbsp;·&nbsp; Standard<br>10/10 under 3s to pass';
     banner.style.display = 'block';
     return;
   }
@@ -936,7 +936,7 @@ drawFretboard();
   const round = parseInt(sessionStorage.getItem('certPhase2Round') || '0');
   const keyName = KEY_NAMES[keys[round]];
 
-  banner.textContent = `Certification · Phase 2 of 3 · Harmonic · Key ${round + 1} of 3: ${keyName} · 10/10 under 3s`;
+  banner.innerHTML = `Certification<br>Phase 2 of 3 &nbsp;·&nbsp; Harmonic<br>Key ${round + 1} of 3: ${keyName} &nbsp;·&nbsp; 10/10 under 3s`;
   banner.style.display = 'block';
 
   // Auto-select the tonic and activate harmonic mode
