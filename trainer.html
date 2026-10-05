@@ -884,12 +884,12 @@ function certContinue() {
     sessionStorage.setItem('certPhase2Keys', JSON.stringify(all.slice(0, 3)));
     sessionStorage.setItem('certPhase2Round', '0');
     sessionStorage.setItem('certPhase', '2');
-    location.href = 'trainer.html';
+    location.href = 'trainer.html?cert';
   } else if (phase === '2') {
     const round = parseInt(sessionStorage.getItem('certPhase2Round') || '0');
     if (round < 2) {
       sessionStorage.setItem('certPhase2Round', round + 1);
-      location.href = 'trainer.html';
+      location.href = 'trainer.html?cert';
     } else {
       sessionStorage.removeItem('certPhase2Keys');
       sessionStorage.removeItem('certPhase2Round');
@@ -903,7 +903,7 @@ function certContinue() {
 
 function certTryAgain() {
   // Phase stays the same; for phase 2 certPhase2Round stays the same (retry same key)
-  location.href = 'trainer.html';
+  location.href = 'trainer.html?cert';
 }
 
 // Initial blank fretboard on game screen and start screen
@@ -913,6 +913,12 @@ drawFretboard();
 (function() {
   const phase = sessionStorage.getItem('certPhase');
   if (phase !== '1' && phase !== '2') return;
+
+  // Arrived without the cert flag (e.g. from the home page): abandon certification
+  if (!new URLSearchParams(location.search).has('cert')) {
+    ['certPhase', 'certPhase2Keys', 'certPhase2Round', 'certExercise', 'certStrikes'].forEach(k => sessionStorage.removeItem(k));
+    return;
+  }
 
   // Hide mode toggle so user cannot switch modes during certification
   document.body.classList.add('cert-mode');

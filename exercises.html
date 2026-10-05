@@ -572,7 +572,7 @@ function certNext() {
 function certFail() {
   sessionStorage.setItem('certExercise', '1');
   sessionStorage.setItem('certStrikes', '0');
-  location.href = 'exercises.html';
+  location.href = 'exercises.html?cert';
 }
 
 newChallenge();
@@ -580,6 +580,11 @@ newChallenge();
 // Certification mode startup — gated; normal visits unaffected
 (function() {
   if (sessionStorage.getItem('certPhase') !== '3') return;
+  // Arrived without the cert flag (e.g. from the home page): abandon certification
+  if (!new URLSearchParams(location.search).has('cert')) {
+    ['certPhase', 'certExercise', 'certStrikes'].forEach(k => sessionStorage.removeItem(k));
+    return;
+  }
   document.getElementById('certCounter').style.display = 'block';
   const n = parseInt(sessionStorage.getItem('certExercise') || '1');
   const s = parseInt(sessionStorage.getItem('certStrikes') || '0');

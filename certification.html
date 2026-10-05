@@ -440,11 +440,11 @@ function showScreen(id) {
 function startCert() {
   sessionStorage.setItem('certPhase', '1');
   sessionStorage.setItem('certExercise', '1');
-  location.href = 'trainer.html';
+  location.href = 'trainer.html?cert';
 }
 
 function goToExercises() {
-  location.href = 'exercises.html';
+  location.href = 'exercises.html?cert';
 }
 
 function submitTeacher() {
