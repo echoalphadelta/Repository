@@ -445,11 +445,14 @@ function renderSVG() {
   const W = 660, H = 310;
   const ML = 36, MR = 8, MT = 22, MB = 38;
   const NF = 12;
-  const FW = (W - ML - MR) / NF;  // ~51.3
   const SH = (H - MT - MB) / 5;   // 50
 
+  // Gently logarithmic fret spacing: each fret ~3% narrower than the last
+  // (12th fret is 70% of the 1st; a real neck is ~53%), keeping high frets tappable
+  const Q   = Math.pow(1.4, -1 / 11);
+  const fx  = i  => ML + (W - ML - MR) * (1 - Math.pow(Q, i)) / (1 - Math.pow(Q, NF));
   const sy  = si => MT + (5 - si) * SH;
-  const fCx = f  => f === 0 ? ML - 16 : ML + (f - 0.5) * FW;
+  const fCx = f  => f === 0 ? ML - 16 : (fx(f - 1) + fx(f)) / 2;
 
   const clr = SHAPE_COLORS[gs.shape];
 
@@ -460,7 +463,7 @@ function renderSVG() {
 
   // Fret lines
   for (let i = 1; i <= NF; i++) {
-    const x = (ML + i * FW).toFixed(1);
+    const x = fx(i).toFixed(1);
     s += `<line x1="${x}" y1="${MT}" x2="${x}" y2="${H - MB}" stroke="#666" stroke-width="1.5"/>`;
   }
 
