@@ -109,7 +109,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
 .score-tally { font-family: 'Jura', monospace; font-size: 0.7rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); text-align: center; margin-bottom: 28px; }
 .result-rows { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 30px; }
 .result-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; width: 270px; min-height: 96px; padding: 14px 40px 14px 52px; box-sizing: border-box; border-radius: 50%; font-family: 'Jura', monospace; font-size: 0.78rem; line-height: 1.3; }
-.result-row.hit { background: rgba(46,204,113,0.07); border: 1px solid rgba(46,204,113,0.3); box-shadow: 0 0 10px rgba(46,204,113,0.08); }
+.result-row.hit { background: rgba(255,214,74,0.07); border: 1px solid rgba(255,214,74,0.4); box-shadow: 0 0 10px rgba(255,214,74,0.1); }
 .result-row.miss { background: rgba(231,76,60,0.07); border: 1px solid rgba(231,76,60,0.3); box-shadow: 0 0 10px rgba(231,76,60,0.08); }
 .result-row .r-info { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
 .result-row .r-shape { font-weight: 700; }
@@ -162,7 +162,7 @@ const GRIP_CONFIG = {
 };
 const SHAPE_COLORS  = { echo:'#4a9eff', alpha:'#ff4a4a', delta:'#4aff7a' };
 const SHAPE_LABELS  = { echo:'Echo',    alpha:'Alpha',   delta:'Delta'   };
-const SHAPE_EMOJIS  = { echo:'🟦',      alpha:'🟥',      delta:'🟩'      };
+const SHAPE_EMOJIS  = { echo:'🔵',      alpha:'🔴',      delta:'🟢'      };
 const QUALITIES = [
   { s:'',     label:'Major', iv:[0,4,7]    },
   { s:'m',    label:'Minor', iv:[0,3,7]    },
@@ -371,7 +371,7 @@ function renderFeedback() {
 
 function renderScoreScreen() {
   const emojis = dailyChords.map((chord, i) =>
-    gs.results[i].correct ? SHAPE_EMOJIS[chord.shape] : '⬛'
+    gs.results[i].correct ? SHAPE_EMOJIS[chord.shape] : '⚫'
   ).join('');
   const count = gs.results.filter(r => r.correct).length;
 
@@ -435,7 +435,7 @@ function finishGame() {
 
 function shareResult() {
   var emojis = dailyChords.map(function(chord, i) {
-    return gs.results[i].correct ? SHAPE_EMOJIS[chord.shape] : '⬛';
+    return gs.results[i].correct ? SHAPE_EMOJIS[chord.shape] : '⚫';
   }).join('');
   var shareText = 'Daily Chord Game · ' + dateStr + '\n' + emojis + '\n' + window.location.href;
 
