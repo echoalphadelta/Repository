@@ -107,7 +107,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
 
 .score-emojis { font-size: 2.4rem; letter-spacing: 0.15em; text-align: center; margin-bottom: 8px; }
 .score-tally { font-family: 'Jura', monospace; font-size: 0.7rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); text-align: center; margin-bottom: 28px; }
-.result-rows { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 30px; }
+.result-rows { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 52px; }
 .result-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; width: 100%; max-width: 320px; min-height: 92px; padding: 16px 24px; box-sizing: border-box; border-radius: 10px; font-family: 'Jura', monospace; font-size: 0.78rem; line-height: 1.3; }
 .result-row { border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 6%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 22%, transparent); }
 .result-row .r-info { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
@@ -122,14 +122,14 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
   width: 190px; height: 62px; padding: 0;
   font-family: 'Jura', monospace; font-size: 0.8rem;
   font-weight: 700; letter-spacing: 0.06em;
-  background: radial-gradient(ellipse at 45% 40%, #0d110d 0%, #050807 100%);
-  color: #39ff14; border: 1px solid rgba(57,255,20,0.45);
-  box-shadow: 0 0 10px rgba(57,255,20,0.12), 0 0 3px rgba(57,255,20,0.25);
-  text-shadow: 0 0 7px rgba(57,255,20,0.6);
+  background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
+  color: #f5a623; border: 1px solid rgba(235,205,155,0.45);
+  box-shadow: 0 0 10px rgba(245,166,35,0.12), 0 0 3px rgba(245,166,35,0.25);
+  text-shadow: 0 0 7px rgba(245,166,35,0.6);
   border-radius: 50%; cursor: pointer; transition: all 0.2s;
 }
-.share-btn:hover { border-color: rgba(57,255,20,0.75); box-shadow: 0 0 16px rgba(57,255,20,0.25); }
-.share-msg { margin-top: 12px; }
+.share-btn:hover { border-color: rgba(245,166,35,0.75); box-shadow: 0 0 16px rgba(245,166,35,0.25); }
+.share-msg { margin-top: 32px; }
 
 .coming-soon { font-size: 0.78rem; color: rgba(240,237,232,0.38); text-align: center; padding: 60px 0; letter-spacing: 0.08em; }
 </style>
@@ -453,7 +453,7 @@ function showSharePanel(text) {
     document.getElementById('sharePanelText').select();
     return;
   }
-  msg.innerHTML = '<textarea id="sharePanelText" readonly style="width:100%;background:#111;color:#f0ede8;border:1px solid rgba(57,255,20,0.3);border-radius:4px;padding:10px;font-family:Jura,monospace;font-size:0.75rem;line-height:1.7;resize:none;height:90px;display:block;-webkit-user-select:all;user-select:all;">' + text.replace(/</g, '&lt;') + '</textarea><p style="text-align:center;font-size:0.65rem;color:rgba(240,237,232,0.35);letter-spacing: 0.06em;margin:8px 0 0;">Long-press to select &amp; copy</p>';
+  msg.innerHTML = '<textarea id="sharePanelText" readonly style="width:100%;background:#111;color:#f0ede8;border:1px solid rgba(245,166,35,0.45);outline:none;border-radius:4px;padding:10px;font-family:Jura,monospace;font-size:0.75rem;line-height:1.7;resize:none;height:90px;display:block;-webkit-user-select:all;user-select:all;">' + text.replace(/</g, '&lt;') + '</textarea><p style="text-align:center;font-size:0.65rem;color:rgba(240,237,232,0.35);letter-spacing: 0.06em;margin:8px 0 0;">Long-press to select &amp; copy</p>';
   var ta = document.getElementById('sharePanelText');
   ta.focus();
   ta.select();
