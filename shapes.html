@@ -87,19 +87,19 @@ function buildDiagram() {
   const echoCenter = (sx(2) + sx(4)) / 2;
   svg += `<text x="${echoCenter}" y="${labelTopY}" text-anchor="middle"
     font-family="'Jura', monospace" font-size="${labelFontSize}" font-weight="700"
-    letter-spacing="0.3em" fill="${ECHO_COLOR}" text-transform="uppercase">ECHO</text>`;
+    letter-spacing="0.08em" fill="${ECHO_COLOR}">Echo</text>`;
 
   // Alpha — above, over frets 9-11
   const alphaCenter = (sx(9) + sx(11)) / 2;
   svg += `<text x="${alphaCenter}" y="${labelTopY}" text-anchor="middle"
     font-family="'Jura', monospace" font-size="${labelFontSize}" font-weight="700"
-    letter-spacing="0.3em" fill="${ALPHA_COLOR}" text-transform="uppercase">ALPHA</text>`;
+    letter-spacing="0.08em" fill="${ALPHA_COLOR}">Alpha</text>`;
 
   // Delta — below, shifted right: center between frets 5.5 and 7
   const deltaCenter = (sx(5) + sx(7)) / 2 + (fretPos(6) - fretPos(5)) * 0.3;
   svg += `<text x="${deltaCenter}" y="${labelBotY}" text-anchor="middle"
     font-family="'Jura', monospace" font-size="${labelFontSize}" font-weight="700"
-    letter-spacing="0.3em" fill="${DELTA_COLOR}" text-transform="uppercase">DELTA</text>`;
+    letter-spacing="0.08em" fill="${DELTA_COLOR}">Delta</text>`;
 
   // ── FRETBOARD ──
 

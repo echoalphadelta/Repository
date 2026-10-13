@@ -59,8 +59,7 @@ h1 {
 font-family: 'Jura', monospace;
 font-size: 1.6rem;
 font-weight: 700;
-letter-spacing: 0.15em;
-text-transform: uppercase;
+letter-spacing: 0.06em;
 color: #f5a623;
 text-shadow: 0 0 16px rgba(245,166,35,0.4), 0 0 40px rgba(245,166,35,0.15);
 margin: 0 0 12px 0;
@@ -70,8 +69,7 @@ h2 {
 font-family: 'Jura', monospace;
 font-size: 1.05rem;
 font-weight: 700;
-letter-spacing: 0.12em;
-text-transform: uppercase;
+letter-spacing: 0.06em;
 color: #ffc85c;
 text-shadow: 0 0 12px rgba(245,166,35,0.3);
 margin: 48px 0 16px 0;
@@ -115,8 +113,7 @@ font-size: 0.82rem;
 .num-table th {
 font-family: 'Jura', monospace;
 font-size: 0.72rem;
-letter-spacing: 0.15em;
-text-transform: uppercase;
+letter-spacing: 0.06em;
 color: rgba(245,166,35,0.5);
 text-align: center;
 padding: 8px 6px;
@@ -148,8 +145,7 @@ margin: 24px 0;
 .tool-label {
 font-family: 'Jura', monospace;
 font-size: 0.7rem;
-letter-spacing: 0.2em;
-text-transform: uppercase;
+letter-spacing: 0.06em;
 color: rgba(245,166,35,0.5);
 margin-bottom: 12px;
 }
@@ -640,9 +636,9 @@ render();
 
   // Labels
   const ly = LABEL_TOP - 10;
-  svg += `<text x="${(sx(2)+sx(4))/2}" y="${ly}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.3em" fill="${ECHO_COLOR}">ECHO</text>`;
-  svg += `<text x="${(sx(9)+sx(11))/2}" y="${ly}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.3em" fill="${ALPHA_COLOR}">ALPHA</text>`;
-  svg += `<text x="${(sx(5)+sx(7))/2 + (fretPos(6)-fretPos(5))*0.3}" y="${LABEL_TOP+FB_H+28}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.3em" fill="${DELTA_COLOR}">DELTA</text>`;
+  svg += `<text x="${(sx(2)+sx(4))/2}" y="${ly}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.08em" fill="${ECHO_COLOR}">Echo</text>`;
+  svg += `<text x="${(sx(9)+sx(11))/2}" y="${ly}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.08em" fill="${ALPHA_COLOR}">Alpha</text>`;
+  svg += `<text x="${(sx(5)+sx(7))/2 + (fretPos(6)-fretPos(5))*0.3}" y="${LABEL_TOP+FB_H+28}" text-anchor="middle" font-family="'Jura',monospace" font-size="18" font-weight="700" letter-spacing="0.08em" fill="${DELTA_COLOR}">Delta</text>`;
 
   // Nut
   svg += `<line x1="${LEFT}" y1="${LABEL_TOP-6}" x2="${LEFT}" y2="${sy(0)+6}" stroke="#d4cfc8" stroke-width="10"/>`;
