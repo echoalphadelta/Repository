@@ -115,9 +115,9 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
 .result-row .r-shape { font-weight: 700; }
 .result-row .r-answer { color: rgba(240,237,232,0.75); }
 .result-row .r-guess { color: rgba(255,120,105,0.85); font-size: 0.7rem; }
-.result-row .r-mark { font-size: 1.7rem; font-weight: 700; line-height: 1; min-width: 30px; text-align: center; }
-.result-row.hit .r-mark { color: #a8ef8a; text-shadow: 0 0 10px rgba(168,239,138,0.55); }
-.result-row.miss .r-mark { color: #ff5a4a; text-shadow: 0 0 10px rgba(255,90,74,0.5); }
+.result-row .r-mark { display: flex; align-items: center; justify-content: center; min-width: 26px; }
+.result-row.hit .r-mark { color: #a8ef8a; filter: drop-shadow(0 0 3px rgba(168,239,138,0.45)); }
+.result-row.miss .r-mark { color: #ff6b5c; filter: drop-shadow(0 0 3px rgba(255,107,92,0.4)); }
 .share-btn {
   display: block; margin: 0 auto;
   width: 190px; height: 62px; padding: 0;
@@ -388,7 +388,7 @@ function renderScoreScreen() {
           <span class="r-answer">${ans}</span>
           ${r.correct ? '' : `<span class="r-guess">You said ${guess}</span>`}
         </div>
-        <span class="r-mark">${r.correct ? '\u2714\uFE0E' : '\u2718\uFE0E'}</span>
+        <span class="r-mark">${r.correct ? '<svg width="22" height="22" viewBox="0 0 22 22" aria-label="Correct"><path d="M4 11.5l4.5 4.5L18 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '<svg width="20" height="20" viewBox="0 0 20 20" aria-label="Wrong"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'}</span>
       </div>`;
   }).join('');
 
