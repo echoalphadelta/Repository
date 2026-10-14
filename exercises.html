@@ -83,7 +83,7 @@ h1 {
 }
 
 /* ── Controls ── */
-.trainer-controls { display: flex; gap: 12px; margin: 14px 0 6px; }
+.trainer-controls { display: flex; justify-content: center; gap: 12px; margin: 14px 0 6px; }
 .trainer-btn {
   font-family: 'Jura', monospace;
   font-size: 0.65rem;
@@ -105,6 +105,13 @@ h1 {
 }
 .btn-check:disabled { opacity: 0.22; cursor: default; }
 .btn-next { }
+#newChallengeBtn {
+  background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
+  border-color: rgba(235,205,155,0.38);
+  box-shadow: 0 0 10px rgba(235,205,155,0.1), 0 0 3px rgba(235,205,155,0.2);
+  color: #f5a623;
+  text-shadow: 0 0 7px rgba(245,166,35,0.8), 0 0 16px rgba(245,166,35,0.35);
+}
 
 .round-result {
   font-family: 'Jura', monospace;
