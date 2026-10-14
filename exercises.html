@@ -83,7 +83,7 @@ h1 {
 }
 
 /* ── Controls ── */
-.trainer-controls { display: flex; justify-content: center; gap: 12px; margin: 14px 0 6px; }
+.trainer-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 14px 0 6px; }
 .trainer-btn {
   font-family: 'Jura', monospace;
   font-size: 0.65rem;
@@ -106,11 +106,26 @@ h1 {
 .btn-check:disabled { opacity: 0.22; cursor: default; }
 .btn-next { }
 #checkBtn {
+  background: #f5a623;
+  border-color: #f5a623;
+  box-shadow: 0 0 14px rgba(245,166,35,0.3), 0 0 4px rgba(245,166,35,0.4);
+  color: #000;
+  text-shadow: none;
+}
+#checkBtn:disabled {
+  opacity: 0.45;
   background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
-  border-color: rgba(235,205,155,0.38);
-  box-shadow: 0 0 10px rgba(235,205,155,0.1), 0 0 3px rgba(235,205,155,0.2);
+  border-color: rgba(245,166,35,0.5);
+  box-shadow: none;
   color: #f5a623;
-  text-shadow: 0 0 7px rgba(245,166,35,0.8), 0 0 16px rgba(245,166,35,0.35);
+}
+#newChallengeBtn {
+  width: 128px; height: 48px;
+  background: transparent;
+  border-color: rgba(200,200,200,0.3);
+  box-shadow: none;
+  color: #9a9a9a;
+  text-shadow: none;
 }
 
 .round-result {
@@ -213,8 +228,8 @@ h1 {
   </div>
 
   <div class="trainer-controls">
-    <button class="trainer-btn btn-check" id="checkBtn" onclick="checkAnswer()" disabled>Check</button>
     <button class="trainer-btn btn-next" id="newChallengeBtn" onclick="newChallenge()">New Challenge</button>
+    <button class="trainer-btn btn-check" id="checkBtn" onclick="checkAnswer()" disabled>Check</button>
     <button class="trainer-btn btn-next" id="certNextBtn" style="display:none;" onclick="certNext()">Next Exercise →</button>
     <button class="trainer-btn btn-next" id="certFailBtn" style="display:none;color:#ff4a4a;border-color:rgba(255,74,74,0.4);" onclick="certFail()">3 Strikes — Try Again</button>
   </div>
