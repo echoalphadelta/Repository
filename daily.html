@@ -46,7 +46,7 @@ body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-hei
 .back-link:hover {
 
 }
-h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.06em; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 0 0 6px 0; text-align: center; }
+h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 0 0 6px 0; text-align: center; }
 .subtitle { font-size: 0.9rem; color: #f5a623; margin: 0 0 36px; letter-spacing: 0.06em; text-align: center; }
 
 .chord-counter { font-family: 'Jura', monospace; font-size: 0.6rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); margin-bottom: 10px; }
@@ -62,7 +62,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
   background: radial-gradient(ellipse at 45% 40%, #0d0d11 0%, #050507 100%);
   border: 1px solid rgba(192,201,192,0.38);
   box-shadow: 0 0 10px rgba(192,201,192,0.1), 0 0 3px rgba(192,201,192,0.2);
-  border-radius: 50%;
+  border-radius: 8px;
   cursor: pointer;
   transition: none;
 }
@@ -83,7 +83,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
 .guess-vint-overlay {
   position: absolute; inset: 0; width: 100%; height: 100%;
   opacity: 0; cursor: pointer; z-index: 10;
-  border-radius: 50%; padding: 0; margin: 0; border: none; outline: none;
+  border-radius: 8px; padding: 0; margin: 0; border: none; outline: none;
 }
 .guess-vint-overlay:focus, .guess-vint-overlay:focus-visible { outline: none; }
 .guess-vint { padding-bottom: 7px; box-sizing: border-box; }
@@ -91,8 +91,8 @@ h1 { font-family: 'Jura', monospace; font-size: 1.5rem; font-weight: 700; letter
 .submit-btn {
   font-family: 'Jura', monospace; font-size: 0.65rem;
   font-weight: 700; letter-spacing: 0.06em;
-  width: 84px; height: 84px; padding: 0;
-  display: block; margin: 0 auto;
+  width: 120px; height: 120px; padding: 0;
+  display: block; margin: 32px auto 0;
   background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
   border: 1px solid rgba(235,205,155,0.38);
   box-shadow: 0 0 10px rgba(235,205,155,0.1), 0 0 3px rgba(235,205,155,0.2);
@@ -258,17 +258,17 @@ function computeGripTones(shapeName, qualStr, rootPc) {
 }
 
 function renderChordFretboard(gripTones, shape) {
-  const W=660, H=280, ML=36, MR=8, MT=18, MB=34, NF=12;
+  const W=660, H=280, ML=28, MR=8, MT=18, MB=34, NF=12;
   const SH=(H-MT-MB)/5;
   // Gently logarithmic fret spacing hinting at a real neck: each fret ~4% narrower
   // than the last (12th fret is ~62% of the 1st; a real neck is ~53%)
   const Q   = Math.pow(1.6, -1 / 11);
   const fx  = i  => ML + (W-ML-MR) * (1 - Math.pow(Q, i)) / (1 - Math.pow(Q, NF));
   const sy  = si => MT + (5-si)*SH;
-  const fCx = f  => f === 0 ? ML-16 : (fx(f-1) + fx(f)) / 2;
+  const fCx = f  => f === 0 ? ML-15 : (fx(f-1) + fx(f)) / 2;
   const clr = SHAPE_COLORS[shape];
   let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg">`;
-  s += `<line x1="${ML}" y1="${MT-8}" x2="${ML}" y2="${H-MB+8}" stroke="#d4cfc8" stroke-width="8"/>`;
+  s += `<line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H-MB}" stroke="#d4cfc8" stroke-width="8"/>`;
   for (let i=1;i<=NF;i++) {
     const x=fx(i).toFixed(1);
     s += `<line x1="${x}" y1="${MT}" x2="${x}" y2="${H-MB}" stroke="#333" stroke-width="1.5"/>`;
@@ -280,7 +280,7 @@ function renderChordFretboard(gripTones, shape) {
   s += `<circle cx="${fCx(12).toFixed(1)}" cy="${(MT+3.5*SH).toFixed(1)}" r="5" fill="#2a2a2a"/>`;
   for (let si=0;si<6;si++) {
     const y=sy(si).toFixed(1);
-    s += `<line x1="8" y1="${y}" x2="${W-MR}" y2="${y}" stroke="#444" stroke-width="${STR_THICK[si]}" stroke-linecap="round"/>`;
+    s += `<line x1="${ML+4}" y1="${y}" x2="${W-MR}" y2="${y}" stroke="#444" stroke-width="${STR_THICK[si]}" stroke-linecap="round"/>`;
   }
   [3,5,7,9,12].forEach(f => {
     s += `<text x="${fCx(f).toFixed(1)}" y="${H-8}" text-anchor="middle" fill="#333" font-size="10" font-family="monospace">${f}</text>`;
