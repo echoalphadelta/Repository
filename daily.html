@@ -46,10 +46,13 @@ body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-hei
 .back-link:hover {
 
 }
-h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 0 0 6px 0; text-align: center; }
-.subtitle { font-size: 0.9rem; color: #f5a623; margin: 0 0 20px; letter-spacing: 0.06em; text-align: center; }
+h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 0 0 14px 0; text-align: center; line-height: 1.2; }
+.subtitle { font-size: 0.9rem; color: #f5a623; margin: 0 0 16px; line-height: 1.2; letter-spacing: 0.06em; text-align: center; }
 
-.chord-counter { font-family: 'Jura', monospace; font-size: 0.6rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); margin-bottom: 6px; }
+.chord-counter { font-family: 'Jura', monospace; font-size: 0.9rem; letter-spacing: 0.06em; color: #f0ede8; margin-bottom: 6px; text-align: center; text-transform: uppercase; line-height: 1.2; }
+.progress-dots { display: inline-flex; gap: 6px; margin-left: 10px; vertical-align: middle; position: relative; top: -1px; }
+.round-label { margin-left: 10px; }
+.progress-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid; box-sizing: border-box; }
 .shape-badge { font-family: 'Jura', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 12px; }
 .fretboard-wrap { margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; background: #080808; }
 .fretboard-wrap { margin-left: -16px; margin-right: -16px; }
@@ -305,7 +308,7 @@ const dayNum    = Math.floor(todayDate.getTime() / 86400000);
 const isNameMode = true;
 const dateStr   = todayDate.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 
-document.getElementById('dailySub').textContent = dateStr + '  ·  Name the Chord';
+document.getElementById('dailySub').textContent = dateStr;
 
 const dailyChords = ['echo','alpha','delta'].map((shape, i) => {
   const rootIdx = seededInt(dayNum * 17 + i * 5,     12);
@@ -352,6 +355,13 @@ function syncDailyGuess(id) {
   disp.className = 'guess-vint-val' + (txt.length > 4 ? ' small' : '');
 }
 
+function progressDots(filled) {
+  return '<span class="progress-dots">' + dailyChords.map((c, i) => {
+    const clr = SHAPE_COLORS[c.shape];
+    return `<span class="progress-dot" style="border-color:${clr};${i < filled ? 'background:' + clr + ';' : ''}"></span>`;
+  }).join('') + '</span>';
+}
+
 function renderQuestion() {
   const chord = dailyChords[gs.current];
   const clr   = SHAPE_COLORS[chord.shape];
@@ -359,7 +369,7 @@ function renderQuestion() {
   const rootOpts = NOTES.map(n => [n, n]);
   const qualOpts = QUALITIES.map(q => [q.s, q.label]);
   return `
-    <div class="chord-counter">Chord ${gs.current+1} of 3</div>
+    <div class="chord-counter">Name the Chord ${progressDots(gs.current)}<span class="round-label">Round ${gs.current+1}/3</span></div>
     <div class="shape-badge" style="color:${clr}">${lbl} Shape</div>
     <div class="fretboard-wrap">${renderChordFretboard(chord.gripTones, chord.shape)}</div>
     <div class="guess-row">
@@ -384,7 +394,7 @@ function renderFeedback() {
   const btnLabel = isLast ? 'See Score' : 'Next →';
   const btnFn    = isLast ? 'finishGame()' : 'nextChord()';
   return `
-    <div class="chord-counter">Chord ${gs.current+1} of 3</div>
+    <div class="chord-counter">Name the Chord ${progressDots(gs.current+1)}<span class="round-label">Round ${gs.current+1}/3</span></div>
     <div class="shape-badge" style="color:${clr}">${lbl} Shape</div>
     <div class="fretboard-wrap">${renderChordFretboard(chord.gripTones, chord.shape)}</div>
     <div class="feedback ${fbClass}">${fbText}</div>
