@@ -29,7 +29,7 @@ button:active, a:active { opacity: 1 !important; }
 html, body { margin: 0; padding: 0; background: #000000; }
 * { box-sizing: border-box; }
 body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-height: 1.85; }
-.page { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
+.page { max-width: 680px; margin: 0 auto; padding: 20px 24px 80px; }
 .back-link {
   display: inline-flex; align-items: center; justify-content: center;
   font-family: 'Jura', monospace; font-size: 0.65rem; font-weight: 700;
@@ -41,27 +41,27 @@ body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-hei
   color: #b1d3b1;
   text-shadow: 0 0 7px rgba(177,211,177,0.8), 0 0 16px rgba(177,211,177,0.35);
   border-radius: 50%; cursor: pointer;
-  transition: none; margin-bottom: 40px;
+  transition: none; margin-bottom: 20px;
 }
 .back-link:hover {
 
 }
 h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 0 0 6px 0; text-align: center; }
-.subtitle { font-size: 0.9rem; color: #f5a623; margin: 0 0 36px; letter-spacing: 0.06em; text-align: center; }
+.subtitle { font-size: 0.9rem; color: #f5a623; margin: 0 0 20px; letter-spacing: 0.06em; text-align: center; }
 
-.chord-counter { font-family: 'Jura', monospace; font-size: 0.6rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); margin-bottom: 10px; }
-.shape-badge { font-family: 'Jura', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 16px; }
-.fretboard-wrap { margin-bottom: 22px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; background: #080808; }
+.chord-counter { font-family: 'Jura', monospace; font-size: 0.6rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); margin-bottom: 6px; }
+.shape-badge { font-family: 'Jura', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 12px; }
+.fretboard-wrap { margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; background: #080808; }
 .fretboard-wrap { margin-left: -16px; margin-right: -16px; }
 @media (min-width: 760px) { .fretboard-wrap { margin-left: -70px; margin-right: -70px; } }
-.guess-row { display: flex; gap: 36px; margin-bottom: 16px; justify-content: center; }
+.guess-row { display: flex; gap: 36px; margin-bottom: 12px; justify-content: center; }
 .guess-vint {
   position: relative;
   width: 106px; height: 60px;
   display: flex; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at 45% 40%, #0d0d11 0%, #050507 100%);
-  border: 1px solid rgba(192,201,192,0.38);
-  box-shadow: 0 0 10px rgba(192,201,192,0.1), 0 0 3px rgba(192,201,192,0.2);
+  border: 1px solid rgba(168,216,234,0.38);
+  box-shadow: 0 0 10px rgba(168,216,234,0.1), 0 0 3px rgba(168,216,234,0.2);
   border-radius: 8px;
   cursor: pointer;
   transition: none;
@@ -71,14 +71,14 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 }
 .guess-vint-val {
   font-family: 'Jura', monospace; font-weight: 700; font-size: 0.9rem;
-  color: #b1d3b1; letter-spacing: 0.04em;
-  text-shadow: 0 0 7px rgba(177,211,177,0.8), 0 0 16px rgba(177,211,177,0.35);
+  color: #a8d8ea; letter-spacing: 0.04em;
+  text-shadow: 0 0 7px rgba(168,216,234,0.8), 0 0 16px rgba(168,216,234,0.35);
   pointer-events: none;
 }
 .guess-vint-val.small { font-size: 0.7rem; }
 .guess-vint-val.ph {
-  font-size: 0.58rem; letter-spacing: 0.06em; opacity: 0.75;
-  text-shadow: 0 0 6px rgba(177,211,177,0.5);
+  font-size: 0.7rem; letter-spacing: 0.06em; opacity: 0.75;
+  text-shadow: 0 0 6px rgba(168,216,234,0.5);
 }
 .guess-vint-overlay {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -87,17 +87,18 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 }
 .guess-vint-overlay:focus, .guess-vint-overlay:focus-visible { outline: none; }
 .guess-vint { padding-bottom: 7px; box-sizing: border-box; }
-.guess-vint-caret { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); color: #b1d3b1; opacity: 0.55; filter: drop-shadow(0 0 3px rgba(177,211,177,0.5)); pointer-events: none; }
+.guess-vint-caret { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); color: #a8d8ea; opacity: 0.55; filter: drop-shadow(0 0 3px rgba(168,216,234,0.5)); pointer-events: none; }
 .submit-btn {
-  font-family: 'Jura', monospace; font-size: 0.65rem;
-  font-weight: 700; letter-spacing: 0.06em;
+  font-family: 'Jura', monospace; font-size: 1rem;
+  font-weight: 600; letter-spacing: 0.08em; text-indent: 0.08em; line-height: 1;
   width: 120px; height: 120px; padding: 0;
+  -webkit-appearance: none; appearance: none;
   display: block; margin: 32px auto 0;
-  background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
-  border: 1px solid rgba(235,205,155,0.38);
-  box-shadow: 0 0 10px rgba(235,205,155,0.1), 0 0 3px rgba(235,205,155,0.2);
-  color: #f5a623;
-  text-shadow: 0 0 7px rgba(245,166,35,0.8), 0 0 16px rgba(245,166,35,0.35);
+  background: #000;
+  border: 1px solid rgba(57,255,20,0.55);
+  box-shadow: 0 0 8px rgba(57,255,20,0.15);
+  color: rgba(57,255,20,0.8);
+  text-shadow: 0 0 6px rgba(57,255,20,0.25);
   border-radius: 50%;
   cursor: pointer;
   transition: none;
