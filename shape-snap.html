@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Shape Snap | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* Pocket theme: four greens of an old handheld screen */
+:root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --cell: 24px; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--g3); }
+body { color: var(--g0); font-family: 'Press Start 2P', monospace; font-size: 10px; line-height: 1.5; -webkit-user-select: none; user-select: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 480px; margin: 0 auto; padding: 10px 14px 18px; }
+
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
+.top a { text-decoration: none; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; }
+.top a:active, .top button:active { background: var(--g0); color: var(--g3); }
+
+.game { position: relative; display: flex; gap: 12px; margin-top: 8px; }
+.well { display: grid; grid-template-columns: repeat(6, var(--cell)); grid-auto-rows: var(--cell); border: 4px solid var(--g0); background: var(--g2); padding: 2px; gap: 0; flex: none; }
+.c { width: var(--cell); height: var(--cell); }
+.c.p, .c.b, .c.f { border: 3px solid; }
+.c.p { background: var(--g1); border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
+.c.b { background: var(--g0); border-color: var(--g1) var(--g0) var(--g0) var(--g1); }
+.c.f { background: var(--g3); border-color: var(--g3) var(--g1) var(--g1) var(--g3); }
+.strings { display: grid; grid-template-columns: repeat(6, var(--cell)); padding: 0 6px; font-size: 8px; text-align: center; margin-top: 4px; }
+
+.side { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box { border: 3px solid var(--g0); background: var(--g3); padding: 6px 6px 5px; }
+.box .k { font-size: 8px; color: var(--g1); }
+.box .v { font-size: 13px; margin-top: 4px; }
+.next { display: grid; grid-template-columns: repeat(6, 12px); grid-auto-rows: 12px; margin-top: 6px; }
+.next .p { background: var(--g1); border: 2px solid; border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
+.msg { min-height: 52px; font-size: 9px; line-height: 1.7; }
+
+.pad { display: flex; justify-content: space-between; margin: 14px 4px 0; }
+.btn { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; touch-action: manipulation; }
+.btn i { display: block; width: 62px; height: 62px; border-radius: 50%; background: #8b1d4a; box-shadow: inset -4px -5px 0 #5c1031, 0 3px 0 #3a2a30; }
+.btn:active i, .btn.down i { transform: translateY(3px); box-shadow: inset -2px -2px 0 #5c1031, 0 0 0 #3a2a30; }
+.btn span { font-size: 9px; }
+
+.over { position: absolute; inset: -4px; z-index: 5; background: var(--g3); border: 4px solid var(--g0); padding: 14px 12px; font-size: 10px; line-height: 1.8; overflow: auto; }
+.over.hidden { display: none; }
+.over h2 { font-size: 16px; font-weight: 400; margin: 0 0 12px; line-height: 1.4; }
+.over .inv { background: var(--g0); color: var(--g3); padding: 2px 6px; }
+.over .go { cursor: pointer; display: inline-block; margin-top: 10px; animation: bl 1s steps(1) infinite; }
+@keyframes bl { 50% { visibility: hidden; } }
+.hs div { white-space: pre; }
+.hs .me { background: var(--g0); color: var(--g3); }
+.ini { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.ini input { width: 76px; font: inherit; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; background: var(--g3); color: var(--g0); border: none; border-bottom: 4px solid var(--g0); border-radius: 0; padding: 2px 0 2px 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--g0); color: var(--g3); border: none; padding: 6px 8px; cursor: pointer; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+
+  <div class="game">
+    <div>
+      <div class="well" id="well"></div>
+      <div class="strings"><span>E</span><span>A</span><span>D</span><span>G</span><span>B</span><span>e</span></div>
+    </div>
+    <div class="side">
+      <div class="box"><div class="k">SCORE</div><div class="v" id="score">000000</div></div>
+      <div class="box"><div class="k">LEVEL</div><div class="v" id="level">01</div></div>
+      <div class="box"><div class="k">SNAPS</div><div class="v" id="snaps">000</div></div>
+      <div class="box"><div class="k">NEXT</div><div class="next" id="next"></div></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="over" id="over"></div>
+  </div>
+
+  <div class="pad">
+    <button class="btn" data-shape="echo"><i></i><span>ECHO</span></button>
+    <button class="btn" data-shape="alpha"><i></i><span>ALPHA</span></button>
+    <button class="btn" data-shape="delta"><i></i><span>DELTA</span></button>
+  </div>
+</div>
+
+<script>
+// ---- Shape engine (same grips as the Daily Game) -------------------------
+const STR_OPEN = [4, 9, 2, 7, 11, 4];
+const PC_NAMES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const QUAL_MAP = { '':'major','m':'minor','7':'7','maj7':'Maj7','m7':'m7','sus4':'sus4' };
+const QUALITY_INTERVALS_MAIN = {
+  major:[0,4,7], minor:[0,3,7], '7':[0,4,7,10], Maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,4,7],
+};
+const TONE_NAMES_MAIN = {
+  0:'root',2:'ninth',3:'minor-third',4:'third',5:'fourth',7:'fifth',9:'sixth',10:'seventh',11:'maj7',
+};
+const GRIP_CONFIG = {
+  echo:  { anchor:0, strings:[0,1,2,3,4,5], win:2, upper:[3,4,5] },
+  alpha: { anchor:1, strings:[1,2,3,4,5],   win:2, upper:[3,4,5] },
+  delta: { anchor:2, strings:[2,3,4,5],      win:3, upper:[5]     },
+};
+
+function findFrets(si, pc) {
+  const out = [];
+  for (let f = 0; f <= 12; f++) if ((STR_OPEN[si] + f) % 12 === pc) out.push(f);
+  return out;
+}
+function computeGripTones(shapeName, qualStr, rootPc) {
+  const quality   = QUAL_MAP[qualStr] || 'major';
+  const r         = rootPc % 12;
+  const intervals = QUALITY_INTERVALS_MAIN[quality];
+  const { anchor, strings, win, upper } = GRIP_CONFIG[shapeName];
+  const anchorFret = findFrets(anchor, r)[0];
+  if (anchorFret === undefined) return new Set();
+  const isSus = quality === 'sus4', suppressUpperRoot = quality === '7';
+  const echoSlideback = shapeName === 'echo' && quality === 'Maj7';
+  const dots = [];
+  strings.forEach(s => {
+    for (let fo = 0; fo <= win; fo++) {
+      let f = anchorFret + fo;
+      if (f > 12) f -= 12;
+      if (f > 12) continue;
+      const noteAtFret = (STR_OPEN[s] + f) % 12;
+      intervals.forEach(interval => {
+        if (noteAtFret !== (r + interval) % 12) return;
+        if (shapeName === 'delta' && (interval === 4 || interval === 3) && s !== 5) return;
+        const isThird = interval === 4 || interval === 3;
+        const isUpperStr = upper.includes(s);
+        const isUpperRoot = interval === 0 && isUpperStr && s !== anchor;
+        if (suppressUpperRoot && isUpperRoot && fo > 0) return;
+        if (echoSlideback && interval === 11) return;
+        if (isSus && isThird && isUpperStr) {
+          const sf = f + 1 > 12 ? f - 11 : f + 1;
+          dots.push({ s, fret:sf, t:'fourth', isRoot:false });
+        } else {
+          const t = TONE_NAMES_MAIN[interval] || 'tone';
+          dots.push({ s, fret:f, t, isRoot:interval === 0 });
+          if (f === 12) dots.push({ s, fret:0,  t, isRoot:interval === 0 });
+          if (f === 0)  dots.push({ s, fret:12, t, isRoot:interval === 0 });
+        }
+      });
+    }
+  });
+  if (echoSlideback) {
+    const target = (r + 11) % 12;
+    for (let f2 = 0; f2 <= 12; f2++) {
+      if ((STR_OPEN[5] + f2) % 12 === target) { dots.push({ s:5, fret:f2, t:'maj7', isRoot:false }); break; }
+    }
+  }
+  const byStr = {};
+  dots.forEach(d => { (byStr[d.s] = byStr[d.s] || []).push(d); });
+  const priority = ['sixth','ninth','seventh','maj7','fourth','fifth','minor-third','third','root'];
+  const result = new Set();
+  Object.entries(byStr).forEach(([sStr, group]) => {
+    const s = parseInt(sStr);
+    let pick;
+    if (group.length === 1) { pick = group[0]; }
+    else if (s === anchor) { pick = group.find(d => d.isRoot) || group[0]; }
+    else {
+      group.sort((a,b) => {
+        const ai = priority.indexOf(a.t), bi = priority.indexOf(b.t);
+        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+      });
+      pick = group[0];
+    }
+    result.add(`${pick.fret}-${s}`);
+  });
+  return result;
+}
+
+// ---- Game ---------------------------------------------------------------
+const COLS = 6, ROWS = 15;
+const SHAPES = ['echo', 'alpha', 'delta'];
+const QUAL_LABEL = { '':'', 'm':'m', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4' };
+const HS_KEY = 'eadShapeSnapScores', SOUND_KEY = 'eadArcadeSound';
+
+let stack, piece, nextPiece, score, level, snaps, state = 'start', timer = null, busy = false;
+let soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const pad = (n, w) => String(n).padStart(w, '0');
+
+function qualitiesForLevel() {
+  if (level <= 1) return [''];
+  if (level === 2) return ['', 'm'];
+  if (level === 3) return ['', 'm', '7'];
+  if (level === 4) return ['', 'm', '7', 'maj7', 'm7'];
+  return ['', 'm', '7', 'maj7', 'm7', 'sus4'];
+}
+function tickMs() { return Math.max(110, Math.round(650 * Math.pow(0.85, level - 1))); }
+
+// Build a falling piece from a real grip: strings are columns, frets are rows
+function makePiece() {
+  const quals = qualitiesForLevel();
+  for (let tries = 0; tries < 200; tries++) {
+    const shape = SHAPES[Math.floor(Math.random() * 3)];
+    const q = quals[Math.floor(Math.random() * quals.length)];
+    const root = Math.floor(Math.random() * 12);
+    const af = findFrets(GRIP_CONFIG[shape].anchor, root)[0];
+    if (af < 1 || af > 8) continue;
+    const pts = [...computeGripTones(shape, q, root)].map(k => { const [f, s] = k.split('-').map(Number); return { f, s }; });
+    if (!pts.length) continue;
+    const min = Math.min(...pts.map(p => p.f)), max = Math.max(...pts.map(p => p.f));
+    if (max - min > 4) continue;
+    return { shape, name: PC_NAMES[root] + QUAL_LABEL[q], cells: pts.map(p => ({ c: p.s, r: p.f - min })), h: max - min + 1, y: 0 };
+  }
+}
+
+function fits(p, y) {
+  return p.cells.every(({ c, r }) => {
+    const row = y + r;
+    if (row >= ROWS) return false;
+    return row < 0 || !stack[row][c];
+  });
+}
+
+// Sound
+let audio = null;
+function beep(freq, dur) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.045, audio.currentTime);
+    g.gain.setValueAtTime(0, audio.currentTime + dur);
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + dur + 0.01);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// Drawing
+function render(flash) {
+  const cells = document.getElementById('well').children;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    cells[r * COLS + c].className = 'c' + (stack[r][c] ? ' b' : '');
+  }
+  if (piece) piece.cells.forEach(({ c, r }) => {
+    const row = piece.y + r;
+    if (row >= 0 && row < ROWS) cells[row * COLS + c].className = 'c ' + (flash ? 'f' : 'p');
+  });
+}
+function renderNext() {
+  const box = document.getElementById('next');
+  let h = '';
+  const on = new Set(nextPiece.cells.map(({ c, r }) => r + '-' + c));
+  for (let r = 0; r < 5; r++) for (let c = 0; c < COLS; c++) h += `<div class="${on.has(r + '-' + c) ? 'p' : ''}"></div>`;
+  box.innerHTML = h;
+}
+function hud() {
+  document.getElementById('score').textContent = pad(score, 6);
+  document.getElementById('level').textContent = pad(level, 2);
+  document.getElementById('snaps').textContent = pad(snaps, 3);
+}
+function say(t) { document.getElementById('msg').innerHTML = t; }
+
+// Flow
+function spawn() {
+  piece = nextPiece; piece.y = 1 - piece.h;
+  nextPiece = makePiece();
+  renderNext();
+  if (!fits(piece, piece.y)) { gameOver(); return; }
+  render();
+}
+
+function lock() {
+  let topOut = false;
+  piece.cells.forEach(({ c, r }) => {
+    const row = piece.y + r;
+    if (row < 0) topOut = true; else stack[row][c] = 1;
+  });
+  piece = null;
+  // Full rows clear, Tetris style
+  let cleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (stack[r].every(Boolean)) { stack.splice(r, 1); stack.unshift(Array(COLS).fill(0)); cleared++; r++; }
+  }
+  if (cleared) { score += 500 * cleared * level; hud(); [784, 988, 1175].forEach((n, i) => setTimeout(() => beep(n, 0.06), i * 70)); }
+  else beep(90, 0.08);
+  if (topOut) { render(); gameOver(); return; }
+  spawn();
+}
+
+function tick() {
+  if (state !== 'playing' || busy || !piece) return;
+  if (fits(piece, piece.y + 1)) { piece.y++; render(); }
+  else lock();
+}
+
+function restartTimer() { clearInterval(timer); timer = setInterval(tick, tickMs()); }
+
+function answer(shape) {
+  if (state !== 'playing' || busy || !piece) return;
+  const btn = document.querySelector(`.btn[data-shape="${shape}"]`);
+  btn.classList.add('down'); setTimeout(() => btn.classList.remove('down'), 120);
+  if (shape === piece.shape) {
+    busy = true;
+    const rowsLeft = ROWS - (piece.y + piece.h);
+    score += (100 + rowsLeft * 10) * level;
+    snaps++;
+    say(`${piece.shape.toUpperCase()}!<br>${piece.name}`);
+    beep(1047, 0.05); setTimeout(() => beep(1568, 0.07), 60);
+    let n = 0;
+    const blink = setInterval(() => {
+      render(n % 2 === 0); n++;
+      if (n > 4) {
+        clearInterval(blink);
+        busy = false;
+        if (snaps % 10 === 0) { level++; say(`LEVEL ${pad(level, 2)}`); restartTimer(); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80)); }
+        hud(); spawn();
+      }
+    }, 70);
+  } else {
+    say(`NO!<br>${piece.shape.toUpperCase()}<br>${piece.name}`);
+    beep(147, 0.12);
+    while (fits(piece, piece.y + 1)) piece.y++;   // hard drop
+    render(); lock();
+  }
+}
+
+// Screens
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<p>NO SCORES YET</p>';
+  return '<div class="hs">' + list.map((r, i) => `<div class="${i === hi ? 'me' : ''}">${String(i + 1).padStart(2, ' ')} ${r.i} ${pad(r.s, 6)}</div>`).join('') + '</div>';
+}
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+
+function showStart() {
+  state = 'start';
+  overlay(`<h2>SHAPE<br>SNAP</h2>
+    <p>GRIPS FALL DOWN THE NECK.</p>
+    <p>SNAP THEM BY NAME:<br><span class="inv">ECHO</span> <span class="inv">ALPHA</span> <span class="inv">DELTA</span></p>
+    <p>WRONG OR TOO SLOW AND THEY PILE UP.</p>
+    <p>HIGH SCORES</p>${scoreTable(-1)}
+    <span class="go" onclick="startGame()">PUSH START</span>`);
+}
+
+function startGame() {
+  stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  score = 0; level = 1; snaps = 0; busy = false;
+  nextPiece = makePiece();
+  document.getElementById('over').className = 'over hidden';
+  say(''); hud();
+  state = 'playing';
+  spawn(); restartTimer();
+  beep(660, 0.06);
+}
+
+function gameOver() {
+  state = 'over'; clearInterval(timer);
+  [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
+  const list = highScores();
+  const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
+  setTimeout(() => overlay(`<h2>GAME<br>OVER</h2>
+    <p>SCORE <span class="inv">${pad(score, 6)}</span></p>
+    <p>LEVEL ${pad(level, 2)}  SNAPS ${pad(snaps, 3)}</p>
+    ${qualifies
+      ? `<p>NEW HIGH SCORE!<br>ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      : scoreTable(-1) + '<span class="go" onclick="startGame()">PUSH START</span>'}`), 400);
+}
+
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: score };
+  const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`<h2>GAME<br>OVER</h2><p>SCORE <span class="inv">${pad(score, 6)}</span></p><p>HIGH SCORES</p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">PUSH START</span>`);
+}
+
+// Input
+document.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); answer(b.dataset.shape); }));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) { saveScore(); return; }
+  const k = e.key.toLowerCase();
+  if (k === '1' || k === 'e') answer('echo');
+  if (k === '2' || k === 'a') answer('alpha');
+  if (k === '3' || k === 'd') answer('delta');
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') { state = 'paused'; clearInterval(timer); }
+  else if (!document.hidden && state === 'paused') { state = 'playing'; restartTimer(); }
+});
+
+// Size the well to the screen
+function sizeWell() {
+  const byHeight = Math.floor((window.innerHeight - 220) / ROWS);
+  const byWidth = Math.floor((Math.min(window.innerWidth, 480) - 28 - 12 - 120 - 12) / COLS);
+  const cell = Math.max(14, Math.min(28, byHeight, byWidth));
+  document.documentElement.style.setProperty('--cell', cell + 'px');
+}
+window.addEventListener('resize', sizeWell);
+
+document.getElementById('well').innerHTML = '<div class="c"></div>'.repeat(ROWS * COLS);
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+sizeWell();
+stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+score = 0; level = 1; snaps = 0;
+nextPiece = makePiece(); renderNext(); render(); hud();
+showStart();
+</script>
+</body>
+</html>

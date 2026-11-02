@@ -37,10 +37,12 @@ a { color: inherit; text-decoration: none; }
 .card.c2 { box-shadow: 6px 6px 0 var(--alpha); }
 .card.c3 { box-shadow: 6px 6px 0 var(--delta); }
 a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo); }
+a.card.c2:active { box-shadow: 2px 2px 0 var(--alpha); }
 .card .no { position: absolute; top: -12px; right: 12px; background: var(--bg); padding: 0 6px; font-size: 10px; color: var(--dim); }
 .card .name { font-size: 16px; line-height: 1.4; }
 .card .info { margin-top: 10px; font-size: 9px; line-height: 1.8; color: var(--dim); }
 .card .go { display: inline-block; margin-top: 14px; font-size: 11px; background: var(--echo); color: var(--bg); padding: 6px 10px 5px; }
+.card.c2 .go { background: var(--alpha); }
 .card.locked { border-color: var(--dim); color: var(--dim); }
 .card.locked .go { background: none; border: 2px dashed var(--dim); color: var(--dim); }
 .best { color: var(--ink); }
@@ -63,12 +65,12 @@ a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo
     <span class="go">PLAY</span>
   </a>
 
-  <div class="card c2 locked">
+  <a class="card c2" href="shape-snap.html">
     <span class="no">02</span>
     <div class="name">SHAPE SNAP</div>
-    <div class="info">NAME THE SHAPE BEFORE IT FADES</div>
-    <span class="go">SOON</span>
-  </div>
+    <div class="info">NAME THE GRIPS BEFORE THEY STACK UP<span class="best" id="best2"></span></div>
+    <span class="go">PLAY</span>
+  </a>
 
   <div class="card c3 locked">
     <span class="no">03</span>
@@ -80,10 +82,14 @@ a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
 <script>
-try {
-  const list = JSON.parse(localStorage.getItem('eadNoteInvadersScores')) || [];
-  if (list.length) document.getElementById('best').textContent = ' / HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
-} catch (e) {}
+function showBest(key, id) {
+  try {
+    const list = JSON.parse(localStorage.getItem(key)) || [];
+    if (list.length) document.getElementById(id).textContent = ' / HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
+  } catch (e) {}
+}
+showBest('eadNoteInvadersScores', 'best');
+showBest('eadShapeSnapScores', 'best2');
 </script>
 </body>
 </html>
