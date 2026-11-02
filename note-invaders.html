@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Note Invaders | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+:root { --a: #ffb000; --a2: #b37b00; --a3: #4d3500; --bg: #0b0700; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--bg); }
+body { color: var(--a); font-family: 'VT323', monospace; font-size: 20px; line-height: 1.1; -webkit-user-select: none; user-select: none; }
+a, button { color: inherit; font: inherit; }
+.screen { max-width: 680px; margin: 0 auto; padding: 8px 10px 16px; }
+
+/* Inverse menu bar */
+.bar { display: flex; justify-content: space-between; align-items: center; background: var(--a); color: var(--bg); padding: 2px 6px; font-size: 21px; }
+.bar a, .bar button { background: none; border: none; padding: 0 2px; cursor: pointer; text-decoration: none; color: var(--bg); }
+.bar a:active, .bar button:active { background: var(--bg); color: var(--a); }
+
+.stats { display: flex; gap: 18px; padding: 6px 2px 4px; font-size: 22px; white-space: nowrap; overflow: hidden; }
+.stats .k { color: var(--a2); }
+
+/* DOS window */
+.win { position: relative; border: 4px double var(--a); margin-top: 12px; }
+.win-title { position: absolute; top: -14px; left: 14px; background: var(--bg); padding: 0 6px; font-size: 22px; line-height: 1; z-index: 4; }
+.play { position: relative; overflow: hidden; height: clamp(200px, calc(100dvh - 330px), 440px); }
+.ground { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; overflow: hidden; white-space: nowrap; color: var(--a2); font-size: 20px; line-height: 20px; }
+.invader { position: absolute; transform: translateX(-50%); background: var(--a); color: var(--bg); font-size: 34px; line-height: 1; padding: 0 6px; white-space: nowrap; pointer-events: none; }
+.bit { position: absolute; font-size: 22px; line-height: 1; pointer-events: none; transition: transform 0.45s steps(5), opacity 0.45s steps(5); }
+.banner { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 30px; pointer-events: none; display: none; }
+.banner span { background: var(--a); color: var(--bg); padding: 0 10px; }
+
+/* Console overlay */
+.console { position: absolute; inset: 0; z-index: 3; background: var(--bg); padding: 14px 12px 10px; font-size: 22px; line-height: 1.2; overflow: auto; }
+.console.hidden { display: none; }
+.console p { margin: 0 0 2px; }
+.console .dim { color: var(--a2); }
+.console .inv { background: var(--a); color: var(--bg); padding: 0 4px; }
+.cur { display: inline-block; width: 11px; height: 18px; background: var(--a); vertical-align: -2px; animation: cur 1s steps(1) infinite; }
+@keyframes cur { 50% { opacity: 0; } }
+.go { cursor: pointer; }
+.hs { margin: 6px 0 8px; }
+.hs div { white-space: pre; }
+.hs .me { background: var(--a); color: var(--bg); }
+.ini { display: inline-flex; gap: 8px; align-items: center; margin: 4px 0 8px; }
+.ini input { width: 70px; background: var(--bg); color: var(--a); border: none; border-bottom: 3px solid var(--a); font: inherit; font-size: 30px; letter-spacing: 6px; text-transform: uppercase; padding: 0 0 0 4px; border-radius: 0; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--a); color: var(--bg); border: none; padding: 0 8px; cursor: pointer; border-radius: 0; }
+
+/* Tab-style fretboard */
+.neck { margin-top: 16px; touch-action: manipulation; }
+.row { display: grid; grid-template-columns: 22px 30px 1.000fr 0.944fr 0.891fr 0.841fr 0.794fr 0.749fr 0.707fr 0.667fr 0.630fr 0.595fr 0.561fr 0.530fr; }   /* each fret narrower, like a real neck */
+.lbl { font-size: 20px; line-height: 26px; color: var(--a2); }
+.cell { position: relative; height: 26px; cursor: pointer; }
+.cell::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--a2); }
+.cell.fret { border-right: 2px solid var(--a3); }
+.cell.open { border-right: 6px double var(--a); }
+.cell.off { opacity: 0.22; }
+.cell.hit::after, .cell.miss::after { position: absolute; inset: 3px 2px; display: flex; align-items: center; justify-content: center; font-size: 22px; line-height: 1; }
+.cell.hit::after { content: ''; background: var(--a); }
+.cell.miss::after { content: 'X'; color: var(--a); background: var(--bg); }
+.nums .n { font-size: 18px; line-height: 20px; text-align: center; color: var(--a3); }
+.nums .n.mk { color: var(--a2); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="bar">
+    <span>NOTEINV.EXE</span>
+    <span><a href="arcade.html">[ARCADE MAIN]</a> <button id="snd" onclick="toggleSound()">[SND ON]</button></span>
+  </div>
+  <div class="stats">
+    <span><span class="k">SCORE</span> <span id="score">000000</span></span>
+    <span><span class="k">LVL</span> <span id="level">01</span></span>
+    <span><span class="k">LIVES</span> <span id="lives">███</span></span>
+  </div>
+
+  <div class="win">
+    <div class="win-title">NOTE INVADERS</div>
+    <div class="play" id="play">
+      <div class="ground" id="ground"></div>
+      <div class="banner" id="banner"><span></span></div>
+      <div class="console" id="console"></div>
+    </div>
+  </div>
+
+  <div class="neck" id="neck"></div>
+</div>
+
+<script>
+const STR_OPEN  = [4, 9, 2, 7, 11, 4];   // low E to high e, as pitch classes (C = 0)
+const STR_LABEL = ['E', 'A', 'D', 'G', 'B', 'e'];
+const PC_NAMES  = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const HS_KEY    = 'eadNoteInvadersScores';
+const SOUND_KEY = 'eadArcadeSound';
+const NF = 12;
+
+let state = 'start';
+let score = 0, level = 1, lives = 3, hits = 0;
+let invaders = [], lastSpawn = 0, lastFrame = 0;
+let soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const pad = (n, w) => String(n).padStart(w, '0');
+
+// Levels
+function maxFret()     { return level <= 2 ? 5 : level <= 4 ? 9 : 12; }
+function maxOnScreen() { return level <= 2 ? 1 : level <= 5 ? 2 : 3; }
+function fallSpeed()   { return 34 + level * 9; }
+function spawnGap()    { return Math.max(700, 2200 - level * 180); }
+
+// Sound
+let audio = null;
+function beep(freq, dur) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.05, audio.currentTime);
+    g.gain.setValueAtTime(0, audio.currentTime + dur);
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + dur + 0.01);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? '[SND ON]' : '[SND OFF]';
+}
+
+// Tab-style neck
+function buildNeck() {
+  const mf = maxFret();
+  let h = '';
+  for (let si = 5; si >= 0; si--) {
+    h += `<div class="row"><div class="lbl">${STR_LABEL[si]}</div>`;
+    for (let f = 0; f <= NF; f++) {
+      h += `<div class="cell ${f === 0 ? 'open' : 'fret'}${f > mf ? ' off' : ''}" data-s="${si}" data-f="${f}"></div>`;
+    }
+    h += '</div>';
+  }
+  h += '<div class="row nums"><div></div>';
+  for (let f = 0; f <= NF; f++) h += `<div class="n${[3, 5, 7, 9, 12].includes(f) ? ' mk' : ''}">${f}</div>`;
+  h += '</div>';
+  document.getElementById('neck').innerHTML = h;
+}
+
+function mark(cell, cls) {
+  cell.classList.add(cls);
+  setTimeout(() => cell.classList.remove(cls), 260);
+}
+
+function neckTap(ev) {
+  const cell = ev.target.closest('.cell');
+  if (!cell || state !== 'playing') return;
+  const si = +cell.dataset.s, f = +cell.dataset.f;
+  if (f > maxFret()) return;
+  const pc = (STR_OPEN[si] + f) % 12;
+  let target = null;
+  invaders.forEach(inv => { if (inv.pc === pc && (!target || inv.y > target.y)) target = inv; });
+  if (target) {
+    const playH = document.getElementById('play').clientHeight;
+    score += Math.round((50 + 150 * (1 - target.y / playH)) * level);
+    hits++;
+    burst(target);
+    mark(cell, 'hit');
+    beep(988, 0.05); setTimeout(() => beep(1319, 0.06), 55);
+    if (hits % 10 === 0) levelUp();
+    updateStats();
+  } else {
+    mark(cell, 'miss');
+    beep(110, 0.12);
+  }
+}
+
+// Invaders
+function spawn() {
+  const used = invaders.map(i => i.pc);
+  let pc; do { pc = Math.floor(Math.random() * 12); } while (used.includes(pc));
+  const el = document.createElement('div');
+  el.className = 'invader';
+  el.textContent = PC_NAMES[pc];
+  const x = 12 + Math.random() * 76;
+  el.style.left = x + '%';
+  document.getElementById('play').appendChild(el);
+  invaders.push({ pc, x, y: -36, el });
+}
+
+function burst(inv) {
+  const play = document.getElementById('play');
+  const chars = ['*', '+', '#', '%', '*', '+'];
+  chars.forEach((c, i) => {
+    const b = document.createElement('div');
+    b.className = 'bit'; b.textContent = c;
+    b.style.left = inv.x + '%'; b.style.top = (inv.y + 8) + 'px';
+    play.appendChild(b);
+    const a = (i / chars.length) * Math.PI * 2 + Math.random() * 0.6, d = 30 + Math.random() * 25;
+    requestAnimationFrame(() => {
+      b.style.transform = `translate(${Math.round(Math.cos(a) * d)}px, ${Math.round(Math.sin(a) * d)}px)`;
+      b.style.opacity = '0';
+    });
+    setTimeout(() => b.remove(), 480);
+  });
+  inv.el.remove();
+  invaders = invaders.filter(i => i !== inv);
+}
+
+function banner(text, ms) {
+  const b = document.getElementById('banner');
+  b.firstChild.textContent = text;
+  b.style.display = 'block';
+  setTimeout(() => b.style.display = 'none', ms);
+}
+
+function levelUp() {
+  level++;
+  buildNeck();
+  banner('LEVEL ' + pad(level, 2), 900);
+  [523, 659, 784, 1047].forEach((n, i) => setTimeout(() => beep(n, 0.07), i * 80));
+}
+
+function loseLife(inv) {
+  inv.el.remove();
+  invaders = invaders.filter(i => i !== inv);
+  lives--;
+  updateStats();
+  beep(196, 0.1); setTimeout(() => beep(98, 0.2), 110);
+  const play = document.getElementById('play');
+  play.style.background = 'var(--a3)';
+  setTimeout(() => play.style.background = '', 120);
+  if (lives <= 0) gameOver();
+}
+
+function frame(t) {
+  if (state !== 'playing') return;
+  const dt = lastFrame ? Math.min(0.05, (t - lastFrame) / 1000) : 0;
+  lastFrame = t;
+  const playH = document.getElementById('play').clientHeight;
+  invaders.slice().forEach(inv => {
+    inv.y += fallSpeed() * dt;
+    inv.el.style.top = Math.round(inv.y) + 'px';
+    if (inv.y > playH - 52) loseLife(inv);
+  });
+  if (state !== 'playing') return;
+  if (invaders.length < maxOnScreen() && t - lastSpawn > spawnGap()) { spawn(); lastSpawn = t; }
+  requestAnimationFrame(frame);
+}
+
+// Stats and console screens
+function updateStats() {
+  document.getElementById('score').textContent = pad(score, 6);
+  document.getElementById('level').textContent = pad(level, 2);
+  document.getElementById('lives').textContent = '█'.repeat(Math.max(0, lives)) + '░'.repeat(3 - Math.max(0, lives));
+}
+
+function scoreTable(highlight) {
+  const list = highScores();
+  if (!list.length) return '<p class="dim">NO HIGH SCORES YET</p>';
+  return '<div class="hs">' + list.map((r, i) =>
+    `<div class="${i === highlight ? 'me' : ''}">${String(i + 1).padStart(2, ' ')}. ${r.i} ${'.'.repeat(9)} ${pad(r.s, 6)}</div>`).join('') + '</div>';
+}
+
+function showConsole(html) {
+  const c = document.getElementById('console');
+  c.className = 'console';
+  c.innerHTML = html;
+}
+
+function showStart() {
+  state = 'start';
+  showConsole(`
+    <p>C:\\ARCADE&gt; NOTEINV</p>
+    <p class="dim">NOTE INVADERS  REV 1</p>
+    <p>&nbsp;</p>
+    <p>NOTES DROP FROM THE TOP.</p>
+    <p>FIND EACH ONE ON THE NECK</p>
+    <p>BEFORE IT HITS THE GROUND.</p>
+    <p>&nbsp;</p>
+    <p class="dim">HIGH SCORES</p>
+    ${scoreTable(-1)}
+    <p class="go" onclick="startGame()"><span class="inv">TAP TO RUN</span> <span class="cur"></span></p>`);
+}
+
+function startGame() {
+  invaders.forEach(i => i.el.remove());
+  invaders = []; score = 0; level = 1; lives = 3; hits = 0;
+  lastSpawn = 0; lastFrame = 0;
+  document.getElementById('console').className = 'console hidden';
+  updateStats(); buildNeck();
+  state = 'playing';
+  beep(660, 0.06);
+  requestAnimationFrame(frame);
+}
+
+function gameOver() {
+  state = 'over';
+  invaders.forEach(i => i.el.remove());
+  invaders = [];
+  const list = highScores();
+  const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
+  showConsole(`
+    <p>*** GAME OVER ***</p>
+    <p>FINAL SCORE <span class="inv">${pad(score, 6)}</span></p>
+    <p>LEVEL REACHED ${pad(level, 2)}</p>
+    <p>&nbsp;</p>
+    ${qualifies
+      ? `<p>NEW HIGH SCORE. ENTER INITIALS:</p>
+         <div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      : scoreTable(-1) + '<p class="go" onclick="startGame()"><span class="inv">TAP TO RUN AGAIN</span> <span class="cur"></span></p>'}`);
+  if (qualifies) setTimeout(() => { const i = document.getElementById('initials'); if (i) i.focus(); }, 50);
+}
+
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: score };
+  const list = highScores();
+  list.push(entry);
+  list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  showConsole(`
+    <p>*** GAME OVER ***</p>
+    <p>FINAL SCORE <span class="inv">${pad(score, 6)}</span></p>
+    <p>&nbsp;</p>
+    <p class="dim">HIGH SCORES</p>
+    ${scoreTable(top.indexOf(entry))}
+    <p class="go" onclick="startGame()"><span class="inv">TAP TO RUN AGAIN</span> <span class="cur"></span></p>`);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) saveScore();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastFrame = 0; requestAnimationFrame(frame); }
+});
+document.getElementById('neck').addEventListener('pointerdown', neckTap);
+document.getElementById('ground').textContent = '='.repeat(200);
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? '[SND ON]' : '[SND OFF]';
+updateStats();
+buildNeck();
+showStart();
+</script>
+</body>
+</html>

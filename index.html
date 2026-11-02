@@ -712,7 +712,9 @@ transition: color 0.2s, border-color 0.2s;
 }
 
 .btn-coming { display: inline-block; font-family: 'Jura', sans-serif; font-size: 0.65rem; letter-spacing: 0.1em; padding: 1rem 2.5rem; border: 1px solid rgba(255,255,255,0.15); color: #888; text-decoration: none; border-radius: 9999px; }
-footer { background: #000000; padding: 1.5rem 2rem 0.75rem; text-align: center; }
+footer { background: #000000; padding: 1.5rem 2rem 0.75rem; text-align: center; position: relative; }
+.arcade-dot { position: absolute; right: 10px; bottom: 8px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+.arcade-dot::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #ff3b2f; }
 footer p { margin: 0; line-height: 1.6; font-family: 'Jura', sans-serif; font-size: 0.66rem; letter-spacing: 0.06em; color: #444; }
 
 @media (max-width: 600px) {
@@ -1510,6 +1512,7 @@ syncVint();
 
 <footer>
   <p>© 2026 Echo Alpha Delta Publishing<br>Nova Scotia, Canada<br>echoalphadelta.com<br>publishing@echoalphadelta.com</p>
+  <a href="arcade.html" class="arcade-dot" aria-label="Arcade"></a>
 </footer>
 
 <!-- BRAND MARK — 18 lines -->

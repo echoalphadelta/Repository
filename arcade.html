@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Arcade | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--bg); }
+body { color: var(--ink); font-family: 'Press Start 2P', monospace; font-size: 11px; line-height: 1.6; }
+a { color: inherit; text-decoration: none; }
+.screen { max-width: 520px; margin: 0 auto; padding: 18px 16px 36px; }
+
+.back { display: inline-block; font-size: 10px; color: var(--dim); padding: 6px 0; }
+.back:active { color: var(--ink); }
+
+.title { margin: 34px 0 0; font-size: 34px; line-height: 1.15; letter-spacing: 1px; }
+.title span { display: block; }
+.title .e { color: var(--echo); }
+.title .a { color: var(--alpha); padding-left: 2.4em; }   /* G chord on a real (logarithmic) neck: Echo fret 3, Delta fret 5, Alpha fret 10 */
+.title .d { color: var(--delta); padding-left: 0.79em; }
+.label { margin: 18px 0 0; display: inline-block; background: var(--ink); color: var(--bg); font-size: 14px; padding: 6px 10px 5px; letter-spacing: 4px; }
+.credits { margin: 14px 0 40px; font-size: 10px; color: var(--dim); }
+.credits b { font-weight: 400; color: var(--ink); }
+
+.card { display: block; position: relative; margin: 0 6px 22px 0; padding: 16px 14px 14px; border: 4px solid var(--ink); background: var(--bg); }
+.card.c1 { box-shadow: 6px 6px 0 var(--echo); }
+.card.c2 { box-shadow: 6px 6px 0 var(--alpha); }
+.card.c3 { box-shadow: 6px 6px 0 var(--delta); }
+a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo); }
+.card .no { position: absolute; top: -12px; right: 12px; background: var(--bg); padding: 0 6px; font-size: 10px; color: var(--dim); }
+.card .name { font-size: 16px; line-height: 1.4; }
+.card .info { margin-top: 10px; font-size: 9px; line-height: 1.8; color: var(--dim); }
+.card .go { display: inline-block; margin-top: 14px; font-size: 11px; background: var(--echo); color: var(--bg); padding: 6px 10px 5px; }
+.card.locked { border-color: var(--dim); color: var(--dim); }
+.card.locked .go { background: none; border: 2px dashed var(--dim); color: var(--dim); }
+.best { color: var(--ink); }
+
+.foot { margin-top: 30px; font-size: 8px; line-height: 2; color: var(--dim); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <a class="back" href="index.html">&lt; BACK TO MAP</a>
+
+  <h1 class="title"><span class="e">ECHO</span><span class="a">ALPHA</span><span class="d">DELTA</span></h1>
+  <div class="label">ARCADE</div>
+  <div class="credits">CREDITS <b>99</b></div>
+
+  <a class="card c1" href="note-invaders.html">
+    <span class="no">01</span>
+    <div class="name">NOTE INVADERS</div>
+    <div class="info">FIND FALLING NOTES ON THE NECK<span class="best" id="best"></span></div>
+    <span class="go">PLAY</span>
+  </a>
+
+  <div class="card c2 locked">
+    <span class="no">02</span>
+    <div class="name">SHAPE SNAP</div>
+    <div class="info">NAME THE SHAPE BEFORE IT FADES</div>
+    <span class="go">SOON</span>
+  </div>
+
+  <div class="card c3 locked">
+    <span class="no">03</span>
+    <div class="name">???</div>
+    <div class="info">CLASSIFIED</div>
+    <span class="go">SOON</span>
+  </div>
+
+  <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
+</div>
+<script>
+try {
+  const list = JSON.parse(localStorage.getItem('eadNoteInvadersScores')) || [];
+  if (list.length) document.getElementById('best').textContent = ' / HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
+} catch (e) {}
+</script>
+</body>
+</html>
