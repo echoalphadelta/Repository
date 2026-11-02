@@ -230,7 +230,7 @@ h1 {
 
   <div class="chord-prompt">
     <div class="chord-name">
-      <span class="prompt-key" id="pKey">—</span><span class="prompt-qual" id="pQual"></span>
+      <span class="prompt-key" id="pKey"></span><span class="prompt-qual" id="pQual"></span>
     </div>
     <span class="prompt-shape" id="pShape">Press New Challenge to begin</span>
   </div>
@@ -240,14 +240,14 @@ h1 {
   </div>
 
   <div id="certCounter" style="display:none;font-family:'Jura',monospace;font-size:0.65rem;letter-spacing: 0.06em;color:rgba(245,166,35,0.65);text-align:center;margin-top:14px;">
-    Exercise <span id="certN">1</span> of 25 &nbsp;·&nbsp; <span id="certStrikeDisplay">○ ○ ○</span>
+    Exercise <span id="certN">1</span> of 25 &nbsp;&nbsp;&nbsp; <span id="certStrikeDisplay">○ ○ ○</span>
   </div>
 
   <div class="trainer-controls">
     <button class="trainer-btn btn-next" id="newChallengeBtn" onclick="newChallenge()">New Challenge</button>
     <button class="trainer-btn btn-check" id="checkBtn" onclick="checkAnswer()" disabled>Check</button>
     <button class="trainer-btn btn-next" id="certNextBtn" style="display:none;" onclick="certNext()">Next Exercise →</button>
-    <button class="trainer-btn btn-next" id="certFailBtn" style="display:none;color:#ff4a4a;border-color:rgba(255,74,74,0.4);" onclick="certFail()">3 Strikes — Try Again</button>
+    <button class="trainer-btn btn-next" id="certFailBtn" style="display:none;color:#ff4a4a;border-color:rgba(255,74,74,0.4);" onclick="certFail()">3 Strikes: Try Again</button>
   </div>
 
   <div class="round-result" id="roundResult"></div>
@@ -433,7 +433,7 @@ function checkAnswer() {
   if (wrong)    parts.push(`${wrong} wrong`);
   if (offGrip)  parts.push(`${offGrip} outside grip`);
   if (!correct && !wrong && !offGrip) parts.push('nothing selected');
-  document.getElementById('roundResult').textContent = parts.join(' · ');
+  document.getElementById('roundResult').textContent = parts.join(', ');
   render();
 
   // Certification mode: wrong notes = strike; off-grip (silver halo) is not a strike

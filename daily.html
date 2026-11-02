@@ -427,7 +427,7 @@ function renderScoreScreen() {
 
   return `
     <div class="score-emojis">${emojis}</div>
-    <div class="score-tally">${count} / 3 correct · ${dateStr}</div>
+    <div class="score-tally">${count} / 3 correct</div>
     <div class="result-rows">${rows}</div>
     <button class="share-btn" onclick="shareResult()">Share Result</button>
     <div class="share-msg" id="shareMsg"></div>
@@ -470,7 +470,7 @@ function shareResult() {
   var emojis = dailyChords.map(function(chord, i) {
     return gs.results[i].correct ? SHAPE_EMOJIS[chord.shape] : '⚫';
   }).join('');
-  var shareText = 'Daily Chord Game · ' + dateStr + '\n' + emojis + '\n' + window.location.href;
+  var shareText = 'Echo Alpha Delta Daily Game\n' + dateStr + '\n' + emojis + '\n' + window.location.href;
 
   if (navigator.share) {
     navigator.share({ text: shareText }).catch(function(err) {

@@ -344,7 +344,7 @@ SECTIONS.forEach(sec => {
     const posLabel = wStart > 0 ? String(wStart + 1) : '';
     return `
       <div class="diag-card">
-        <div class="diag-label" style="color:${color};">${label} — ${sec.key} ${sec.scaleName}</div>
+        <div class="diag-label" style="color:${color};">${label}: ${sec.key} ${sec.scaleName}</div>
         <div class="diag-fb-wrap">
           <span class="pos-num">${posLabel}</span>
           ${shapeSVG(sec.rootPc, sec.intervals, color, wStart, wFrets, minStr)}
@@ -357,7 +357,7 @@ SECTIONS.forEach(sec => {
       <h2>${sec.title}</h2>
       <div class="diag-row">${cards}</div>
       <div class="diag-map">
-        <div class="diag-label">Full Neck — ${sec.key} ${sec.scaleName}</div>
+        <div class="diag-label">Full Neck: ${sec.key} ${sec.scaleName}</div>
         ${mapSVG(sec.rootPc, sec.intervals, sec.windows)}
       </div>
     </div>`;

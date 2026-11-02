@@ -230,7 +230,7 @@ textarea.teacher-field { height: 110px; resize: vertical; }
         <div class="phase-num">3</div>
         <div class="phase-body">
           <div class="phase-title">Name the Note</div>
-          <div class="phase-desc">Two questions. A note is highlighted on the fretboard — identify its name, Nashville number, and shape. First in the Key of A, then in the Key of Eb.</div>
+          <div class="phase-desc">Two questions. A note is highlighted on the fretboard. Identify its name, Nashville number, and shape. First in the Key of A, then in the Key of Eb.</div>
         </div>
       </div>
       <div class="phase">
@@ -420,7 +420,7 @@ function submitQuiz(n) {
     if (note   !== ans.note)   hints.push('Note: ' + ans.note);
     if (number !== ans.number) hints.push('Number: ' + ans.number);
     if (shape  !== ans.shape)  hints.push('Shape: ' + ans.shape.charAt(0).toUpperCase() + ans.shape.slice(1));
-    fb.textContent = '✗ Not quite. ' + hints.join('  ·  ');
+    fb.textContent = '✗ Not quite. ' + hints.join(', ');
     nextBtn.style.display = 'none';
   }
 }

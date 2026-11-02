@@ -436,9 +436,9 @@ border-radius: 2px;
   <div id="resultsMid" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:1rem;width:100%;">
     <div class="screen-title" style="font-size:1.2rem;">Result</div>
     <div class="result-grid">
-      <div><div class="result-label">Score</div><div class="result-value" id="resScore">—</div></div>
-      <div><div class="result-label">Correct</div><div class="result-value" id="resCorrect">—</div></div>
-      <div><div class="result-label">Avg Time</div><div class="result-value" id="resAvgTime">—</div></div>
+      <div><div class="result-label">Score</div><div class="result-value" id="resScore">0</div></div>
+      <div><div class="result-label">Correct</div><div class="result-value" id="resCorrect">0</div></div>
+      <div><div class="result-label">Avg Time</div><div class="result-value" id="resAvgTime">0.0s</div></div>
     </div>
     <button class="start-btn hidden" id="certContinueBtn" onclick="certContinue()">Continue →</button>
     <button class="start-btn hidden" id="certTryAgainBtn" onclick="certTryAgain()">Try Again</button>
@@ -454,7 +454,7 @@ border-radius: 2px;
   <div class="status-bar hidden" id="statusBar">
     <div class="status-item">Question<span id="qNum">1</span></div>
     <div class="status-item">Correct<span id="correctCount">0</span></div>
-    <div class="status-item">Avg Time<span id="avgTime">—</span></div>
+    <div class="status-item">Avg Time<span id="avgTime">0.0s</span></div>
   </div>
   <button class="start-btn hidden" id="playAgainBtn" onclick="startGame()">Play Again</button>
 </div>
@@ -946,7 +946,7 @@ drawFretboard();
   const banner = document.getElementById('certBanner');
 
   if (phase === '1') {
-    banner.innerHTML = 'Certification<br>Phase 1 of 3 &nbsp;·&nbsp; Standard<br>10/10 under 3s to pass';
+    banner.innerHTML = 'Certification<br>Phase 1 of 3: Standard<br>10/10 under 3s to pass';
     banner.style.display = 'block';
     return;
   }
@@ -956,7 +956,7 @@ drawFretboard();
   const round = parseInt(sessionStorage.getItem('certPhase2Round') || '0');
   const keyName = KEY_NAMES[keys[round]];
 
-  banner.innerHTML = `Certification<br>Phase 2 of 3 &nbsp;·&nbsp; Harmonic<br>Key ${round + 1} of 3: ${keyName} &nbsp;·&nbsp; 10/10 under 3s`;
+  banner.innerHTML = `Certification<br>Phase 2 of 3: Harmonic<br>Key ${round + 1} of 3: ${keyName}<br>10/10 under 3s`;
   banner.style.display = 'block';
 
   // Auto-select the tonic and activate harmonic mode
