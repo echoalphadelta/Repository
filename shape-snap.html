@@ -42,6 +42,9 @@ a, button { font: inherit; color: inherit; }
 .next { display: grid; grid-template-columns: repeat(6, 12px); grid-auto-rows: 12px; margin-top: 6px; }
 .next .p { background: var(--g1); border: 2px solid; border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
 .msg { min-height: 52px; font-size: 9px; line-height: 1.7; }
+.side { padding-bottom: 22px; }
+.now { margin-top: auto; }
+.now .v { font-size: 24px; margin-top: 10px; line-height: 1.2; }
 
 .pad { display: flex; justify-content: space-between; margin: 14px 4px 0; }
 .btn { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; touch-action: manipulation; }
@@ -81,6 +84,7 @@ a, button { font: inherit; color: inherit; }
       <div class="box"><div class="k">SNAPS</div><div class="v" id="snaps">000</div></div>
       <div class="box"><div class="k">NEXT</div><div class="next" id="next"></div></div>
       <div class="msg" id="msg"></div>
+      <div class="box now"><div class="k">CHORD</div><div class="v" id="now">&nbsp;</div></div>
     </div>
     <div class="over" id="over"></div>
   </div>
@@ -255,6 +259,10 @@ function render(flash) {
     const row = piece.y + r;
     if (row >= 0 && row < ROWS) cells[row * COLS + c].className = 'c ' + (flash ? 'f' : 'p');
   });
+  renderTag();
+}
+function renderTag() {
+  document.getElementById('now').innerHTML = piece && state === 'playing' ? piece.name : '&nbsp;';
 }
 function renderNext() {
   const box = document.getElementById('next');
@@ -286,6 +294,7 @@ function lock() {
     if (row < 0) topOut = true; else stack[row][c] = 1;
   });
   piece = null;
+  renderTag();
   // Full rows clear, Tetris style
   let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
@@ -314,7 +323,7 @@ function answer(shape) {
     const rowsLeft = ROWS - (piece.y + piece.h);
     score += (100 + rowsLeft * 10) * level;
     snaps++;
-    say(`${piece.shape.toUpperCase()}!<br>${piece.name}`);
+    say(`${piece.name} WAS<br>${piece.shape.toUpperCase()}!`);
     beep(1047, 0.05); setTimeout(() => beep(1568, 0.07), 60);
     let n = 0;
     const blink = setInterval(() => {
@@ -327,7 +336,7 @@ function answer(shape) {
       }
     }, 70);
   } else {
-    say(`NO!<br>${piece.shape.toUpperCase()}<br>${piece.name}`);
+    say(`NO!<br>${piece.name} WAS<br>${piece.shape.toUpperCase()}`);
     beep(147, 0.12);
     while (fits(piece, piece.y + 1)) piece.y++;   // hard drop
     render(); lock();
@@ -364,7 +373,7 @@ function startGame() {
 }
 
 function gameOver() {
-  state = 'over'; clearInterval(timer);
+  state = 'over'; clearInterval(timer); renderTag();
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
