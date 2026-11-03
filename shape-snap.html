@@ -26,31 +26,36 @@ a, button { font: inherit; color: inherit; }
 .top button { background: none; border: none; padding: 0; cursor: pointer; }
 .top a:active, .top button:active { background: var(--g0); color: var(--g3); }
 
-.game { position: relative; display: flex; gap: 12px; margin-top: 8px; }
-.well { display: grid; grid-template-columns: repeat(6, var(--cell)); grid-auto-rows: var(--cell); border: 4px solid var(--g0); background: var(--g2); padding: 2px; gap: 0; flex: none; }
-.c { width: var(--cell); height: var(--cell); }
+.game { position: relative; display: flex; gap: 10px; margin-top: 8px; }
+.neck { display: flex; gap: 3px; flex: none; }
+.frets { display: grid; grid-auto-rows: var(--cell); padding-top: 6px; font-size: 7px; text-align: right; width: 16px; }
+.frets span { line-height: var(--cell); color: var(--g1); }
+.frets span.mk { color: var(--g0); }
+.well { display: grid; grid-template-columns: repeat(6, var(--cell)); grid-auto-rows: var(--cell); border: 4px solid var(--g0); background: var(--g2); padding: 2px; }
+.c { width: var(--cell); height: var(--cell); border-bottom: 1px solid rgba(15,56,15,0.18); }
 .c.p, .c.b, .c.f { border: 3px solid; }
 .c.p { background: var(--g1); border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
 .c.b { background: var(--g0); border-color: var(--g1) var(--g0) var(--g0) var(--g1); }
 .c.f { background: var(--g3); border-color: var(--g3) var(--g1) var(--g1) var(--g3); }
-.strings { display: grid; grid-template-columns: repeat(6, var(--cell)); padding: 0 6px; font-size: 8px; text-align: center; margin-top: 4px; }
+.strings { display: grid; grid-template-columns: repeat(6, var(--cell)); padding: 0 6px 0 25px; font-size: 8px; text-align: center; margin-top: 4px; }
 
-.side { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.side { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-bottom: 22px; }
 .box { border: 3px solid var(--g0); background: var(--g3); padding: 6px 6px 5px; }
 .box .k { font-size: 8px; color: var(--g1); }
 .box .v { font-size: 13px; margin-top: 4px; }
-.next { display: grid; grid-template-columns: repeat(6, 12px); grid-auto-rows: 12px; margin-top: 6px; }
+.next { display: grid; grid-template-columns: repeat(6, 11px); grid-auto-rows: 11px; margin-top: 6px; }
 .next .p { background: var(--g1); border: 2px solid; border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
-.msg { min-height: 52px; font-size: 9px; line-height: 1.7; }
-.side { padding-bottom: 22px; }
+.msg { min-height: 34px; font-size: 10px; line-height: 1.7; }
 .now { margin-top: auto; }
 .now .v { font-size: 24px; margin-top: 10px; line-height: 1.2; }
+.now.shift .v { animation: shift 0.12s steps(1) 6; }
+@keyframes shift { 50% { background: var(--g0); color: var(--g3); } }
 
-.pad { display: flex; justify-content: space-between; margin: 14px 4px 0; }
-.btn { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; touch-action: manipulation; }
-.btn i { display: block; width: 62px; height: 62px; border-radius: 50%; background: #8b1d4a; box-shadow: inset -4px -5px 0 #5c1031, 0 3px 0 #3a2a30; }
-.btn:active i, .btn.down i { transform: translateY(3px); box-shadow: inset -2px -2px 0 #5c1031, 0 0 0 #3a2a30; }
-.btn span { font-size: 9px; }
+.pad { display: flex; justify-content: center; margin: 14px 0 0; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; touch-action: manipulation; }
+.drop i { display: block; width: 190px; height: 58px; border-radius: 29px; background: #8b1d4a; box-shadow: inset -4px -5px 0 #5c1031, 0 3px 0 #3a2a30; }
+.drop:active i, .drop.down i { transform: translateY(3px); box-shadow: inset -2px -2px 0 #5c1031, 0 0 0 #3a2a30; }
+.drop span { font-size: 10px; letter-spacing: 2px; }
 
 .over { position: absolute; inset: -4px; z-index: 5; background: var(--g3); border: 4px solid var(--g0); padding: 14px 12px; font-size: 10px; line-height: 1.8; overflow: auto; }
 .over.hidden { display: none; }
@@ -75,24 +80,25 @@ a, button { font: inherit; color: inherit; }
 
   <div class="game">
     <div>
-      <div class="well" id="well"></div>
+      <div class="neck">
+        <div class="frets" id="frets"></div>
+        <div class="well" id="well"></div>
+      </div>
       <div class="strings"><span>E</span><span>A</span><span>D</span><span>G</span><span>B</span><span>e</span></div>
     </div>
     <div class="side">
       <div class="box"><div class="k">SCORE</div><div class="v" id="score">000000</div></div>
       <div class="box"><div class="k">LEVEL</div><div class="v" id="level">01</div></div>
-      <div class="box"><div class="k">SNAPS</div><div class="v" id="snaps">000</div></div>
+      <div class="box"><div class="k">STREAK</div><div class="v" id="streak">00</div></div>
       <div class="box"><div class="k">NEXT</div><div class="next" id="next"></div></div>
       <div class="msg" id="msg"></div>
-      <div class="box now"><div class="k">CHORD</div><div class="v" id="now">&nbsp;</div></div>
+      <div class="box now" id="nowBox"><div class="k">CHORD</div><div class="v" id="now">&nbsp;</div></div>
     </div>
     <div class="over" id="over"></div>
   </div>
 
   <div class="pad">
-    <button class="btn" data-shape="echo"><i></i><span>ECHO</span></button>
-    <button class="btn" data-shape="alpha"><i></i><span>ALPHA</span></button>
-    <button class="btn" data-shape="delta"><i></i><span>DELTA</span></button>
+    <button class="drop" id="dropBtn"><i></i><span>DROP</span></button>
   </div>
 </div>
 
@@ -182,12 +188,13 @@ function computeGripTones(shapeName, qualStr, rootPc) {
 }
 
 // ---- Game ---------------------------------------------------------------
+// The well is the neck: each row is a fret (0 at the top), each column a string.
 const COLS = 6, ROWS = 15;
 const SHAPES = ['echo', 'alpha', 'delta'];
 const QUAL_LABEL = { '':'', 'm':'m', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4' };
 const HS_KEY = 'eadShapeSnapScores', SOUND_KEY = 'eadArcadeSound';
 
-let stack, piece, nextPiece, score, level, snaps, state = 'start', timer = null, busy = false;
+let stack, piece, nextPiece, score, level, landed, streak, state = 'start', timer = null, busy = false;
 let soundOn = true;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -196,33 +203,56 @@ function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e)
 const pad = (n, w) => String(n).padStart(w, '0');
 
 function qualitiesForLevel() {
-  if (level <= 1) return [''];
-  if (level === 2) return ['', 'm'];
+  if (level <= 2) return [''];
   if (level === 3) return ['', 'm', '7'];
   if (level === 4) return ['', 'm', '7', 'maj7', 'm7'];
   return ['', 'm', '7', 'maj7', 'm7', 'sus4'];
 }
-function tickMs() { return Math.max(110, Math.round(650 * Math.pow(0.85, level - 1))); }
+function shapeShiftChance()   { return level < 2 ? 0 : Math.min(0.6, 0.25 + (level - 2) * 0.08); }
+function qualityShiftChance() { return level < 4 ? 0 : Math.min(0.4, 0.15 + (level - 4) * 0.06); }
+function tickMs() { return Math.max(160, Math.round(620 * Math.pow(0.87, level - 1))); }
 
-// Build a falling piece from a real grip: strings are columns, frets are rows
+// A grip as it sits on the real neck. target = the fret its top row belongs on.
+function grip(shape, q, root) {
+  const af = findFrets(GRIP_CONFIG[shape].anchor, root)[0];
+  if (af < 1 || af > 10) return null;
+  const pts = [...computeGripTones(shape, q, root)].map(k => { const [f, s] = k.split('-').map(Number); return { f, s }; });
+  if (!pts.length) return null;
+  const min = Math.min(...pts.map(p => p.f)), max = Math.max(...pts.map(p => p.f));
+  if (max - min > 4 || max >= ROWS) return null;
+  return { shape, q, root, name: PC_NAMES[root] + QUAL_LABEL[q], target: min, h: max - min + 1,
+           cells: pts.map(p => ({ c: p.s, r: p.f - min })) };
+}
+
 function makePiece() {
   const quals = qualitiesForLevel();
-  for (let tries = 0; tries < 200; tries++) {
-    const shape = SHAPES[Math.floor(Math.random() * 3)];
-    const q = quals[Math.floor(Math.random() * quals.length)];
-    const root = Math.floor(Math.random() * 12);
-    const af = findFrets(GRIP_CONFIG[shape].anchor, root)[0];
-    if (af < 1 || af > 8) continue;
-    const pts = [...computeGripTones(shape, q, root)].map(k => { const [f, s] = k.split('-').map(Number); return { f, s }; });
-    if (!pts.length) continue;
-    const min = Math.min(...pts.map(p => p.f)), max = Math.max(...pts.map(p => p.f));
-    if (max - min > 4) continue;
-    return { shape, name: PC_NAMES[root] + QUAL_LABEL[q], cells: pts.map(p => ({ c: p.s, r: p.f - min })), h: max - min + 1, y: 0 };
+  for (let tries = 0; tries < 300; tries++) {
+    const g = grip(SHAPES[Math.floor(Math.random() * 3)], quals[Math.floor(Math.random() * quals.length)], Math.floor(Math.random() * 12));
+    if (!g) continue;
+    g.shift = planShift(g);
+    return g;
   }
 }
 
-function fits(p, y) {
-  return p.cells.every(({ c, r }) => {
+// Decide whether this piece will morph on the way down, and into what
+function planShift(g) {
+  const roll = Math.random();
+  if (roll < shapeShiftChance()) {
+    const others = SHAPES.filter(s => s !== g.shape).sort(() => Math.random() - 0.5);
+    for (const s of others) {
+      const n = grip(s, g.q, g.root);
+      if (n && Math.abs(n.target - g.target) >= 2) return { into: n, at: Math.max(-1, Math.min(g.target, n.target) - 3) };
+    }
+  } else if (roll < shapeShiftChance() + qualityShiftChance()) {
+    const quals = qualitiesForLevel().filter(q => q !== g.q);
+    const n = grip(g.shape, quals[Math.floor(Math.random() * quals.length)], g.root);
+    if (n) return { into: n, at: Math.max(-1, g.target - 3) };
+  }
+  return null;
+}
+
+function fits(cells, y) {
+  return cells.every(({ c, r }) => {
     const row = y + r;
     if (row >= ROWS) return false;
     return row < 0 || !stack[row][c];
@@ -259,22 +289,18 @@ function render(flash) {
     const row = piece.y + r;
     if (row >= 0 && row < ROWS) cells[row * COLS + c].className = 'c ' + (flash ? 'f' : 'p');
   });
-  renderTag();
-}
-function renderTag() {
   document.getElementById('now').innerHTML = piece && state === 'playing' ? piece.name : '&nbsp;';
 }
 function renderNext() {
-  const box = document.getElementById('next');
   let h = '';
   const on = new Set(nextPiece.cells.map(({ c, r }) => r + '-' + c));
   for (let r = 0; r < 5; r++) for (let c = 0; c < COLS; c++) h += `<div class="${on.has(r + '-' + c) ? 'p' : ''}"></div>`;
-  box.innerHTML = h;
+  document.getElementById('next').innerHTML = h;
 }
 function hud() {
   document.getElementById('score').textContent = pad(score, 6);
   document.getElementById('level').textContent = pad(level, 2);
-  document.getElementById('snaps').textContent = pad(snaps, 3);
+  document.getElementById('streak').textContent = pad(streak, 2);
 }
 function say(t) { document.getElementById('msg').innerHTML = t; }
 
@@ -283,8 +309,19 @@ function spawn() {
   piece = nextPiece; piece.y = 1 - piece.h;
   nextPiece = makePiece();
   renderNext();
-  if (!fits(piece, piece.y)) { gameOver(); return; }
+  if (!fits(piece.cells, piece.y)) { gameOver(); return; }
   render();
+}
+
+function morph() {
+  const n = piece.shift.into;
+  piece.shift = null;
+  if (!fits(n.cells, piece.y)) return;
+  Object.assign(piece, { shape: n.shape, q: n.q, name: n.name, target: n.target, h: n.h, cells: n.cells });
+  say('SHIFT!');
+  const box = document.getElementById('nowBox');
+  box.classList.remove('shift'); void box.offsetWidth; box.classList.add('shift');
+  [660, 880, 660].forEach((f, i) => setTimeout(() => beep(f, 0.04), i * 50));
 }
 
 function lock() {
@@ -294,8 +331,6 @@ function lock() {
     if (row < 0) topOut = true; else stack[row][c] = 1;
   });
   piece = null;
-  renderTag();
-  // Full rows clear, Tetris style
   let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
     if (stack[r].every(Boolean)) { stack.splice(r, 1); stack.unshift(Array(COLS).fill(0)); cleared++; r++; }
@@ -306,41 +341,53 @@ function lock() {
   spawn();
 }
 
+function miss() {
+  streak = 0; hud();
+  say('MISS');
+  while (fits(piece.cells, piece.y + 1)) piece.y++;   // slam down
+  render(); lock();
+}
+
 function tick() {
   if (state !== 'playing' || busy || !piece) return;
-  if (fits(piece, piece.y + 1)) { piece.y++; render(); }
-  else lock();
+  if (fits(piece.cells, piece.y + 1)) {
+    piece.y++;
+    if (piece.shift && piece.y >= piece.shift.at) morph();
+    render();
+  } else miss();
 }
 
 function restartTimer() { clearInterval(timer); timer = setInterval(tick, tickMs()); }
 
-function answer(shape) {
+function drop() {
   if (state !== 'playing' || busy || !piece) return;
-  const btn = document.querySelector(`.btn[data-shape="${shape}"]`);
+  const btn = document.getElementById('dropBtn');
   btn.classList.add('down'); setTimeout(() => btn.classList.remove('down'), 120);
-  if (shape === piece.shape) {
-    busy = true;
-    const rowsLeft = ROWS - (piece.y + piece.h);
-    score += (100 + rowsLeft * 10) * level;
-    snaps++;
-    say('');
-    beep(1047, 0.05); setTimeout(() => beep(1568, 0.07), 60);
-    let n = 0;
-    const blink = setInterval(() => {
-      render(n % 2 === 0); n++;
-      if (n > 4) {
-        clearInterval(blink);
-        busy = false;
-        if (snaps % 10 === 0) { level++; say(`LEVEL ${pad(level, 2)}`); restartTimer(); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80)); }
-        hud(); spawn();
-      }
-    }, 70);
+  const off = Math.abs(piece.y - piece.target);
+  if (off > 1) { miss(); return; }
+  busy = true;
+  landed++;
+  if (off === 0) {
+    streak++;
+    score += (300 + 50 * Math.min(streak, 10)) * level;
+    say('PERFECT');
+    beep(1047, 0.05); setTimeout(() => beep(1568, 0.08), 60);
   } else {
-    say('');
-    beep(147, 0.12);
-    while (fits(piece, piece.y + 1)) piece.y++;   // hard drop
-    render(); lock();
+    streak = 0;
+    score += 100 * level;
+    say('GOOD');
+    beep(880, 0.06);
   }
+  let n = 0;
+  const blink = setInterval(() => {
+    render(n % 2 === 0); n++;
+    if (n > 4) {
+      clearInterval(blink);
+      busy = false;
+      if (landed % 10 === 0) { level++; say(`LEVEL ${pad(level, 2)}`); restartTimer(); [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80)); }
+      hud(); spawn();
+    }
+  }, 70);
 }
 
 // Screens
@@ -354,16 +401,16 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   overlay(`<h2>SHAPE<br>SNAP</h2>
-    <p>GRIPS FALL DOWN THE NECK.</p>
-    <p>SNAP THEM BY NAME:<br><span class="inv">ECHO</span> <span class="inv">ALPHA</span> <span class="inv">DELTA</span></p>
-    <p>WRONG OR TOO SLOW AND THEY PILE UP.</p>
+    <p>A GRIP FALLS DOWN THE NECK. ITS CHORD IS SHOWN BOTTOM RIGHT.</p>
+    <p>HIT <span class="inv">DROP</span> WHEN IT REACHES THE FRET WHERE THAT SHAPE PLAYS THAT CHORD.</p>
+    <p>WATCH OUT: SOME GRIPS <span class="inv">SHIFT</span> INTO ANOTHER SHAPE ON THE WAY DOWN.</p>
     <p>HIGH SCORES</p>${scoreTable(-1)}
     <span class="go" onclick="startGame()">PUSH START</span>`);
 }
 
 function startGame() {
   stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-  score = 0; level = 1; snaps = 0; busy = false;
+  score = 0; level = 1; landed = 0; streak = 0; busy = false;
   nextPiece = makePiece();
   document.getElementById('over').className = 'over hidden';
   say(''); hud();
@@ -373,13 +420,13 @@ function startGame() {
 }
 
 function gameOver() {
-  state = 'over'; clearInterval(timer); renderTag();
+  state = 'over'; clearInterval(timer); render();
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
   setTimeout(() => overlay(`<h2>GAME<br>OVER</h2>
     <p>SCORE <span class="inv">${pad(score, 6)}</span></p>
-    <p>LEVEL ${pad(level, 2)}  SNAPS ${pad(snaps, 3)}</p>
+    <p>LEVEL ${pad(level, 2)}  LANDED ${pad(landed, 3)}</p>
     ${qualifies
       ? `<p>NEW HIGH SCORE!<br>ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
       : scoreTable(-1) + '<span class="go" onclick="startGame()">PUSH START</span>'}`), 400);
@@ -395,34 +442,32 @@ function saveScore() {
 }
 
 // Input
-document.querySelectorAll('.btn').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); answer(b.dataset.shape); }));
+document.getElementById('dropBtn').addEventListener('pointerdown', e => { e.preventDefault(); drop(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('initials')) { saveScore(); return; }
-  const k = e.key.toLowerCase();
-  if (k === '1' || k === 'e') answer('echo');
-  if (k === '2' || k === 'a') answer('alpha');
-  if (k === '3' || k === 'd') answer('delta');
+  if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); drop(); }
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && state === 'playing') { state = 'paused'; clearInterval(timer); }
   else if (!document.hidden && state === 'paused') { state = 'playing'; restartTimer(); }
 });
 
-// Size the well to the screen
+// Size the neck to the screen
 function sizeWell() {
-  const byHeight = Math.floor((window.innerHeight - 220) / ROWS);
-  const byWidth = Math.floor((Math.min(window.innerWidth, 480) - 28 - 12 - 120 - 12) / COLS);
+  const byHeight = Math.floor((window.innerHeight - 214) / ROWS);
+  const byWidth = Math.floor((Math.min(window.innerWidth, 480) - 28 - 19 - 12 - 10 - 120) / COLS);
   const cell = Math.max(14, Math.min(28, byHeight, byWidth));
   document.documentElement.style.setProperty('--cell', cell + 'px');
 }
 window.addEventListener('resize', sizeWell);
 
 document.getElementById('well').innerHTML = '<div class="c"></div>'.repeat(ROWS * COLS);
+document.getElementById('frets').innerHTML = Array.from({ length: ROWS }, (_, f) => `<span class="${[3, 5, 7, 9, 12].includes(f) ? 'mk' : ''}">${f}</span>`).join('');
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
 sizeWell();
 stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-score = 0; level = 1; snaps = 0;
+score = 0; level = 1; landed = 0; streak = 0;
 nextPiece = makePiece(); renderNext(); render(); hud();
 showStart();
 </script>
