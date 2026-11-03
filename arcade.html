@@ -38,11 +38,13 @@ a { color: inherit; text-decoration: none; }
 .card.c3 { box-shadow: 6px 6px 0 var(--delta); }
 a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo); }
 a.card.c2:active { box-shadow: 2px 2px 0 var(--alpha); }
+a.card.c3:active { box-shadow: 2px 2px 0 var(--delta); }
 .card .no { position: absolute; top: -12px; right: 12px; background: var(--bg); padding: 0 6px; font-size: 10px; color: var(--dim); }
 .card .name { font-size: 16px; line-height: 1.4; }
 .card .info { margin-top: 10px; font-size: 9px; line-height: 1.8; color: var(--dim); }
 .card .go { display: inline-block; margin-top: 14px; font-size: 11px; background: var(--echo); color: var(--bg); padding: 6px 10px 5px; }
 .card.c2 .go { background: var(--alpha); }
+.card.c3 .go { background: var(--delta); }
 .card.locked { border-color: var(--dim); color: var(--dim); }
 .card.locked .go { background: none; border: 2px dashed var(--dim); color: var(--dim); }
 .best { color: var(--ink); }
@@ -72,12 +74,12 @@ a.card.c2:active { box-shadow: 2px 2px 0 var(--alpha); }
     <span class="go">PLAY</span>
   </a>
 
-  <div class="card c3 locked">
+  <a class="card c3" href="progression-run.html">
     <span class="no">03</span>
-    <div class="name">???</div>
-    <div class="info">CLASSIFIED</div>
-    <span class="go">SOON</span>
-  </div>
+    <div class="name">PROGRESSION RUN</div>
+    <div class="info">STEER INTO THE RIGHT SHAPE FOR EACH CHORD<span class="best" id="best3"></span></div>
+    <span class="go">PLAY</span>
+  </a>
 
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
@@ -90,6 +92,7 @@ function showBest(key, id) {
 }
 showBest('eadNoteInvadersScores', 'best');
 showBest('eadShapeSnapScores', 'best2');
+showBest('eadProgressionRunScores', 'best3');
 </script>
 </body>
 </html>

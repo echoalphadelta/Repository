@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Progression Run | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root { --ink: #fff3d6; --dusk: #1b1040; --sun: #ffd166; --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: #0d0820; }
+body { color: var(--ink); font-family: 'Press Start 2P', monospace; font-size: 10px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 520px; margin: 0 auto; padding: 8px 12px 14px; display: flex; flex-direction: column; align-items: center; }
+.top { width: 100%; display: flex; justify-content: space-between; align-items: center; height: 26px; }
+.top a { text-decoration: none; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; }
+.stage { position: relative; margin-top: 6px; touch-action: none; }
+canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+.lanes { display: flex; gap: 8px; margin-top: 10px; }
+.lane { width: 104px; height: 54px; border: 3px solid currentColor; background: #0d0820; cursor: pointer; font-size: 10px; letter-spacing: 1px; touch-action: manipulation; }
+.lane.e { color: var(--echo); } .lane.a { color: var(--alpha); } .lane.d { color: var(--delta); }
+.lane.on { background: currentColor; }
+.lane.on span { color: #0d0820; }
+.over { position: absolute; inset: 0; background: rgba(13,8,32,0.92); padding: 16px 14px; font-size: 9px; line-height: 1.9; overflow: auto; }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 12px; font-size: 16px; font-weight: 400; line-height: 1.1; color: var(--sun); }
+.over p { margin: 0 0 8px; }
+.over .e { color: var(--echo); } .over .a { color: var(--alpha); } .over .d { color: var(--delta); }
+.over .go { display: inline-block; margin-top: 6px; color: var(--sun); cursor: pointer; animation: bl 1s steps(1) infinite; }
+@keyframes bl { 50% { visibility: hidden; } }
+.hs div { white-space: pre; }
+.hs .me { background: var(--sun); color: var(--dusk); }
+.ini { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.ini input { width: 80px; font: inherit; font-size: 20px; letter-spacing: 4px; text-transform: uppercase; background: transparent; color: var(--sun); border: none; border-bottom: 3px solid var(--sun); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--sun); color: var(--dusk); border: none; padding: 4px 10px; cursor: pointer; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv" width="180" height="260"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="lanes">
+    <button class="lane e" data-lane="0"><span>ECHO</span></button>
+    <button class="lane a on" data-lane="1"><span>ALPHA</span></button>
+    <button class="lane d" data-lane="2"><span>DELTA</span></button>
+  </div>
+</div>
+
+<script>
+// ---- Music ---------------------------------------------------------------
+const STR_OPEN = [4, 9, 2, 7, 11, 4];
+const PC_NAMES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const SHAPES   = ['echo', 'alpha', 'delta'];          // lane order, left to right
+const ANCHOR   = { echo: 0, alpha: 1, delta: 2 };      // string that carries each shape's root
+const COLORS   = ['#4a9eff', '#ff4a4a', '#4aff7a'];
+const SCALE    = [0, 2, 4, 5, 7, 9];                    // I ii iii IV V vi
+const NUMERALS = ['I', 'ii', 'iii', 'IV', 'V', 'vi'];
+const MINOR    = [false, true, true, false, false, true];
+const PROGRESSIONS = [[0, 3, 4, 0], [0, 4, 5, 3], [1, 4, 0, 0], [0, 5, 3, 4], [5, 3, 0, 4], [0, 3, 0, 4]];
+
+function rootFrets(shape, pc) {
+  const out = [];
+  for (let f = 1; f <= 12; f++) if ((STR_OPEN[ANCHOR[shape]] + f) % 12 === pc) out.push(f);
+  return out;
+}
+
+// ---- State ---------------------------------------------------------------
+const W = 180, H = 260, HORIZON = 92, Z_NEAR = 1, Z_FAR = 40, GATE_GAP = 13;
+const HS_KEY = 'eadProgressionRunScores', SOUND_KEY = 'eadArcadeSound';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+
+let state = 'start', score, lives, level, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
+let soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const pad = (n, w) => String(n).padStart(w, '0');
+
+// Build the next progression as a queue of gates
+function refill() {
+  if (passed % 8 === 0 || key === undefined) key = Math.floor(Math.random() * 12);
+  const prog = PROGRESSIONS[Math.floor(Math.random() * PROGRESSIONS.length)];
+  prog.forEach(d => {
+    const root = (key + SCALE[d]) % 12;
+    const shape = SHAPES[Math.floor(Math.random() * 3)];
+    const frets = rootFrets(shape, root);
+    const fret = frets[Math.floor(Math.random() * frets.length)];
+    queue.push({ deg: d, root, minor: MINOR[d], shape, fret, key });
+  });
+}
+function nextGate() { if (!queue.length) refill(); return queue.shift(); }
+function label(g) {
+  const chord = level >= 3 ? NUMERALS[g.deg] : PC_NAMES[g.root] + (g.minor ? 'm' : '');
+  return chord + ' @' + g.fret;
+}
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function beep(freq, dur, type) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.045, audio.currentTime);
+    g.gain.setValueAtTime(0, audio.currentTime + dur);
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + dur + 0.01);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- Drawing -------------------------------------------------------------
+// screen row for a distance, and the road's half width there
+const rowAt  = z => HORIZON + (H - 34 - HORIZON) * (Z_NEAR / z);
+const halfAt = z => 70 * (Z_NEAR / z);
+const laneX  = (l, half) => W / 2 + (l - 1) * (half * 2 / 3);
+
+function txt(s, x, y, size, color, align) {
+  ctx.font = size + "px 'Press Start 2P', monospace";
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = color; ctx.fillText(s, Math.round(x), Math.round(y));
+}
+
+function drawSky() {
+  const bands = ['#1b1040', '#2c1452', '#4a1a62', '#7a2266', '#b23a6b', '#e2606a', '#f48f55'];
+  const bh = HORIZON / bands.length;
+  bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, Math.floor(i * bh), W, Math.ceil(bh) + 1); });
+  // sun with cut lines
+  ctx.fillStyle = '#ffd166';
+  for (let y = 0; y < 30; y++) {
+    if (y > 14 && y % 4 === 0) continue;
+    const w = Math.round(Math.sqrt(30 * 30 - (y - 30) * (y - 30)) * 0.9);
+    ctx.fillRect(W / 2 - w, HORIZON - 30 + y, w * 2, 1);
+  }
+  // mountains
+  ctx.fillStyle = '#2a1238';
+  [[0, 14], [26, 8], [52, 18], [80, 10], [112, 16], [140, 7], [164, 13], [180, 9]].reduce((prev, cur) => {
+    for (let x = prev[0]; x < cur[0]; x++) {
+      const h = prev[1] + (cur[1] - prev[1]) * ((x - prev[0]) / (cur[0] - prev[0]));
+      ctx.fillRect(x, HORIZON - Math.round(h), 1, Math.round(h));
+    }
+    return cur;
+  });
+}
+
+function drawRoad() {
+  for (let y = HORIZON; y < H; y++) {
+    const z = Z_NEAR * (H - 34 - HORIZON) / Math.max(0.5, y - HORIZON);
+    const half = halfAt(z);
+    const band = Math.floor((z + travel) / 2.2) % 2;
+    ctx.fillStyle = band ? '#1d3a22' : '#234628'; ctx.fillRect(0, y, W, 1);
+    ctx.fillStyle = band ? '#3b3a4a' : '#43425a'; ctx.fillRect(Math.round(W / 2 - half), y, Math.round(half * 2), 1);
+    const rumble = Math.max(1, Math.round(half * 0.08));
+    ctx.fillStyle = band ? '#f4f1ea' : '#d2364a';
+    ctx.fillRect(Math.round(W / 2 - half - rumble), y, rumble, 1);
+    ctx.fillRect(Math.round(W / 2 + half), y, rumble, 1);
+    if (band) {
+      ctx.fillStyle = '#c9c4d6';
+      const lw = Math.max(1, Math.round(half * 0.025));
+      ctx.fillRect(Math.round(W / 2 - half / 3 - lw / 2), y, lw, 1);
+      ctx.fillRect(Math.round(W / 2 + half / 3 - lw / 2), y, lw, 1);
+    }
+  }
+}
+
+function drawGate(g) {
+  if (g.z > Z_FAR || g.z < Z_NEAR * 0.6) return;
+  const y = rowAt(g.z), half = halfAt(g.z), s = Z_NEAR / g.z;
+  // coloured lane strips on the road
+  const th = Math.max(1, Math.round(6 * s));
+  for (let l = 0; l < 3; l++) {
+    ctx.fillStyle = COLORS[l];
+    ctx.fillRect(Math.round(W / 2 - half + l * half * 2 / 3) + 1, Math.round(y - th), Math.round(half * 2 / 3) - 1, th);
+  }
+  // posts and sign board
+  const postH = Math.round(70 * s), pw = Math.max(1, Math.round(4 * s));
+  ctx.fillStyle = '#2b2440';
+  ctx.fillRect(Math.round(W / 2 - half - pw * 2), Math.round(y - postH), pw, postH);
+  ctx.fillRect(Math.round(W / 2 + half + pw), Math.round(y - postH), pw, postH);
+  const bh = Math.round(24 * s), bw = Math.round(half * 2 + pw * 6);
+  ctx.fillStyle = '#ffd166'; ctx.fillRect(Math.round(W / 2 - bw / 2), Math.round(y - postH - bh), bw, bh);
+  ctx.fillStyle = '#1b1040'; ctx.fillRect(Math.round(W / 2 - bw / 2) + 1, Math.round(y - postH - bh) + 1, bw - 2, Math.max(1, Math.round(2 * s)));
+  if (s > 0.3) { const fs = Math.max(8, Math.round(12 * s)); txt(label(g), W / 2, y - postH - bh / 2 - fs / 2 + 1, fs, '#1b1040', 'center'); }
+}
+
+function drawCar() {
+  const y = H - 30;
+  const x = Math.round(carX) + (shake ? Math.round(Math.random() * 4 - 2) : 0);
+  const px = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + dx, y + dy, w, h); };
+  px(-13, 6, 26, 10, '#d2364a');      // body
+  px(-9, 1, 18, 6, '#a3243a');        // roof
+  px(-7, 2, 14, 4, '#6ac7ff');        // rear window
+  px(-13, 14, 6, 5, '#111');          // tyres
+  px(7, 14, 6, 5, '#111');
+  px(-12, 9, 4, 2, '#ffd166');        // tail lights
+  px(8, 9, 4, 2, '#ffd166');
+  px(-4, 11, 8, 2, '#f4f1ea');        // plate
+}
+
+function drawHud() {
+  ctx.fillStyle = '#0d0820'; ctx.fillRect(0, 0, W, 13);
+  txt(pad(score, 6), 3, 3, 8, '#fff3d6');
+  txt('L' + pad(level, 2), 58, 3, 8, '#e2606a');
+  if (level >= 3) txt('KEY ' + PC_NAMES[gates[0] ? gates[0].key : key], 90, 3, 8, '#ffd166');
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = i < lives ? '#d2364a' : '#3b3a4a'; ctx.fillRect(152 + i * 9, 4, 7, 5); }
+  // the next sign, always readable
+  const g = gates[0];
+  if (g) {
+    ctx.fillStyle = '#ffd166'; ctx.fillRect(W / 2 - 60, 17, 120, 24);
+    ctx.fillStyle = '#1b1040'; ctx.fillRect(W / 2 - 58, 19, 116, 1);
+    txt(label(g), W / 2, 24, 12, '#1b1040', 'center');
+  }
+}
+
+function draw() {
+  drawSky(); drawRoad();
+  gates.slice().sort((a, b) => b.z - a.z).forEach(drawGate);
+  drawCar(); drawHud();
+  if (flash > 0) { ctx.fillStyle = `rgba(255,${flash > 0.5 ? 255 : 74},74,${Math.min(0.6, flash)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---- Game ----------------------------------------------------------------
+function setLane(l) {
+  if (l < 0 || l > 2 || l === lane) return;
+  lane = l;
+  document.querySelectorAll('.lane').forEach(b => b.classList.toggle('on', +b.dataset.lane === l));
+  if (state === 'playing') beep(330 + l * 110, 0.03);
+}
+
+function pass(g) {
+  if (SHAPES[lane] === g.shape) {
+    passed++; streak++;
+    score += (100 + 20 * Math.min(streak, 10)) * level;
+    beep(988, 0.05); setTimeout(() => beep(1319, 0.07), 60);
+    if (passed % 8 === 0) {
+      level++; speed *= 1.12;
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80));
+    }
+  } else {
+    lives--; streak = 0; flash = 1; shake = 0.4; speed = Math.max(6, speed * 0.85);
+    beep(120, 0.18, 'sawtooth'); setTimeout(() => beep(70, 0.25, 'sawtooth'), 90);
+    if (lives <= 0) { gameOver(); }
+  }
+}
+
+function frame(t) {
+  if (state !== 'playing') return;
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+  lastT = t;
+  travel += speed * dt;
+  gates.forEach(g => g.z -= speed * dt);
+  while (gates.length && gates[0].z <= Z_NEAR) { const g = gates.shift(); pass(g); if (state !== 'playing') { draw(); return; } }
+  const last = gates[gates.length - 1];
+  if (!last || last.z < Z_FAR - GATE_GAP) gates.push(Object.assign(nextGate(), { z: (last ? last.z : Z_FAR - GATE_GAP) + GATE_GAP }));
+  const targetX = laneX(lane, halfAt(Z_NEAR * 1.08));
+  carX += (targetX - carX) * Math.min(1, dt * 14);
+  shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt * 2.5);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<p>NO SCORES YET</p>';
+  return '<div class="hs">' + list.map((r, i) => `<div class="${i === hi ? 'me' : ''}">${String(i + 1).padStart(2, ' ')} ${r.i} ${pad(r.s, 6)}</div>`).join('') + '</div>';
+}
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+
+function showStart() {
+  state = 'start';
+  overlay(`<h2>PROGRESSION<br>RUN</h2>
+    <p>EACH SIGN SHOWS A CHORD AND A FRET, LIKE <b style="color:#ffd166">C @8</b>.</p>
+    <p>STEER INTO THE LANE OF THE SHAPE THAT PLAYS THAT CHORD THERE: <span class="e">ECHO</span> <span class="a">ALPHA</span> <span class="d">DELTA</span>.</p>
+    <p>FROM LEVEL 3 THE SIGNS USE NUMBERS IN A KEY.</p>
+    ${scoreTable(-1)}
+    <span class="go" onclick="startGame()">PRESS START</span>`);
+}
+
+function startGame() {
+  score = 0; lives = 3; level = 1; passed = 0; streak = 0; speed = 9; travel = 0;
+  gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
+  setLane(1); carX = W / 2;
+  let z = 18;
+  for (let i = 0; i < 2; i++, z += GATE_GAP) gates.push(Object.assign(nextGate(), { z }));
+  document.getElementById('over').className = 'over hidden';
+  state = 'playing';
+  beep(660, 0.06);
+  requestAnimationFrame(frame);
+}
+
+function gameOver() {
+  state = 'over';
+  [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
+  const list = highScores();
+  const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
+  setTimeout(() => overlay(`<h2>GAME<br>OVER</h2>
+    <p>SCORE ${pad(score, 6)}<br>LEVEL ${pad(level, 2)}  GATES ${pad(passed, 3)}</p>
+    ${qualifies
+      ? `<p>NEW HIGH SCORE! ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      : scoreTable(-1) + '<span class="go" onclick="startGame()">PRESS START</span>'}`), 500);
+}
+
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: score };
+  const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`<h2>GAME<br>OVER</h2><p>SCORE ${pad(score, 6)}</p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">PRESS START</span>`);
+}
+
+// ---- Input ---------------------------------------------------------------
+document.querySelectorAll('.lane').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); setLane(+b.dataset.lane); }));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) { saveScore(); return; }
+  if (e.key === 'ArrowLeft') setLane(lane - 1);
+  if (e.key === 'ArrowRight') setLane(lane + 1);
+  if (e.key === '1') setLane(0); if (e.key === '2') setLane(1); if (e.key === '3') setLane(2);
+});
+let sx = null;
+const stage = document.getElementById('stage');
+stage.addEventListener('pointerdown', e => { sx = e.clientX; });
+stage.addEventListener('pointerup', e => { if (sx === null) return; const dx = e.clientX - sx; if (Math.abs(dx) > 24) setLane(lane + (dx > 0 ? 1 : -1)); sx = null; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+});
+
+// Scale the pixel canvas to the screen
+function fit() {
+  const s = Math.max(1, Math.min((Math.min(window.innerWidth, 520) - 24) / W, (window.innerHeight - 120) / H));
+  cv.style.width = Math.floor(W * s) + 'px'; cv.style.height = Math.floor(H * s) + 'px';
+}
+window.addEventListener('resize', fit);
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+fit();
+score = 0; lives = 3; level = 1; passed = 0; streak = 0; travel = 0; gates = []; queue = []; lane = 1; carX = W / 2; shake = 0; flash = 0;
+document.fonts && document.fonts.ready.then(draw);
+draw();
+showStart();
+</script>
+</body>
+</html>
