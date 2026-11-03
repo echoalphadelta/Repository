@@ -81,11 +81,13 @@ function rootFrets(shape, pc) {
 }
 
 // ---- State ---------------------------------------------------------------
+const TRUCK_LEVEL = 5;                                   // the monster truck arrives at this level
 const W = 180, H = 260, HORIZON = 92, Z_NEAR = 1, Z_FAR = 40, GATE_GAP = 13;
 const HS_KEY = 'progressionRunScores', SOUND_KEY = 'arcadeSound';
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 
 let state = 'start', score, lives, level, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
+let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, truck = false, upgradeT = 0;
 let soundOn = true;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -143,72 +145,130 @@ function txt(s, x, y, size, color, align) {
   ctx.fillStyle = color; ctx.fillText(s, Math.round(x), Math.round(y));
 }
 
-function drawSky() {
-  const bands = ['#1b1040', '#2c1452', '#4a1a62', '#7a2266', '#b23a6b', '#e2606a', '#f48f55'];
-  const bh = HORIZON / bands.length;
-  bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, Math.floor(i * bh), W, Math.ceil(bh) + 1); });
-  // sun with cut lines
-  ctx.fillStyle = '#ffd166';
-  for (let y = 0; y < 30; y++) {
-    if (y > 14 && y % 4 === 0) continue;
-    const w = Math.round(Math.sqrt(30 * 30 - (y - 30) * (y - 30)) * 0.9);
-    ctx.fillRect(W / 2 - w, HORIZON - 30 + y, w * 2, 1);
+// ---- Time of day: evening, dusk, night, dawn, day, and round again ------
+const TIMES = [   // t, seven sky bands from the top down, grass, road, mountains
+  { t: 0.00, sky: ['#1b1040', '#2c1452', '#4a1a62', '#7a2266', '#b23a6b', '#e2606a', '#f48f55'], grass: ['#1d3a22', '#234628'], road: ['#3b3a4a', '#43425a'], hills: '#2a1238' },
+  { t: 0.14, sky: ['#0e0a2a', '#1a1040', '#2a1450', '#3d1a5c', '#5a2366', '#7a3070', '#9a4a6e'], grass: ['#152c1a', '#1b3620'], road: ['#2e2d3c', '#353446'], hills: '#1a0c28' },
+  { t: 0.28, sky: ['#03040f', '#060818', '#0a0d22', '#0e122c', '#131834', '#1a1f3e', '#232848'], grass: ['#0b1a10', '#0f2214'], road: ['#1e1e28', '#24242f'], hills: '#0a0c1c' },
+  { t: 0.52, sky: ['#03040f', '#060818', '#0a0d22', '#0e122c', '#131834', '#1a1f3e', '#232848'], grass: ['#0b1a10', '#0f2214'], road: ['#1e1e28', '#24242f'], hills: '#0a0c1c' },
+  { t: 0.66, sky: ['#1d2a5a', '#33407a', '#5a5e96', '#9a7aa8', '#e090a0', '#f4b08a', '#ffd08a'], grass: ['#2a4a2a', '#33552f'], road: ['#4a4858', '#524f60'], hills: '#4a3a5e' },
+  { t: 0.78, sky: ['#2f6fd0', '#3f80dc', '#5192e4', '#66a4ea', '#7fb6ef', '#9ec8f2', '#c4dcf2'], grass: ['#3f7a34', '#4a8a3c'], road: ['#55555f', '#5f5f6a'], hills: '#5a7a9a' },
+  { t: 0.90, sky: ['#2f6fd0', '#3f80dc', '#5192e4', '#66a4ea', '#7fb6ef', '#9ec8f2', '#c4dcf2'], grass: ['#3f7a34', '#4a8a3c'], road: ['#55555f', '#5f5f6a'], hills: '#5a7a9a' },
+  { t: 1.00, sky: ['#1b1040', '#2c1452', '#4a1a62', '#7a2266', '#b23a6b', '#e2606a', '#f48f55'], grass: ['#1d3a22', '#234628'], road: ['#3b3a4a', '#43425a'], hills: '#2a1238' },
+];
+const CYCLE_GATES = 48;                                  // one full day takes about six levels
+const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+const mix = (a, b, k) => { const p = hex(a), q = hex(b); return `rgb(${p.map((v, i) => Math.round(v + (q[i] - v) * k)).join(',')})`; };
+function timeOfDay() {
+  const t = ((travel || 0) / (GATE_GAP * CYCLE_GATES)) % 1;
+  let i = 0; while (TIMES[i + 1].t < t) i++;
+  const A = TIMES[i], B = TIMES[i + 1], k = (t - A.t) / (B.t - A.t);
+  const ramp = (a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
+  return {
+    t, sky: A.sky.map((c, j) => mix(c, B.sky[j], k)), grass: A.grass.map((c, j) => mix(c, B.grass[j], k)),
+    road: A.road.map((c, j) => mix(c, B.road[j], k)), hills: mix(A.hills, B.hills, k),
+    stars: Math.min(ramp(0.16, 0.26), 1 - ramp(0.56, 0.64)),
+    // how high the sun stands: 0 sits on the horizon, 1 is high, below 0 it has set
+    sun: t >= 0.6 ? (t < 0.7 ? -1 + (t - 0.6) / 0.1 : t < 0.82 ? (t - 0.7) / 0.12 : t < 0.92 ? 1 : 1 - (t - 0.92) / 0.08) : (t < 0.12 ? -t / 0.12 : -1),
+  };
+}
+const STARS = Array.from({ length: 46 }, () => [Math.random() * W, Math.random() * (HORIZON - 14), Math.random() * 6]);
+
+// ---- Curves: the road bends by an amount that grows with distance --------
+const bend = z => curve * 0.32 * Math.pow(z - Z_NEAR, 2) / (1 + (z - Z_NEAR) / 18);
+const centreAt = z => W / 2 + bend(z);
+
+function drawSky(tod) {
+  const bh = HORIZON / tod.sky.length;
+  tod.sky.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, Math.floor(i * bh), W, Math.ceil(bh) + 1); });
+  // stars, twinkling, and a moon that crosses the night
+  if (tod.stars > 0) {
+    STARS.forEach(([x, y, p]) => { const tw = 0.55 + 0.45 * Math.sin(performance.now() / 400 + p); ctx.globalAlpha = tod.stars * tw; ctx.fillStyle = '#fff7e0'; ctx.fillRect(Math.round((x - skyShift * 0.3 + W * 4) % W), Math.round(y), p > 5 ? 2 : 1, p > 5 ? 2 : 1); });
+    ctx.globalAlpha = tod.stars;
+    const mk = Math.max(0, Math.min(1, (tod.t - 0.2) / 0.42)), mx = W * (0.82 - mk * 0.64), my = 30 - Math.sin(mk * Math.PI) * 14;
+    ctx.fillStyle = '#f2ecd6'; for (let dy = -7; dy <= 7; dy++) { const w = Math.round(Math.sqrt(49 - dy * dy)); ctx.fillRect(Math.round(mx - w), Math.round(my + dy), w * 2, 1); }
+    ctx.fillStyle = tod.sky[1]; for (let dy = -7; dy <= 7; dy++) { const w = Math.round(Math.sqrt(49 - dy * dy)); ctx.fillRect(Math.round(mx - w + 4), Math.round(my + dy - 1), w * 2, 1); }
+    ctx.globalAlpha = 1;
   }
-  // mountains
-  ctx.fillStyle = '#2a1238';
-  [[0, 14], [26, 8], [52, 18], [80, 10], [112, 16], [140, 7], [164, 13], [180, 9]].reduce((prev, cur) => {
-    for (let x = prev[0]; x < cur[0]; x++) {
-      const h = prev[1] + (cur[1] - prev[1]) * ((x - prev[0]) / (cur[0] - prev[0]));
-      ctx.fillRect(x, HORIZON - Math.round(h), 1, Math.round(h));
+  // the sun: low and striped at evening and dawn, high and round by day
+  if (tod.sun > -1) {
+    const e = tod.sun, up = Math.max(0, e), r = 30 - up * 12;
+    const cy = e >= 0 ? HORIZON - up * 46 : HORIZON - e * r, cx = W / 2 + 40 * up;   // below 0 it sinks under the horizon
+    ctx.fillStyle = e > 0.6 ? '#fff3c0' : '#ffd166';
+    for (let dy = -r; dy <= r; dy++) {
+      const row = Math.round(cy + dy);
+      if (row >= HORIZON) continue;
+      if (e < 0.5 && dy > r * 0.45 && row % 4 === 0) continue;                       // retro cut lines while it is low
+      const w = Math.round(Math.sqrt(r * r - dy * dy) * 0.9);
+      ctx.fillRect(Math.round(cx - w), row, w * 2, 1);
     }
-    return cur;
-  });
+  }
+  // mountains, sliding as the road bends
+  ctx.fillStyle = tod.hills;
+  const peaks = [[0, 14], [26, 8], [52, 18], [80, 10], [112, 16], [140, 7], [164, 13], [180, 14]];
+  for (let x = 0; x < W; x++) {
+    const u = ((x + skyShift) % W + W) % W;
+    let i = 0; while (peaks[i + 1][0] <= u) i++;
+    const A = peaks[i], B = peaks[i + 1], h = A[1] + (B[1] - A[1]) * ((u - A[0]) / (B[0] - A[0]));
+    ctx.fillRect(x, HORIZON - Math.round(h), 1, Math.round(h));
+  }
 }
 
-function drawRoad() {
+function drawRoad(tod) {
   for (let y = HORIZON; y < H; y++) {
     const z = Z_NEAR * (H - 34 - HORIZON) / Math.max(0.5, y - HORIZON);
-    const half = halfAt(z);
+    const half = halfAt(z), cx = centreAt(z);
     const band = Math.floor((z + travel) / 2.2) % 2;
-    ctx.fillStyle = band ? '#1d3a22' : '#234628'; ctx.fillRect(0, y, W, 1);
-    ctx.fillStyle = band ? '#3b3a4a' : '#43425a'; ctx.fillRect(Math.round(W / 2 - half), y, Math.round(half * 2), 1);
+    ctx.fillStyle = tod.grass[band ? 0 : 1]; ctx.fillRect(0, y, W, 1);
+    ctx.fillStyle = tod.road[band ? 0 : 1]; ctx.fillRect(Math.round(cx - half), y, Math.round(half * 2), 1);
     const rumble = Math.max(1, Math.round(half * 0.08));
     ctx.fillStyle = band ? '#f4f1ea' : '#d2364a';
-    ctx.fillRect(Math.round(W / 2 - half - rumble), y, rumble, 1);
-    ctx.fillRect(Math.round(W / 2 + half), y, rumble, 1);
+    ctx.fillRect(Math.round(cx - half - rumble), y, rumble, 1);
+    ctx.fillRect(Math.round(cx + half), y, rumble, 1);
     if (band) {
       ctx.fillStyle = '#c9c4d6';
       const lw = Math.max(1, Math.round(half * 0.025));
-      ctx.fillRect(Math.round(W / 2 - half / 3 - lw / 2), y, lw, 1);
-      ctx.fillRect(Math.round(W / 2 + half / 3 - lw / 2), y, lw, 1);
+      ctx.fillRect(Math.round(cx - half / 3 - lw / 2), y, lw, 1);
+      ctx.fillRect(Math.round(cx + half / 3 - lw / 2), y, lw, 1);
     }
+  }
+  // headlights light up the road after dark, following the bend ahead
+  if (tod.stars > 0.05) {
+    const y0 = H - 30;
+    ctx.globalAlpha = 0.16 * tod.stars; ctx.fillStyle = '#fff2b0';
+    for (let y = y0; y > y0 - 56; y--) {
+      const z = Z_NEAR * (H - 34 - HORIZON) / Math.max(0.5, y - HORIZON), w = 7 + (y0 - y) * 0.5;
+      ctx.fillRect(Math.round(carX + bend(z) - w), y, Math.round(w * 2), 1);
+    }
+    ctx.globalAlpha = 1;
   }
 }
 
 function drawGate(g) {
   if (g.z > Z_FAR || g.z < Z_NEAR * 0.6) return;
-  const y = rowAt(g.z), half = halfAt(g.z), s = Z_NEAR / g.z;
+  const y = rowAt(g.z), half = halfAt(g.z), s = Z_NEAR / g.z, cx = centreAt(g.z);
   // coloured lane strips on the road
   const th = Math.max(1, Math.round(6 * s));
   for (let l = 0; l < 3; l++) {
     ctx.fillStyle = COLORS[l];
-    ctx.fillRect(Math.round(W / 2 - half + l * half * 2 / 3) + 1, Math.round(y - th), Math.round(half * 2 / 3) - 1, th);
+    ctx.fillRect(Math.round(cx - half + l * half * 2 / 3) + 1, Math.round(y - th), Math.round(half * 2 / 3) - 1, th);
   }
   // posts and sign board
   const postH = Math.round(70 * s), pw = Math.max(1, Math.round(4 * s));
   ctx.fillStyle = '#2b2440';
-  ctx.fillRect(Math.round(W / 2 - half - pw * 2), Math.round(y - postH), pw, postH);
-  ctx.fillRect(Math.round(W / 2 + half + pw), Math.round(y - postH), pw, postH);
+  ctx.fillRect(Math.round(cx - half - pw * 2), Math.round(y - postH), pw, postH);
+  ctx.fillRect(Math.round(cx + half + pw), Math.round(y - postH), pw, postH);
   const bh = Math.round(24 * s), bw = Math.round(half * 2 + pw * 6);
-  ctx.fillStyle = '#ffd166'; ctx.fillRect(Math.round(W / 2 - bw / 2), Math.round(y - postH - bh), bw, bh);
-  ctx.fillStyle = '#1b1040'; ctx.fillRect(Math.round(W / 2 - bw / 2) + 1, Math.round(y - postH - bh) + 1, bw - 2, Math.max(1, Math.round(2 * s)));
-  if (s > 0.3) { const fs = Math.max(8, Math.round(12 * s)); txt(label(g), W / 2, y - postH - bh / 2 - fs / 2 + 1, fs, '#1b1040', 'center'); }
+  ctx.fillStyle = '#ffd166'; ctx.fillRect(Math.round(cx - bw / 2), Math.round(y - postH - bh), bw, bh);
+  ctx.fillStyle = '#1b1040'; ctx.fillRect(Math.round(cx - bw / 2) + 1, Math.round(y - postH - bh) + 1, bw - 2, Math.max(1, Math.round(2 * s)));
+  if (s > 0.3) { const fs = Math.max(8, Math.round(12 * s)); txt(label(g), cx, y - postH - bh / 2 - fs / 2 + 1, fs, '#1b1040', 'center'); }
 }
 
-function drawCar() {
+function drawCar(tod) {
   const y = H - 30;
   const x = Math.round(carX) + (shake ? Math.round(Math.random() * 4 - 2) : 0);
   const px = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + dx, y + dy, w, h); };
+  if (truck) return drawTruck(x, y, px, tod);
   px(-13, 6, 26, 10, '#d2364a');      // body
   px(-9, 1, 18, 6, '#a3243a');        // roof
   px(-7, 2, 14, 4, '#6ac7ff');        // rear window
@@ -218,7 +278,30 @@ function drawCar() {
   px(8, 9, 4, 2, '#ffd166');
   px(-4, 11, 8, 2, '#f4f1ea');        // plate
 }
-
+function drawTruck(x, y, px, tod) {
+  // a lifted neon monster truck: black body traced in pink and cyan, huge tyres, underglow
+  const bounce = Math.round(Math.sin(performance.now() / 90) * 0.6);
+  ctx.globalAlpha = 0.45; ctx.fillStyle = '#ff3df2';
+  for (let dy = 0; dy < 4; dy++) ctx.fillRect(x - 20 + dy * 2, y + 20 + dy, 40 - dy * 4, 1);
+  ctx.globalAlpha = 1;
+  // tyres with chunky tread and glowing hubs
+  [-21, 11].forEach(dx => {
+    px(dx, 4 + bounce, 10, 16, '#0b0b10');
+    for (let k = 0; k < 4; k++) px(dx, 5 + k * 4 + bounce, 10, 1, '#2a2a36');
+    px(dx + 3, 9 + bounce, 4, 5, '#3ef0ff');
+  });
+  // suspension
+  px(-12, 8, 3, 6, '#3ef0ff'); px(9, 8, 3, 6, '#3ef0ff');
+  // body and cab
+  const by = -2 + bounce;
+  px(-17, by, 34, 10, '#ff3df2'); px(-16, by + 1, 32, 8, '#140a26');
+  px(-11, by - 8, 22, 9, '#ff3df2'); px(-10, by - 7, 20, 7, '#140a26');
+  px(-8, by - 6, 16, 4, '#3ef0ff');                  // rear window
+  px(-16, by + 3, 32, 1, '#3ef0ff');                 // neon stripe
+  px(-15, by + 5, 4, 2, '#ff2a4a'); px(11, by + 5, 4, 2, '#ff2a4a');    // tail lights
+  px(-6, by - 10, 12, 2, '#ffd166');                 // roof light bar
+  px(-4, by + 6, 8, 2, '#f4f1ea');                   // plate
+}
 function drawHud() {
   ctx.fillStyle = '#0d0820'; ctx.fillRect(0, 0, W, 13);
   txt(pad(score, 6), 3, 3, 8, '#fff3d6');
@@ -235,9 +318,15 @@ function drawHud() {
 }
 
 function draw() {
-  drawSky(); drawRoad();
+  const tod = timeOfDay();
+  drawSky(tod); drawRoad(tod);
   gates.slice().sort((a, b) => b.z - a.z).forEach(drawGate);
-  drawCar(); drawHud();
+  drawCar(tod); drawHud();
+  if (upgradeT > 0 && Math.floor(upgradeT * 4) % 2 === 0) {
+    ctx.fillStyle = 'rgba(20,10,38,0.85)'; ctx.fillRect(W / 2 - 74, 100, 148, 34);
+    txt('UPGRADE!', W / 2, 105, 8, '#3ef0ff', 'center');
+    txt('MONSTER TRUCK', W / 2, 119, 10, '#ff3df2', 'center');
+  }
   if (flash > 0) { ctx.fillStyle = `rgba(255,${flash > 0.5 ? 255 : 74},74,${Math.min(0.6, flash)})`; ctx.fillRect(0, 0, W, H); }
 }
 
@@ -256,6 +345,7 @@ function pass(g) {
     beep(988, 0.05); setTimeout(() => beep(1319, 0.07), 60);
     if (passed % 8 === 0) {
       level++; speed *= 1.12;
+      if (level >= TRUCK_LEVEL && !truck) { truck = true; upgradeT = 2.6; [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70)); }
       [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80));
     }
   } else {
@@ -271,6 +361,14 @@ function frame(t) {
   lastT = t;
   travel += speed * dt;
   gates.forEach(g => g.z -= speed * dt);
+  // pick a new bend now and then: about half the time the road runs straight
+  if (travel > curveUntil) {
+    curveTarget = Math.random() < 0.45 ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+    curveUntil = travel + GATE_GAP * (2 + Math.random() * 3);
+  }
+  curve += (curveTarget - curve) * Math.min(1, dt * 0.9);
+  skyShift += curve * speed * dt * 1.4;
+  upgradeT = Math.max(0, upgradeT - dt);
   while (gates.length && gates[0].z <= Z_NEAR) { const g = gates.shift(); pass(g); if (state !== 'playing') { draw(); return; } }
   const last = gates[gates.length - 1];
   if (!last || last.z < Z_FAR - GATE_GAP) gates.push(Object.assign(nextGate(), { z: (last ? last.z : Z_FAR - GATE_GAP) + GATE_GAP }));
@@ -294,7 +392,7 @@ function showStart() {
   overlay(`<h2>PROGRESSION<br>RUN</h2>
     <p>EACH SIGN SHOWS A CHORD AND A FRET, LIKE <b style="color:#ffd166">C @8</b>.</p>
     <p>STEER INTO THE LANE OF THE SHAPE THAT PLAYS THAT CHORD THERE: <span class="e">ECHO</span> <span class="a">ALPHA</span> <span class="d">DELTA</span>.</p>
-    <p>FROM LEVEL 3 THE SIGNS USE NUMBERS IN A KEY.</p>
+    <p>FROM LEVEL 3 THE SIGNS USE NUMBERS IN A KEY. REACH LEVEL 5 FOR A SURPRISE.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PRESS START</span>`);
 }
@@ -302,6 +400,7 @@ function showStart() {
 function startGame() {
   score = 0; lives = 3; level = 1; passed = 0; streak = 0; speed = 6.5; travel = 0;
   gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
+  curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; truck = false; upgradeT = 0;
   setLane(1); carX = W / 2;
   let z = 18;
   for (let i = 0; i < 2; i++, z += GATE_GAP) gates.push(Object.assign(nextGate(), { z }));
