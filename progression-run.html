@@ -81,12 +81,14 @@ function rootFrets(shape, pc) {
 }
 
 // ---- State ---------------------------------------------------------------
-const TRUCK_LEVEL = 5;                                   // the monster truck arrives at this level
+const PIT_TIME = 3.8;
+const TRUCK_AT = 10, PIT_EVERY = 20, BASE_SPEED = 6.5;   // monster truck after 10 correct, a pit stop every 20
 const W = 180, H = 260, HORIZON = 92, Z_NEAR = 1, Z_FAR = 40, GATE_GAP = 13;
 const HS_KEY = 'progressionRunScores', SOUND_KEY = 'arcadeSound';
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 
-let state = 'start', score, lives, level, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
+let state = 'start', score, lives, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
+let pitT = 0, pitFixed = false;
 let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, truck = false, upgradeT = 0;
 let soundOn = true;
 
@@ -109,7 +111,7 @@ function refill() {
 }
 function nextGate() { if (!queue.length) refill(); return queue.shift(); }
 function label(g) {
-  const chord = level >= 3 ? NUMERALS[g.deg] : PC_NAMES[g.root] + (g.minor ? 'm' : '');
+  const chord = PC_NAMES[g.root] + (g.minor ? 'm' : '');
   return chord + ' @' + g.fret;
 }
 
@@ -156,7 +158,7 @@ const TIMES = [   // t, seven sky bands from the top down, grass, road, mountain
   { t: 0.90, sky: ['#2f6fd0', '#3f80dc', '#5192e4', '#66a4ea', '#7fb6ef', '#9ec8f2', '#c4dcf2'], grass: ['#3f7a34', '#4a8a3c'], road: ['#55555f', '#5f5f6a'], hills: '#5a7a9a' },
   { t: 1.00, sky: ['#1b1040', '#2c1452', '#4a1a62', '#7a2266', '#b23a6b', '#e2606a', '#f48f55'], grass: ['#1d3a22', '#234628'], road: ['#3b3a4a', '#43425a'], hills: '#2a1238' },
 ];
-const CYCLE_GATES = 48;                                  // one full day takes about six levels
+const CYCLE_GATES = 48;                                  // one full day takes about 48 gates
 const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
 const mix = (a, b, k) => { const p = hex(a), q = hex(b); return `rgb(${p.map((v, i) => Math.round(v + (q[i] - v) * k)).join(',')})`; };
 function timeOfDay() {
@@ -302,11 +304,31 @@ function drawTruck(x, y, px, tod) {
   px(-6, by - 10, 12, 2, '#ffd166');                 // roof light bar
   px(-4, by + 6, 8, 2, '#f4f1ea');                   // plate
 }
+function drawPit() {
+  // a chequered pit board, two crew in overalls, a fuel hose and sparks from the wrench
+  const x = Math.round(carX), y = H - 30, busy = pitT > 0.9 && pitT < PIT_TIME - 0.9;
+  for (let i = 0; i < 18; i++) { ctx.fillStyle = (i % 2) ? '#f4f1ea' : '#111'; ctx.fillRect(W / 2 - 54 + i * 6, 96, 6, 3); ctx.fillStyle = (i % 2) ? '#111' : '#f4f1ea'; ctx.fillRect(W / 2 - 54 + i * 6, 99, 6, 3); }
+  ctx.fillStyle = 'rgba(13,8,32,0.88)'; ctx.fillRect(W / 2 - 54, 102, 108, 26);
+  txt('PIT STOP', W / 2, 106, 10, '#ffd166', 'center');
+  txt(pitFixed ? 'REPAIRED' : 'FIXING...', W / 2, 119, 6, pitFixed ? '#4aff7a' : '#fff3d6', 'center');
+  if (!busy) return;
+  const crew = (cx, f) => {
+    ctx.fillStyle = '#f48f55'; ctx.fillRect(cx - 3, y + 4, 6, 9);              // overalls
+    ctx.fillStyle = '#e8c9a0'; ctx.fillRect(cx - 2, y, 4, 4);                  // head
+    ctx.fillStyle = '#fff3d6'; ctx.fillRect(cx - 3, y - 1, 6, 2);              // cap
+    ctx.fillStyle = '#2b2440'; ctx.fillRect(cx - 3, y + 13, 2, 5); ctx.fillRect(cx + 1, y + 13, 2, 5);
+    ctx.fillStyle = '#c9c4d6'; ctx.fillRect(cx + 3 * f, y + 7 + Math.round(Math.sin(performance.now() / 60)), 4 * f, 2);   // wrench
+  };
+  crew(x - 26, 1); crew(x + 26, -1);
+  ctx.fillStyle = '#ffd166'; if (Math.random() < 0.6) ctx.fillRect(x - 19 + Math.round(Math.random() * 3), y + 4 + Math.round(Math.random() * 6), 1, 1);
+  if (Math.random() < 0.6) ctx.fillRect(x + 18 - Math.round(Math.random() * 3), y + 4 + Math.round(Math.random() * 6), 1, 1);
+  // the fuel hose snakes in from the side of the road
+  ctx.strokeStyle = '#d2364a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x < W / 2 ? W : 0, y + 2); ctx.quadraticCurveTo(x < W / 2 ? x + 40 : x - 40, y - 12, x + (x < W / 2 ? 10 : -10), y + 4); ctx.stroke();
+}
 function drawHud() {
   ctx.fillStyle = '#0d0820'; ctx.fillRect(0, 0, W, 13);
   txt(pad(score, 6), 3, 3, 8, '#fff3d6');
-  txt('L' + pad(level, 2), 58, 3, 8, '#e2606a');
-  if (level >= 3) txt('KEY ' + PC_NAMES[gates[0] ? gates[0].key : key], 90, 3, 8, '#ffd166');
+  txt('x' + pad(passed, 3), 64, 3, 8, '#e2606a');
   for (let i = 0; i < 3; i++) { ctx.fillStyle = i < lives ? '#d2364a' : '#3b3a4a'; ctx.fillRect(152 + i * 9, 4, 7, 5); }
   // the next sign, always readable
   const g = gates[0];
@@ -322,6 +344,7 @@ function draw() {
   drawSky(tod); drawRoad(tod);
   gates.slice().sort((a, b) => b.z - a.z).forEach(drawGate);
   drawCar(tod); drawHud();
+  if (pitT > 0) drawPit();
   if (upgradeT > 0 && Math.floor(upgradeT * 4) % 2 === 0) {
     ctx.fillStyle = 'rgba(20,10,38,0.85)'; ctx.fillRect(W / 2 - 74, 100, 148, 34);
     txt('UPGRADE!', W / 2, 105, 8, '#3ef0ff', 'center');
@@ -341,13 +364,10 @@ function setLane(l) {
 function pass(g) {
   if (SHAPES[lane] === g.shape) {
     passed++; streak++;
-    score += (100 + 20 * Math.min(streak, 10)) * level;
+    score += 100 + 20 * Math.min(streak, 10);
     beep(988, 0.05); setTimeout(() => beep(1319, 0.07), 60);
-    if (passed % 8 === 0) {
-      level++; speed *= 1.12;
-      if (level >= TRUCK_LEVEL && !truck) { truck = true; upgradeT = 2.6; [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70)); }
-      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80));
-    }
+    if (passed === TRUCK_AT && !truck) { truck = true; upgradeT = 2.6; [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70)); }
+    if (passed % PIT_EVERY === 0) { pitT = PIT_TIME; pitFixed = false; [659, 523].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 140)); }
   } else {
     lives--; streak = 0; flash = 1; shake = 0.4; speed = Math.max(5, speed * 0.85);
     beep(120, 0.18, 'sawtooth'); setTimeout(() => beep(70, 0.25, 'sawtooth'), 90);
@@ -359,15 +379,25 @@ function frame(t) {
   if (state !== 'playing') return;
   const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
   lastT = t;
-  travel += speed * dt;
-  gates.forEach(g => g.z -= speed * dt);
+  // during a pit stop the car slows to a halt, gets fixed up, then pulls away
+  let mul = 1;
+  if (pitT > 0) {
+    pitT = Math.max(0, pitT - dt);
+    const held = PIT_TIME - 0.9;
+    mul = pitT > held ? (pitT - held) / 0.9 : pitT > 0.9 ? 0 : 1 - pitT / 0.9;
+    if (!pitFixed && pitT < held - 0.8) { pitFixed = true; lives = 3; [523, 659, 784].forEach((f, i) => setTimeout(() => beep(f, 0.08), i * 120)); }
+  }
+  speed += (BASE_SPEED - speed) * Math.min(1, dt * 0.25);      // after a crash, ease back up to cruising speed
+  const v = speed * mul;
+  travel += v * dt;
+  gates.forEach(g => g.z -= v * dt);
   // pick a new bend now and then: about half the time the road runs straight
   if (travel > curveUntil) {
     curveTarget = Math.random() < 0.45 ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
     curveUntil = travel + GATE_GAP * (2 + Math.random() * 3);
   }
   curve += (curveTarget - curve) * Math.min(1, dt * 0.9);
-  skyShift += curve * speed * dt * 1.4;
+  skyShift += curve * v * dt * 1.4;
   upgradeT = Math.max(0, upgradeT - dt);
   while (gates.length && gates[0].z <= Z_NEAR) { const g = gates.shift(); pass(g); if (state !== 'playing') { draw(); return; } }
   const last = gates[gates.length - 1];
@@ -392,13 +422,13 @@ function showStart() {
   overlay(`<h2>PROGRESSION<br>RUN</h2>
     <p>EACH SIGN SHOWS A CHORD AND A FRET, LIKE <b style="color:#ffd166">C @8</b>.</p>
     <p>STEER INTO THE LANE OF THE SHAPE THAT PLAYS THAT CHORD THERE: <span class="e">ECHO</span> <span class="a">ALPHA</span> <span class="d">DELTA</span>.</p>
-    <p>FROM LEVEL 3 THE SIGNS USE NUMBERS IN A KEY. REACH LEVEL 5 FOR A SURPRISE.</p>
+    <p>GET 10 RIGHT AND YOUR RIDE GETS AN UPGRADE. EVERY 20 RIGHT, A PIT STOP FIXES YOUR CAR.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PRESS START</span>`);
 }
 
 function startGame() {
-  score = 0; lives = 3; level = 1; passed = 0; streak = 0; speed = 6.5; travel = 0;
+  score = 0; lives = 3; passed = 0; streak = 0; speed = BASE_SPEED; travel = 0; pitT = 0; pitFixed = false;
   gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
   curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; truck = false; upgradeT = 0;
   setLane(1); carX = W / 2;
@@ -416,7 +446,7 @@ function gameOver() {
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
   setTimeout(() => overlay(`<h2>GAME<br>OVER</h2>
-    <p>SCORE ${pad(score, 6)}<br>LEVEL ${pad(level, 2)}  GATES ${pad(passed, 3)}</p>
+    <p>SCORE ${pad(score, 6)}<br>GATES ${pad(passed, 3)}</p>
     ${qualifies
       ? `<p>NEW HIGH SCORE! ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
       : scoreTable(-1) + '<span class="go" onclick="startGame()">PRESS START</span>'}`), 500);
@@ -458,7 +488,7 @@ window.addEventListener('resize', fit);
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
 fit();
-score = 0; lives = 3; level = 1; passed = 0; streak = 0; travel = 0; gates = []; queue = []; lane = 1; carX = W / 2; shake = 0; flash = 0;
+score = 0; lives = 3; passed = 0; streak = 0; travel = 0; gates = []; queue = []; lane = 1; carX = W / 2; shake = 0; flash = 0;
 document.fonts && document.fonts.ready.then(draw);
 draw();
 showStart();
