@@ -40,7 +40,7 @@ a, button { font: inherit; color: inherit; }
 .c.last { border-right: none; }
 .c.inlay::after { content: ''; position: absolute; left: 50%; top: 100%; width: 7px; height: 7px; margin: -3px 0 0 -3px; background: var(--g1); z-index: 1; }
 .c.p, .c.b, .c.f { border-style: solid; border-width: 3px; }
-.c.p::before, .c.b::before, .c.f::before { display: none; }
+.c.p::before, .c.b::before, .c.f::before, .c.p::after, .c.b::after, .c.f::after { display: none; }
 .c.p { background: var(--g1); border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
 .c.b { background: var(--g0); border-color: var(--g1) var(--g0) var(--g0) var(--g1); }
 .c.f { background: var(--g3); border-color: var(--g3) var(--g1) var(--g1) var(--g3); }
@@ -208,7 +208,7 @@ const SHAPES = ['echo', 'alpha', 'delta'];
 const QUAL_LABEL = { '':'', 'm':'m', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4' };
 const HS_KEY = 'eadShapeSnapScores', SOUND_KEY = 'eadArcadeSound';
 
-let stack, piece, nextPiece, score, level, landed, streak, state = 'start', timer = null, busy = false;
+let wall, piece, nextPiece, score, level, landed, streak, state = 'start', timer = null, busy = false;
 let soundOn = true;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -216,6 +216,7 @@ function load(k)     { try { return localStorage.getItem(k); } catch (e) { retur
 function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
 const pad = (n, w) => String(n).padStart(w, '0');
 const rowOf = s => 5 - s;   // string index to screen row
+const wallStart = () => COLS - wall;   // first fret column taken by the wall
 
 function qualitiesForLevel() {
   if (level <= 2) return [''];
@@ -234,7 +235,7 @@ function grip(shape, q, root) {
   const pts = [...computeGripTones(shape, q, root)].map(k => { const [f, s] = k.split('-').map(Number); return { f, s }; });
   if (!pts.length) return null;
   const min = Math.min(...pts.map(p => p.f)), max = Math.max(...pts.map(p => p.f));
-  if (max - min > 4 || max > NF) return null;
+  if (max - min > 4 || max >= wallStart()) return null;
   return { shape, q, root, name: PC_NAMES[root] + QUAL_LABEL[q], target: min, w: max - min + 1,
            cells: pts.map(p => ({ c: p.f - min, r: rowOf(p.s) })) };
 }
@@ -268,9 +269,7 @@ function planShift(g) {
 
 function fits(cells, x) {
   return cells.every(({ c, r }) => {
-    const col = x + c;
-    if (col > NF) return false;
-    return col < 0 || !stack[r][col];
+    return x + c < wallStart();
   });
 }
 
@@ -319,7 +318,7 @@ function render(flash) {
   for (let r = 0; r < ROWS; r++) for (let f = 0; f <= NF; f++) {
     const el = cells[r * COLS + f];
     el.classList.remove('p', 'b', 'f');
-    if (stack[r][f]) el.classList.add('b');
+    if (f >= wallStart()) el.classList.add('b');
   }
   if (piece) piece.cells.forEach(({ c, r }) => {
     const col = piece.x + c;
@@ -330,7 +329,7 @@ function render(flash) {
 function renderNext() {
   const box = document.getElementById('next');
   box.style.gridTemplateColumns = 'repeat(5, 9px)';
-  const on = new Set(nextPiece.cells.map(({ c, r }) => r + '-' + c));
+  const on = new Set(nextPiece ? nextPiece.cells.map(({ c, r }) => r + '-' + c) : []);
   let h = '';
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < 5; c++) h += `<div class="${on.has(r + '-' + c) ? 'p' : ''}"></div>`;
   box.innerHTML = h;
@@ -344,10 +343,12 @@ function say(t) { document.getElementById('msg').innerHTML = t; }
 
 // Flow
 function spawn() {
-  piece = nextPiece; piece.x = 1 - piece.w;   // enters through the nut
+  // the wall may have grown since the next piece was chosen
+  piece = nextPiece && nextPiece.target + nextPiece.w <= wallStart() ? nextPiece : makePiece();
+  if (!piece) { gameOver(); return; }
+  piece.x = 1 - piece.w;   // enters through the nut
   nextPiece = makePiece();
   renderNext();
-  if (!fits(piece.cells, piece.x)) { gameOver(); return; }
   render();
 }
 
@@ -362,33 +363,22 @@ function morph() {
   [660, 880, 660].forEach((f, i) => setTimeout(() => beep(f, 0.04), i * 50));
 }
 
-function lock() {
-  let jammed = false;
-  piece.cells.forEach(({ c, r }) => {
-    const col = piece.x + c;
-    if (col < 1) jammed = true;
-    if (col >= 0) stack[r][col] = 1;
-  });
-  piece = null;
-  // A fret filled on all six strings clears, and the pile slides toward the body
-  let cleared = 0;
-  for (let f = NF; f >= 1; f--) {
-    if (stack.every(row => row[f])) {
-      stack.forEach(row => { row.splice(f, 1); row.splice(1, 0, 0); });
-      cleared++; f++;
-    }
-  }
-  if (cleared) { score += 500 * cleared * level; hud(); [784, 988, 1175].forEach((n, i) => setTimeout(() => beep(n, 0.06), i * 70)); }
-  else beep(90, 0.08);
-  if (jammed) { render(); gameOver(); return; }
-  spawn();
-}
-
+// A miss slams into the body end and becomes one more column of the wall
 function miss() {
   streak = 0; hud();
   say('MISS');
-  while (fits(piece.cells, piece.x + 1)) piece.x++;   // slam into the body end
-  render(); lock();
+  busy = true;
+  const slam = setInterval(() => {
+    if (fits(piece.cells, piece.x + 1)) { piece.x++; render(); return; }
+    clearInterval(slam);
+    piece = null;
+    wall++;
+    render();
+    beep(110, 0.06); setTimeout(() => beep(70, 0.14), 60);
+    busy = false;
+    if (wallStart() <= 3) { gameOver(); return; }
+    spawn();
+  }, 22);
 }
 
 function tick() {
@@ -446,13 +436,13 @@ function showStart() {
   overlay(`<h2>SHAPE SNAP</h2>
     <p>A GRIP SLIDES UP THE NECK FROM THE NUT. ITS CHORD IS SHOWN BELOW.</p>
     <p>HIT <span class="inv">DROP</span> WHEN IT REACHES THE FRET WHERE THAT SHAPE PLAYS THAT CHORD.</p>
-    <p>SOME GRIPS <span class="inv">SHIFT</span> ON THE WAY. MISSES PILE UP AT THE BODY.</p>
+    <p>SOME GRIPS <span class="inv">SHIFT</span> ON THE WAY. EVERY MISS SLAMS INTO THE BODY AND THICKENS THE WALL.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PUSH START</span>`);
 }
 
 function startGame() {
-  stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  wall = 0;
   score = 0; level = 1; landed = 0; streak = 0; busy = false;
   nextPiece = makePiece();
   document.getElementById('over').className = 'over hidden';
@@ -498,7 +488,7 @@ document.addEventListener('visibilitychange', () => {
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
 buildNeck();
-stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+wall = 0;
 score = 0; level = 1; landed = 0; streak = 0;
 nextPiece = makePiece(); renderNext(); render(); hud();
 showStart();
