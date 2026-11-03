@@ -27,8 +27,9 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
 .lanes { display: flex; gap: 8px; margin-top: 10px; }
 .lane { width: 104px; height: 54px; border: 3px solid currentColor; background: #0d0820; cursor: pointer; font-size: 10px; letter-spacing: 1px; touch-action: manipulation; }
 .lane.e { color: var(--echo); } .lane.a { color: var(--alpha); } .lane.d { color: var(--delta); }
-.lane.on { background: currentColor; }
-.lane.on span { color: #0d0820; }
+.lane { background: currentColor; }
+.lane span { color: #0d0820; }
+.lane.on { outline: 3px solid #fff3d6; outline-offset: 3px; }
 .over { position: absolute; inset: 0; background: rgba(13,8,32,0.92); padding: 16px 14px; font-size: 9px; line-height: 1.9; overflow: auto; }
 .over.hidden { display: none; }
 .over h2 { margin: 0 0 12px; font-size: 16px; font-weight: 400; line-height: 1.1; color: var(--sun); }
@@ -258,7 +259,7 @@ function pass(g) {
       [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.06), i * 80));
     }
   } else {
-    lives--; streak = 0; flash = 1; shake = 0.4; speed = Math.max(6, speed * 0.85);
+    lives--; streak = 0; flash = 1; shake = 0.4; speed = Math.max(5, speed * 0.85);
     beep(120, 0.18, 'sawtooth'); setTimeout(() => beep(70, 0.25, 'sawtooth'), 90);
     if (lives <= 0) { gameOver(); }
   }
@@ -299,7 +300,7 @@ function showStart() {
 }
 
 function startGame() {
-  score = 0; lives = 3; level = 1; passed = 0; streak = 0; speed = 9; travel = 0;
+  score = 0; lives = 3; level = 1; passed = 0; streak = 0; speed = 6.5; travel = 0;
   gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
   setLane(1); carX = W / 2;
   let z = 18;
