@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Tournament | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+<style>
+/* A festival tournament: parchment, heraldic red, blue and gold, a woodcut-era serif and a blackletter title */
+:root { --parch: #f3e7c9; --parch2: #e2d0a4; --ink: #2a1a10; --red: #a8261f; --blue: #23407a; --gold: #c99a2e; --green: #3f6b2a; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: #2b1d14; }
+body { color: var(--parch); font-family: 'IM Fell English', Georgia, serif; font-size: 17px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 480px; margin: 0 auto; padding: 8px 12px 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 16px; }
+.top a { text-decoration: none; color: var(--gold); }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: #b39a72; }
+/* the herald's scroll */
+.scroll { position: relative; margin-top: 6px; background: var(--parch); color: var(--ink); padding: 8px 18px 9px; text-align: center; border-radius: 3px; box-shadow: inset 0 0 0 2px var(--parch2); }
+.scroll::before, .scroll::after { content: ''; position: absolute; top: 4px; bottom: 4px; width: 8px; background: #c8b285; border-radius: 4px; }
+.scroll::before { left: -4px; } .scroll::after { right: -4px; }
+.scroll .who { font-size: 14px; color: #6b5636; }
+.scroll .call { font-size: 30px; line-height: 1.1; }
+.scroll .call b { font-weight: 400; color: var(--red); }
+.stage { position: relative; margin-top: 8px; }
+.stage:has(.over:not(.hidden)) { min-height: 470px; }
+canvas { display: block; margin: 0 auto; border: 3px solid #1a110b; touch-action: none; }
+.board { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 17px; }
+.board .side { display: flex; align-items: center; gap: 6px; }
+.board i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold); }
+.board i.on { background: var(--gold); }
+.board .rival i { border-color: #c96a5e; } .board .rival i.on { background: #c96a5e; }
+.board .match { color: #b39a72; font-size: 15px; }
+.over { position: absolute; inset: 0; background: var(--parch); color: var(--ink); padding: 16px 18px; overflow: auto; border: 3px solid var(--gold); }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 2px; font-family: 'UnifrakturMaguntia', serif; font-weight: 400; font-size: 46px; line-height: 1; color: var(--red); }
+.flourish { height: 6px; margin: 6px 0 12px; background: linear-gradient(90deg, var(--blue) 0 33%, var(--gold) 33% 66%, var(--red) 66%); }
+.over p { margin: 0 0 8px; line-height: 1.35; }
+.over p b { font-weight: 400; color: var(--red); }
+.over .go { display: inline-block; margin: 2px 0 14px; padding: 7px 20px 6px; background: var(--red); color: var(--parch); font-size: 21px; cursor: pointer; border-radius: 2px; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.25); }
+.big { font-size: 40px; line-height: 1; margin: 2px 0 2px; color: var(--blue); }
+.lbl { font-size: 15px; color: #6b5636; margin: 0 0 12px; }
+.hs-h { font-size: 16px; color: var(--blue); margin: 10px 0 4px; }
+.hs { display: grid; grid-template-columns: 1.8em 3.4em auto; row-gap: 1px; font-size: 18px; }
+.hs span:nth-child(3n) { color: var(--red); }
+.hs .me { background: #e6d3a3; }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
+.ini input { width: 90px; font: inherit; font-size: 28px; letter-spacing: 3px; text-transform: uppercase; background: none; color: var(--ink); border: none; border-bottom: 2px solid var(--red); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--red); color: var(--parch); border: none; padding: 6px 14px 5px; cursor: pointer; border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="scroll">
+    <div class="who" id="who">The herald calls</div>
+    <div class="call" id="call">&nbsp;</div>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="board">
+    <div class="side you">You <span id="youDots"></span></div>
+    <div class="match" id="match"></div>
+    <div class="side rival"><span id="rivDots"></span> <span id="rivName">Rival</span></div>
+  </div>
+</div>
+
+<script>
+// ---- Music ---------------------------------------------------------------
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+const KEYS = ['C', 'D', 'Eb', 'E', 'F', 'G', 'A', 'Bb'];
+const DEG = [
+  { n: 'I', s: 0, st: 0, q: '' }, { n: 'ii', s: 2, st: 1, q: 'm' }, { n: 'iii', s: 4, st: 2, q: 'm' }, { n: 'IV', s: 5, st: 3, q: '' },
+  { n: 'V', s: 7, st: 4, q: '' }, { n: 'vi', s: 9, st: 5, q: 'm' }, { n: 'vii°', s: 11, st: 6, q: '°' },
+];
+const chord = (k, d, q) => spell(k, DEG[d].st, DEG[d].s) + (q === undefined ? DEG[d].q : q);
+const flip = q => q === 'm' ? '' : 'm';          // a decoy with the right root but the wrong quality
+
+// ---- Matches: each rival draws faster than the last ----------------------
+const RIVALS = [
+  { name: 'the Squire', draw: 7.0, degs: 6, traps: false },
+  { name: 'Sir Grey', draw: 5.5, degs: 6, traps: true },
+  { name: 'the Champion', draw: 4.3, degs: 7, traps: true },
+];
+const rival = m => m < RIVALS.length ? RIVALS[m] : { name: 'Royal Archer ' + (m - 1), draw: Math.max(2.6, 4.3 - (m - 2) * 0.35), degs: 7, traps: true };
+const ENDS_TO_WIN = 3;
+
+// ---- State ---------------------------------------------------------------
+const HS_KEY = 'tournamentScores', SOUND_KEY = 'arcadeSound';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W = 360, H = 400;
+let state = 'start', score, match, youEnds, rivEnds, task, banners, draw, arrows, flash, lastT, clock, soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function tone(freq, dur, type, slide, vol) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const fanfare = () => [392, 523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.16, 'square', 0, 0.05), i * 110));
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- An end: the herald calls a chord, banners go up ----------------------
+const COLOURS = ['#a8261f', '#23407a', '#c99a2e', '#3f6b2a', '#6a2f6e'];
+function newEnd() {
+  const r = rival(match), key = KEYS[Math.floor(Math.random() * KEYS.length)];
+  const d = Math.floor(Math.random() * r.degs);
+  const answer = chord(key, d);
+  const names = new Set([answer]);
+  if (r.traps && DEG[d].q !== '°') names.add(chord(key, d, flip(DEG[d].q)));
+  const others = [...Array(r.degs).keys()].filter(x => x !== d).sort(() => Math.random() - 0.5);
+  for (const o of others) { if (names.size >= 5) break; names.add(chord(key, o)); }
+  const list = [...names].sort(() => Math.random() - 0.5);
+  const cols = COLOURS.slice().sort(() => Math.random() - 0.5);
+  banners = list.map((name, i) => ({ name, right: name === answer, x: 0, y: 0, base: (i + 0.5) / list.length, row: i % 2, sway: Math.random() * 6, col: cols[i], hit: false, miss: false }));
+  task = { key, d, answer };
+  draw = 0; clock = 0; arrows = [];
+  document.getElementById('who').textContent = 'The herald calls';
+  document.getElementById('call').innerHTML = `The <b>${DEG[d].n}</b> in ${key}!`;
+  updateBoard();
+  state = 'playing';
+}
+function updateBoard() {
+  const dots = n => Array.from({ length: ENDS_TO_WIN }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  document.getElementById('youDots').innerHTML = dots(youEnds);
+  document.getElementById('rivDots').innerHTML = dots(rivEnds);
+  document.getElementById('rivName').textContent = cap(rival(match).name);
+  document.getElementById('match').textContent = 'Match ' + (match + 1);
+}
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+// ---- Shooting ------------------------------------------------------------
+const YOU = () => ({ x: W * 0.17, y: H - 46 }), RIV = () => ({ x: W * 0.83, y: H - 46 });
+function bannerBox(b) { return { x: b.x - 34, y: b.y - 6, w: 68, h: 52 }; }
+function loose(from, b, mine) {
+  arrows.push({ from, to: { x: b.x, y: b.y + 20 }, t: 0, mine, b });
+  tone(mine ? 700 : 500, 0.12, 'sawtooth', 200, 0.04);
+}
+cv.addEventListener('pointerdown', e => {
+  if (state !== 'playing') return;
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  // the closest banner to the tap, if the tap is on one
+  const hits = banners.filter(b => { const q = bannerBox(b); return !b.miss && x >= q.x && x <= q.x + q.w && y >= q.y && y <= q.y + q.h; });
+  const b = hits.sort((p, q) => Math.hypot(p.x - x, p.y + 20 - y) - Math.hypot(q.x - x, q.y + 20 - y))[0];
+  if (!b || arrows.some(a => a.mine)) return;
+  loose(YOU(), b, true);
+});
+
+function land(a) {
+  if (state !== 'playing') return;
+  if (a.mine) {
+    if (a.b.right) {
+      a.b.hit = true; youEnds++;
+      score += Math.round(100 * (match + 1) * (1 + (1 - draw)));    // quicker shots are worth more
+      tone(880, 0.1, 'square', 0, 0.05); setTimeout(() => tone(1175, 0.16, 'square', 0, 0.05), 90);
+      endOver(true);
+    } else {
+      a.b.miss = true; flash = 1;
+      tone(160, 0.25, 'triangle', 90, 0.08);
+      document.getElementById('who').textContent = 'Wide! That was ' + a.b.name;
+    }
+  } else {
+    a.b.hit = true; rivEnds++;
+    tone(300, 0.3, 'triangle', 150, 0.06);
+    endOver(false);
+  }
+}
+function endOver(won) {
+  state = 'between';
+  document.getElementById('who').textContent = won ? 'A true shot!' : cap(rival(match).name) + ' takes the end.';
+  document.getElementById('call').innerHTML = `The ${DEG[task.d].n} in ${task.key} is <b>${task.answer}</b>`;
+  updateBoard();
+  setTimeout(() => {
+    if (youEnds >= ENDS_TO_WIN) matchWon();
+    else if (rivEnds >= ENDS_TO_WIN) lost();
+    else newEnd();
+  }, 1500);
+}
+function matchWon() {
+  state = 'between'; fanfare();
+  const beaten = rival(match).name;
+  overlay(`<h2>Victory</h2><div class="flourish"></div>
+    <div class="big">${score}</div><div class="lbl">You beat ${beaten}, ${youEnds} ends to ${rivEnds}.</div>
+    <span class="go" onclick="nextMatch()">Next Match</span>
+    <p>Your next rival is <b>${rival(match + 1).name}</b>, who draws faster.${match === 1 ? ' From here the herald may call the vii°.' : ''}</p>`);
+}
+function nextMatch() { match++; youEnds = 0; rivEnds = 0; hideOverlay(); newEnd(); lastT = 0; requestAnimationFrame(frame); }
+
+// ---- Drawing -------------------------------------------------------------
+function fillPath(pts, c) { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); }
+function tent(x, y, w, h, c1, c2) {
+  const n = 6;
+  for (let i = 0; i < n; i++) fillPath([[x + w * i / n, y + h], [x + w * (i + 1) / n, y + h], [x + w / 2, y]], i % 2 ? c1 : c2);
+  fillPath([[x - 4, y + h], [x + w + 4, y + h], [x + w + 4, y + h + 6], [x - 4, y + h + 6]], c1);
+  ctx.fillStyle = '#2a1a10'; ctx.fillRect(x + w / 2 - 1, y - 12, 2, 12);
+  fillPath([[x + w / 2 + 1, y - 12], [x + w / 2 + 12, y - 9], [x + w / 2 + 1, y - 6]], c2);
+}
+function archer(p, facing, c, pull) {
+  const x = p.x, y = p.y;
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 26, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2a1a10'; ctx.fillRect(x - 5, y + 8, 4, 18); ctx.fillRect(x + 1, y + 8, 4, 18);          // legs
+  fillPath([[x - 9, y - 10], [x + 9, y - 10], [x + 11, y + 12], [x - 11, y + 12]], c);                       // tunic
+  ctx.fillStyle = '#e8c9a0'; ctx.beginPath(); ctx.arc(x, y - 17, 7, 0, Math.PI * 2); ctx.fill();             // head
+  fillPath([[x - 8, y - 20], [x + 8, y - 20], [x + 10 * facing, y - 30]], c);                                 // hood
+  // bow and string, drawn back as the archer pulls
+  const bx = x + 16 * facing, by = y - 14;
+  ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = 3; ctx.beginPath();
+  if (facing > 0) ctx.arc(bx - 6, by, 18, -1.1, 1.1); else ctx.arc(bx + 6, by, 18, Math.PI - 1.1, Math.PI + 1.1);
+  ctx.stroke();
+  const sx = bx - (2 + pull * 12) * facing;
+  ctx.strokeStyle = '#efe3c2'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + 1 * facing, by - 16); ctx.lineTo(sx, by); ctx.lineTo(bx + 1 * facing, by + 16); ctx.stroke();
+}
+function drawScene() {
+  const c = ctx;
+  // sky, hills, a castle on the horizon
+  const sky = c.createLinearGradient(0, 0, 0, H * 0.4); sky.addColorStop(0, '#9cc3d9'); sky.addColorStop(1, '#dcead8');
+  c.fillStyle = sky; c.fillRect(0, 0, W, H * 0.42);
+  fillPath([[0, H * 0.36], [W * 0.25, H * 0.3], [W * 0.55, H * 0.35], [W * 0.8, H * 0.29], [W, H * 0.33], [W, H * 0.42], [0, H * 0.42]], '#86a86a');
+  c.fillStyle = '#8b8a86';
+  const cx = W * 0.62, cy = H * 0.31;
+  c.fillRect(cx - 30, cy - 16, 60, 18); c.fillRect(cx - 36, cy - 30, 12, 32); c.fillRect(cx + 24, cy - 30, 12, 32); c.fillRect(cx - 7, cy - 38, 14, 40);
+  for (let i = 0; i < 5; i++) c.fillRect(cx - 30 + i * 14, cy - 20, 6, 4);
+  fillPath([[cx - 38, cy - 30], [cx - 22, cy - 30], [cx - 30, cy - 42]], '#6a2f6e'); fillPath([[cx + 22, cy - 30], [cx + 38, cy - 30], [cx + 30, cy - 42]], '#6a2f6e');
+  // field
+  c.fillStyle = '#5f8a3a'; c.fillRect(0, H * 0.42, W, H * 0.58);
+  c.fillStyle = '#56803a'; for (let i = 0; i < 40; i++) { const gx = (i * 73) % W, gy = H * 0.45 + ((i * 37) % (H * 0.5)); c.fillRect(gx, gy, 3, 2); }
+  // striped tents along the back of the lists
+  tent(W * 0.02, H * 0.33, 54, 30, '#a8261f', '#f3e7c9');
+  tent(W * 0.82, H * 0.335, 52, 28, '#23407a', '#f3e7c9');
+  // the shooting line
+  c.fillStyle = '#efe3c2'; c.fillRect(0, H - 22, W, 3);
+  // banners on poles, each showing a chord
+  const t = clock;
+  banners && banners.forEach((b, i) => {
+    b.x = 36 + (W - 72) * b.base + Math.sin(t * 1.3 + b.sway) * 5;
+    b.y = H * (b.row ? 0.58 : 0.46);
+    const px = b.x, top = b.y - 6;
+    c.fillStyle = '#5a3a1c'; c.fillRect(px - 2, top - 8, 4, H - 22 - top + 6);
+    c.globalAlpha = b.miss ? 0.35 : 1;
+    // a swallow-tailed banner hanging from a crossbar
+    c.fillStyle = '#5a3a1c'; c.fillRect(px - 32, top - 2, 64, 4);
+    fillPath([[px - 30, top + 2], [px + 30, top + 2], [px + 30, top + 48], [px, top + 38], [px - 30, top + 48]], b.col);
+    c.fillStyle = '#f3e7c9'; c.fillRect(px - 24, top + 8, 48, 24);
+    c.font = "22px 'IM Fell English', Georgia, serif"; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#2a1a10'; c.fillText(b.name, px, top + 21);
+    c.globalAlpha = 1;
+    if (b.hit) { c.fillStyle = '#c99a2e'; c.beginPath(); c.arc(px, top + 21, 30, 0, Math.PI * 2); c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1; }
+  });
+  // archers: you on the left, the rival on the right drawing the bow
+  archer(YOU(), 1, '#23407a', arrows.some(a => a.mine) ? 0 : 0.3);
+  archer(RIV(), -1, '#a8261f', state === 'playing' ? draw : 0);
+  // the rival's draw as a cord under their feet
+  c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(W * 0.7, H - 12, W * 0.26, 5);
+  c.fillStyle = draw > 0.75 ? '#e0533f' : '#a8261f'; c.fillRect(W * 0.7, H - 12, W * 0.26 * draw, 5);
+  // arrows in flight
+  arrows.forEach(a => {
+    const k = Math.min(1, a.t), x = a.from.x + (a.to.x - a.from.x) * k, y = a.from.y - 14 + (a.to.y - a.from.y + 14) * k - Math.sin(k * Math.PI) * 40;
+    const k2 = Math.max(0, k - 0.05), x2 = a.from.x + (a.to.x - a.from.x) * k2, y2 = a.from.y - 14 + (a.to.y - a.from.y + 14) * k2 - Math.sin(k2 * Math.PI) * 40;
+    const ang = Math.atan2(y - y2, x - x2);
+    c.save(); c.translate(x, y); c.rotate(ang);
+    c.fillStyle = '#5a3a1c'; c.fillRect(-18, -1, 18, 2);
+    fillPath([[0, -3], [6, 0], [0, 3]], '#8b8a86');
+    fillPath([[-18, -1], [-24, -4], [-21, 0], [-24, 4], [-18, 1]], a.mine ? '#23407a' : '#a8261f');
+    c.restore();
+  });
+  if (flash > 0) { c.fillStyle = `rgba(168,38,31,${flash * 0.18})`; c.fillRect(0, 0, W, H); }
+}
+
+// ---- Loop ----------------------------------------------------------------
+function frame(t) {
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+  lastT = t; clock += dt;
+  if (state === 'playing') {
+    draw = Math.min(1, draw + dt / rival(match).draw);
+    if (draw >= 1 && !arrows.some(a => !a.mine)) loose(RIV(), banners.find(b => b.right), false);
+  }
+  arrows.forEach(a => { a.t += dt / 0.45; if (a.t >= 1 && !a.done) { a.done = true; land(a); } });
+  arrows = arrows.filter(a => !a.done || state !== 'playing');
+  if (state !== 'playing') arrows = arrows.filter(a => !a.done || a.t < 1.6);
+  flash = Math.max(0, flash - dt * 2);
+  drawScene();
+  if (state !== 'over' && state !== 'start') requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+function hideOverlay() { document.getElementById('over').className = 'over hidden'; }
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<div class="hs-h">No champions yet</div>';
+  return '<div class="hs-h">Roll of champions</div><div class="hs">' + list.map((r, i) => { const c = i === hi ? ' class="me"' : ''; return `<span${c}>${i + 1}</span><span${c}>${r.i}</span><span${c}>${r.s}</span>`; }).join('') + '</div>';
+}
+function showStart() {
+  state = 'start';
+  overlay(`<h2>The Tournament</h2><div class="flourish"></div>
+    <span class="go" onclick="startGame()">Take the Field</span>
+    <p>Each end, the herald calls a chord as a number in a key, like <b>the IV in D</b>. Find its banner and tap it to loose your arrow.</p>
+    <p>Your rival is drawing at the same time. Hit the right banner first to win the end. Shoot the wrong one and your arrow goes wide while the rival keeps drawing.</p>
+    <p>First to ${ENDS_TO_WIN} ends wins the match. Every rival is quicker than the last.</p>
+    ${scoreTable(-1)}`);
+}
+function startGame() {
+  score = 0; match = 0; youEnds = 0; rivEnds = 0; flash = 0; clock = 0;
+  hideOverlay(); newEnd(); lastT = 0; tone(523, 0.1, 'square'); requestAnimationFrame(frame);
+}
+function lost() {
+  state = 'over';
+  [392, 349, 311, 262].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle'), i * 160));
+  const list = highScores();
+  const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
+  overlay(`<h2>Defeated</h2><div class="flourish"></div>
+    <div class="big">${score}</div><div class="lbl">${cap(rival(match).name)} wins match ${match + 1}, ${rivEnds} ends to ${youEnds}.</div>
+    ${qualifies
+      ? `<p>Your name goes on the roll. Your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">Sign</button></div>`
+      : '<span class="go" onclick="startGame()">Try Again</span>' + scoreTable(-1)}`);
+}
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: score };
+  const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`<h2>Defeated</h2><div class="flourish"></div><div class="big">${score}</div><div class="lbl">Written on the roll.</div><span class="go" onclick="startGame()">Try Again</span>${scoreTable(top.indexOf(entry))}`);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('initials')) saveScore(); });
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  W = Math.min(document.querySelector('.screen').clientWidth - 24 - 6, 450);
+  H = Math.round(Math.min(W * 1.15, Math.max(300, window.innerHeight - 250)));
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawScene();
+}
+window.addEventListener('resize', fit);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+score = 0; match = 0; youEnds = 0; rivEnds = 0; draw = 0; arrows = []; flash = 0; clock = 0;
+banners = null;
+updateBoard();
+fit();
+document.fonts && document.fonts.ready.then(fit);
+showStart();
+</script>
+</body>
+</html>

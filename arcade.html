@@ -11,7 +11,7 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Arcade | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=Jersey+10&family=Limelight&family=Special+Elite&family=Kanit:ital,wght@1,800&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=IM+Fell+English&family=Jersey+10&family=Limelight&family=Special+Elite&family=UnifrakturMaguntia&family=Kanit:ital,wght@1,800&family=VT323&display=swap" rel="stylesheet">
 <style>
 :root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -111,6 +111,15 @@ a { color: inherit; text-decoration: none; }
 .sc .sub { font-size: 12px; color: #efe3c2; margin-top: 6px; }
 .sc .sub.best { color: #c9a24a; }
 .sc .go { display: inline-block; margin-top: 10px; background: #c9a24a; color: #14110d; padding: 5px 12px 4px; font-family: 'Limelight', serif; font-size: 15px; }
+
+/* 07 Tournament: parchment, heraldic banners, blackletter */
+.tn { background: #f3e7c9; color: #2a1a10; border: 3px solid #c99a2e; font-family: 'IM Fell English', Georgia, serif; overflow: hidden; }
+.tn svg { display: block; width: 100%; height: 118px; }
+.tn .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 12px 12px; }
+.tn .name { font-family: 'UnifrakturMaguntia', serif; font-size: 32px; line-height: 1; color: #a8261f; }
+.tn .sub { font-size: 14px; color: #2a1a10; margin-top: 4px; }
+.tn .sub.best { color: #23407a; }
+.tn .go { white-space: nowrap; flex-shrink: 0; margin-left: 8px; background: #a8261f; color: #f3e7c9; padding: 5px 10px 4px; font-size: 15px; border-radius: 2px; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.25); }
 
 .sub.best { color: inherit; }
 .sub.best:empty { display: none; }
@@ -227,6 +236,25 @@ a { color: inherit; text-decoration: none; }
     </div>
   </a>
 
+  <a class="game tn" href="tournament.html">
+    <svg viewBox="0 0 360 118" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="tnSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc3d9"/><stop offset="1" stop-color="#dcead8"/></linearGradient></defs>
+      <rect width="360" height="52" fill="url(#tnSky)"/>
+      <polygon points="0,44 90,34 200,42 290,32 360,38 360,54 0,54" fill="#86a86a"/>
+      <g fill="#8b8a86"><rect x="210" y="22" width="44" height="14"/><rect x="204" y="12" width="10" height="24"/><rect x="250" y="12" width="10" height="24"/><rect x="226" y="6" width="12" height="30"/></g>
+      <polygon points="202,12 216,12 209,2" fill="#6a2f6e"/><polygon points="248,12 262,12 255,2" fill="#6a2f6e"/>
+      <rect y="52" width="360" height="66" fill="#5f8a3a"/>
+      <g><polygon points="10,52 22,30 34,52" fill="#a8261f"/><polygon points="22,52 22,30 28,52" fill="#f3e7c9"/></g>
+      <g><polygon points="320,52 334,28 348,52" fill="#23407a"/><polygon points="334,52 334,28 341,52" fill="#f3e7c9"/></g>
+      <rect x="78" y="50" width="4" height="68" fill="#5a3a1c"/><rect x="50" y="56" width="60" height="4" fill="#5a3a1c"/><polygon points="52,60 108,60 108,102 80,93 52,102" fill="#3f6b2a"/><rect x="58" y="66" width="44" height="22" fill="#f3e7c9"/><text x="80" y="83" text-anchor="middle" font-family="IM Fell English, Georgia, serif" font-size="19" fill="#2a1a10">Am</text><rect x="178" y="42" width="4" height="76" fill="#5a3a1c"/><rect x="150" y="48" width="60" height="4" fill="#5a3a1c"/><polygon points="152,52 208,52 208,94 180,85 152,94" fill="#23407a"/><rect x="158" y="58" width="44" height="22" fill="#f3e7c9"/><text x="180" y="75" text-anchor="middle" font-family="IM Fell English, Georgia, serif" font-size="19" fill="#2a1a10">D</text><rect x="278" y="50" width="4" height="68" fill="#5a3a1c"/><rect x="250" y="56" width="60" height="4" fill="#5a3a1c"/><polygon points="252,60 308,60 308,102 280,93 252,102" fill="#c99a2e"/><rect x="258" y="66" width="44" height="22" fill="#f3e7c9"/><text x="280" y="83" text-anchor="middle" font-family="IM Fell English, Georgia, serif" font-size="19" fill="#2a1a10">Em</text>
+      <rect x="0" y="112" width="360" height="2" fill="#efe3c2"/>
+    </svg>
+    <div class="info">
+      <div><div class="name">The Tournament</div><div class="sub">Shoot the banner the herald calls</div><div class="sub best" id="best7"></div></div>
+      <span class="go">Take the Field</span>
+    </div>
+  </a>
+
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
 <script>
@@ -254,6 +282,10 @@ showBest('numberBlasterScores', 'best4');
 try {
   const sc = JSON.parse(localStorage.getItem('safeCrackerScores')) || [];
   if (sc.length) document.getElementById('best6').textContent = 'BIGGEST JOB $' + sc[0].s.toLocaleString('en-US') + ' ' + sc[0].i;
+} catch (e) {}
+try {
+  const tn = JSON.parse(localStorage.getItem('tournamentScores')) || [];
+  if (tn.length) document.getElementById('best7').textContent = 'Champion ' + tn[0].i + ', ' + tn[0].s;
 } catch (e) {}
 // golf is scored against par, lowest first
 try {
