@@ -98,11 +98,19 @@ const flip = q => q === 'm' ? '' : 'm';          // a decoy with the right root 
 
 // ---- Matches: each rival draws faster than the last ----------------------
 const RIVALS = [
-  { name: 'the Squire', draw: 7.0, degs: 6, traps: false },
+  { name: 'the Villager', draw: 7.5, degs: 6, traps: false },
+  { name: 'the Jester', draw: 7.0, degs: 6, traps: false },
+  { name: 'the Traveler', draw: 6.5, degs: 6, traps: false },
+  { name: 'the Squire', draw: 6.0, degs: 6, traps: true },
   { name: 'Sir Grey', draw: 5.5, degs: 6, traps: true },
-  { name: 'the Champion', draw: 4.3, degs: 7, traps: true },
+  { name: 'Sir William', draw: 5.0, degs: 6, traps: true },
+  { name: 'Lady Chatterlay', draw: 4.6, degs: 7, traps: true },
+  { name: 'Lancelot', draw: 4.2, degs: 7, traps: true },
+  { name: 'Edward the Lion', draw: 3.8, degs: 7, traps: true },
+  { name: 'the Champion', draw: 3.4, degs: 7, traps: true },
+  { name: 'the Dragon', draw: 3.0, degs: 7, traps: true, dragon: true },     // the final boss
 ];
-const rival = m => m < RIVALS.length ? RIVALS[m] : { name: 'Royal Archer ' + (m - 1), draw: Math.max(2.6, 4.3 - (m - 2) * 0.35), degs: 7, traps: true };
+const rival = m => RIVALS[Math.min(m, RIVALS.length - 1)];
 const ENDS_TO_WIN = 3;
 
 // ---- State ---------------------------------------------------------------
@@ -160,7 +168,7 @@ function updateBoard() {
   document.getElementById('youDots').innerHTML = dots(youEnds);
   document.getElementById('rivDots').innerHTML = dots(rivEnds);
   document.getElementById('rivName').textContent = cap(rival(match).name);
-  document.getElementById('match').textContent = 'Match ' + (match + 1);
+  document.getElementById('match').textContent = rival(match).dragon ? 'Final' : 'Match ' + (match + 1);
 }
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
@@ -168,9 +176,12 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 const YOU = () => ({ x: W * 0.17, y: H - 46 }), RIV = () => ({ x: W * 0.83, y: H - 46 });
 function bannerBox(b) { return { x: b.x - 34, y: b.y - 6, w: 68, h: 52 }; }
 function loose(from, b, mine) {
-  arrows.push({ from, to: { x: b.x, y: b.y + 20 }, t: 0, mine, b });
-  tone(mine ? 700 : 500, 0.12, 'sawtooth', 200, 0.04);
+  const fire = !mine && rival(match).dragon;
+  arrows.push({ from, to: { x: b.x, y: b.y + 20 }, t: 0, mine, b, fire });
+  if (fire) { tone(120, 0.5, 'sawtooth', 40, 0.08); tone(90, 0.6, 'square', 30, 0.04); }
+  else tone(mine ? 700 : 500, 0.12, 'sawtooth', 200, 0.04);
 }
+const roar = () => { tone(110, 0.9, 'sawtooth', 45, 0.09); setTimeout(() => tone(80, 0.8, 'sawtooth', 35, 0.07), 120); };
 cv.addEventListener('pointerdown', e => {
   if (state !== 'playing') return;
   const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
@@ -195,8 +206,8 @@ function land(a) {
       document.getElementById('who').textContent = 'Wide! That was ' + a.b.name;
     }
   } else {
-    a.b.hit = true; rivEnds++;
-    tone(300, 0.3, 'triangle', 150, 0.06);
+    a.b.hit = true; a.b.burnt = a.fire; rivEnds++;
+    if (!a.fire) tone(300, 0.3, 'triangle', 150, 0.06);
     endOver(false);
   }
 }
@@ -207,98 +218,290 @@ function endOver(won) {
   updateBoard();
   setTimeout(() => {
     if (youEnds >= ENDS_TO_WIN) matchWon();
-    else if (rivEnds >= ENDS_TO_WIN) lost();
+    else if (rivEnds >= ENDS_TO_WIN) finish(false);
     else newEnd();
   }, 1500);
 }
 function matchWon() {
+  if (rival(match).dragon) return finish(true);
   state = 'between'; fanfare();
   const beaten = rival(match).name;
   overlay(`<h2>Victory</h2><div class="flourish"></div>
     <div class="big">${score}</div><div class="lbl">You beat ${beaten}, ${youEnds} ends to ${rivEnds}.</div>
     <span class="go" onclick="nextMatch()">Next Match</span>
-    <p>Your next rival is <b>${rival(match + 1).name}</b>, who draws faster.${match === 1 ? ' From here the herald may call the vii°.' : ''}</p>`);
+    <p>${rival(match + 1).dragon ? 'The sky darkens. Your final rival is <b>the Dragon</b>, and it breathes fire faster than any archer can draw.' : `Your next rival is <b>${rival(match + 1).name}</b>, who draws faster.`}${rival(match + 1).traps && !rival(match).traps ? ' From here some banners show the right root with the wrong quality.' : ''}${rival(match + 1).degs === 7 && rival(match).degs === 6 ? ' From here the herald may call the vii°.' : ''}</p>`);
 }
-function nextMatch() { match++; youEnds = 0; rivEnds = 0; hideOverlay(); newEnd(); lastT = 0; requestAnimationFrame(frame); }
+function nextMatch() { match++; youEnds = 0; rivEnds = 0; hideOverlay(); newEnd(); if (rival(match).dragon) roar(); lastT = 0; requestAnimationFrame(frame); }
 
 // ---- Drawing -------------------------------------------------------------
-function fillPath(pts, c) { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); }
-function tent(x, y, w, h, c1, c2) {
-  const n = 6;
-  for (let i = 0; i < n; i++) fillPath([[x + w * i / n, y + h], [x + w * (i + 1) / n, y + h], [x + w / 2, y]], i % 2 ? c1 : c2);
-  fillPath([[x - 4, y + h], [x + w + 4, y + h], [x + w + 4, y + h + 6], [x - 4, y + h + 6]], c1);
-  ctx.fillStyle = '#2a1a10'; ctx.fillRect(x + w / 2 - 1, y - 12, 2, 12);
-  fillPath([[x + w / 2 + 1, y - 12], [x + w / 2 + 12, y - 9], [x + w / 2 + 1, y - 6]], c2);
+function fillPath(pts, c, cx) { cx = cx || ctx; cx.beginPath(); pts.forEach(([x, y], i) => i ? cx.lineTo(x, y) : cx.moveTo(x, y)); cx.closePath(); cx.fillStyle = c; cx.fill(); }
+function ell(cx, x, y, rx, ry, c) { cx.beginPath(); cx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); cx.fillStyle = c; cx.fill(); }
+
+// ---- The backdrop is painted once per size into its own canvas -----------
+const bg = document.createElement('canvas'), bgx = bg.getContext('2d');      // castle, hills, field
+const sk = document.createElement('canvas'), skx = sk.getContext('2d');      // sky, painted behind the clouds
+let flagPoles = [];            // tops of the castle's flagpoles, for flags that wave every frame
+function tower(c, x, base, w, h, roofH, roof) {
+  // a round tower: lit left side, shaded right side, crenellated parapet, conical roof
+  const top = base - h;
+  const g = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+  g.addColorStop(0, '#cfc8ba'); g.addColorStop(0.55, '#b3ab9c'); g.addColorStop(1, '#857e72');
+  c.fillStyle = g; c.fillRect(x - w / 2, top, w, h);
+  c.fillStyle = 'rgba(0,0,0,0.07)'; for (let y = top + 6; y < base; y += 7) c.fillRect(x - w / 2, y, w, 1);          // stone courses
+  c.fillStyle = g; c.fillRect(x - w / 2 - 3, top - 4, w + 6, 6);                                                     // parapet
+  for (let i = 0; i < 4; i++) c.fillRect(x - w / 2 - 3 + i * (w + 6) / 3.5, top - 9, (w + 6) / 7, 5);
+  for (let y = top + 12; y < base - 10; y += 22) { c.fillStyle = '#2b2420'; c.fillRect(x - 1.5, y, 3, 7); c.beginPath(); c.arc(x, y, 1.5, Math.PI, 0); c.fill(); }
+  if (roofH) {
+    const rg = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0); rg.addColorStop(0, roof[0]); rg.addColorStop(1, roof[1]);
+    fillPath([[x - w / 2 - 5, top - 4], [x + w / 2 + 5, top - 4], [x, top - 4 - roofH]], rg, c);
+    c.fillStyle = '#2b2420'; c.fillRect(x - 0.75, top - 4 - roofH - 12, 1.5, 12);
+    flagPoles.push({ x, y: top - 4 - roofH - 12 });
+  }
 }
-function archer(p, facing, c, pull) {
-  const x = p.x, y = p.y;
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y + 26, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#2a1a10'; ctx.fillRect(x - 5, y + 8, 4, 18); ctx.fillRect(x + 1, y + 8, 4, 18);          // legs
-  fillPath([[x - 9, y - 10], [x + 9, y - 10], [x + 11, y + 12], [x - 11, y + 12]], c);                       // tunic
-  ctx.fillStyle = '#e8c9a0'; ctx.beginPath(); ctx.arc(x, y - 17, 7, 0, Math.PI * 2); ctx.fill();             // head
-  fillPath([[x - 8, y - 20], [x + 8, y - 20], [x + 10 * facing, y - 30]], c);                                 // hood
-  // bow and string, drawn back as the archer pulls
-  const bx = x + 16 * facing, by = y - 14;
-  ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = 3; ctx.beginPath();
-  if (facing > 0) ctx.arc(bx - 6, by, 18, -1.1, 1.1); else ctx.arc(bx + 6, by, 18, Math.PI - 1.1, Math.PI + 1.1);
+function paintBackdrop() {
+  bg.width = sk.width = cv.width; bg.height = sk.height = cv.height;
+  const dpr = cv.width / W, c = bgx, k = skx; c.setTransform(dpr, 0, 0, dpr, 0, 0); k.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, W, H);
+  flagPoles = [];
+  const hz = H * 0.44;
+  // warm afternoon sky with a soft sun
+  const sky = k.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#5f8fbf'); sky.addColorStop(0.6, '#b9d2dc'); sky.addColorStop(1, '#f1e1bc');
+  k.fillStyle = sky; k.fillRect(0, 0, W, hz + 2);
+  const sun = k.createRadialGradient(W * 0.86, H * 0.1, 2, W * 0.86, H * 0.1, W * 0.45); sun.addColorStop(0, 'rgba(255,244,214,0.9)'); sun.addColorStop(1, 'rgba(255,244,214,0)');
+  k.fillStyle = sun; k.fillRect(0, 0, W, hz);
+  // distant blue mountains
+  fillPath([[0, hz * 0.7], [W * 0.1, hz * 0.55], [W * 0.2, hz * 0.66], [W * 0.33, hz * 0.48], [W * 0.46, hz * 0.62], [W * 0.6, hz * 0.5], [W * 0.75, hz * 0.64], [W * 0.88, hz * 0.52], [W, hz * 0.62], [W, hz], [0, hz]], '#9fb2c2', c);
+  fillPath([[0, hz * 0.8], [W * 0.18, hz * 0.7], [W * 0.38, hz * 0.78], [W * 0.62, hz * 0.68], [W * 0.82, hz * 0.76], [W, hz * 0.7], [W, hz], [0, hz]], '#88a0a8', c);
+  // the castle on its hill
+  const cx = W * 0.55, hillTop = hz * 0.86;
+  c.beginPath(); c.moveTo(W * 0.12, hz); c.bezierCurveTo(W * 0.3, hillTop - 6, W * 0.8, hillTop - 6, W * 0.98, hz); c.closePath();
+  const hg = c.createLinearGradient(0, hillTop, 0, hz); hg.addColorStop(0, '#86a36a'); hg.addColorStop(1, '#6d8c54'); c.fillStyle = hg; c.fill();
+  const S = W / 360;                                       // everything on the castle scales with the canvas
+  const base = hillTop + 2 * S;
+  // curtain wall with crenellations and a gatehouse
+  const wallL = cx - 92 * S, wallR = cx + 92 * S, wallTop = base - 26 * S;
+  const wg = c.createLinearGradient(0, wallTop, 0, base); wg.addColorStop(0, '#c4bdae'); wg.addColorStop(1, '#9d9587');
+  c.fillStyle = wg; c.fillRect(wallL, wallTop, wallR - wallL, base - wallTop);
+  for (let x = wallL; x < wallR - 3; x += 7 * S) c.fillRect(x, wallTop - 5 * S, 4 * S, 5 * S);
+  c.fillStyle = 'rgba(0,0,0,0.06)'; for (let y = wallTop + 5; y < base; y += 6) c.fillRect(wallL, y, wallR - wallL, 1);
+  // the great keep with a tall spire
+  tower(c, cx, wallTop + 4 * S, 32 * S, 58 * S, 30 * S, ['#41548a', '#24325a']);
+  // inner towers either side of the keep
+  tower(c, cx - 40 * S, wallTop + 4 * S, 20 * S, 40 * S, 19 * S, ['#a33a2e', '#6e1f19']);
+  tower(c, cx + 40 * S, wallTop + 4 * S, 20 * S, 40 * S, 19 * S, ['#a33a2e', '#6e1f19']);
+  // corner towers on the curtain wall
+  tower(c, wallL, base, 22 * S, 38 * S, 17 * S, ['#41548a', '#24325a']);
+  tower(c, wallR, base, 22 * S, 38 * S, 17 * S, ['#41548a', '#24325a']);
+  // gatehouse with an arched gate and portcullis
+  const gw = 26 * S;
+  c.fillStyle = wg; c.fillRect(cx - gw / 2 - 4 * S, wallTop - 8 * S, gw + 8 * S, base - wallTop + 8 * S);
+  for (let i = 0; i < 4; i++) c.fillRect(cx - gw / 2 - 4 * S + i * (gw + 8 * S) / 3.5, wallTop - 13 * S, (gw + 8 * S) / 7, 5 * S);
+  c.fillStyle = '#2b2420'; c.beginPath(); c.moveTo(cx - gw / 2 + 4 * S, base); c.lineTo(cx - gw / 2 + 4 * S, base - 12 * S); c.arc(cx, base - 12 * S, gw / 2 - 4 * S, Math.PI, 0); c.lineTo(cx + gw / 2 - 4 * S, base); c.fill();
+  c.strokeStyle = 'rgba(160,150,130,0.6)'; c.lineWidth = 1;
+  for (let x = cx - gw / 2 + 7 * S; x < cx + gw / 2 - 4 * S; x += 4 * S) { c.beginPath(); c.moveTo(x, base - 18 * S); c.lineTo(x, base); c.stroke(); }
+  // a couple of warm lit windows in the keep
+  c.fillStyle = '#f2c46a'; c.fillRect(cx - 8 * S, wallTop - 36 * S, 3 * S, 6 * S); c.fillRect(cx + 5 * S, wallTop - 22 * S, 3 * S, 6 * S);
+  // a little haze so the castle sits back in the distance
+  c.globalCompositeOperation = 'source-atop'; c.fillStyle = 'rgba(241,225,188,0.18)'; c.fillRect(0, 0, W, hz); c.globalCompositeOperation = 'source-over';
+  // nearer rolling hills and a line of trees
+  fillPath([[0, hz - 4], [W * 0.15, hz - 12], [W * 0.3, hz - 3], [W * 0.5, hz - 6], [W * 0.7, hz - 2], [W * 0.9, hz - 10], [W, hz - 4], [W, hz + 2], [0, hz + 2]], '#638848', c);
+  for (let i = 0; i < 14; i++) { const tx = (i * 53 + 11) % W, ty = hz - 4 - (i % 3) * 2; ell(c, tx, ty, 7 * S, 6 * S, i % 2 ? '#3f6b2a' : '#4a7832'); }
+  // the tiltyard: a mown field
+  const fg = c.createLinearGradient(0, hz, 0, H); fg.addColorStop(0, '#7aa64e'); fg.addColorStop(1, '#4c7a2f');
+  c.fillStyle = fg; c.fillRect(0, hz, W, H - hz);
+  for (let y = hz + 8, k = 0; y < H; y += 14 + k * 2, k++) { c.fillStyle = k % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'; c.fillRect(0, y, W, 8 + k * 2); }
+  // tents along the back of the field
+  pavilion(c, W * 0.1, hz + 2, 44 * S, 34 * S, '#a8261f', '#f3e7c9');
+  pavilion(c, W * 0.9, hz + 2, 42 * S, 32 * S, '#23407a', '#f3e7c9');
+  // a wooden fence marks the edge of the lists
+  const fy = hz + 18 * S;
+  c.fillStyle = '#6b4a2a'; c.fillRect(0, fy, W, 3 * S); c.fillRect(0, fy + 8 * S, W, 3 * S);
+  for (let x = 4; x < W; x += 22 * S) { c.fillStyle = '#5a3a1c'; c.fillRect(x, fy - 4 * S, 4 * S, 18 * S); c.fillStyle = '#7d5833'; c.fillRect(x, fy - 4 * S, 2 * S, 18 * S); }
+  // the chalked shooting line and a soft vignette
+  c.fillStyle = 'rgba(243,231,201,0.9)'; c.fillRect(0, H - 22, W, 3);
+
+}
+function pavilion(c, x, base, w, h, c1, c2) {
+  // a round pavilion with a striped roof, a scalloped valance and an open door
+  const top = base - h, eave = top + h * 0.45;
+  for (let i = 0; i < 6; i++) fillPath([[x - w / 2 + w * i / 6, eave], [x - w / 2 + w * (i + 1) / 6, eave], [x, top]], i % 2 ? c1 : c2, c);
+  c.fillStyle = c2; c.fillRect(x - w / 2 + 3, eave, w - 6, base - eave);
+  c.fillStyle = 'rgba(0,0,0,0.12)'; c.fillRect(x + w * 0.1, eave, w / 2 - w * 0.1 - 3, base - eave);
+  c.fillStyle = '#3a2418'; fillPath([[x - 5, base], [x + 5, base], [x + 3, eave + 4], [x - 3, eave + 4]], '#3a2418', c);
+  for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(x - w / 2 + w * (i + 0.5) / 6, eave, w / 12, 0, Math.PI); c.fillStyle = i % 2 ? c2 : c1; c.fill(); }
+  c.fillStyle = '#2b2420'; c.fillRect(x - 0.75, top - 12, 1.5, 12);
+  flagPoles.push({ x, y: top - 12, small: true, col: c1 });
+}
+
+// ---- Things that move: clouds, flags, banners, archers, arrows -----------
+const clouds = Array.from({ length: 4 }, (_, i) => ({ x: Math.random(), y: 0.05 + i * 0.07, s: 0.6 + Math.random() * 0.6, v: 0.004 + Math.random() * 0.004 }));
+function drawClouds(dt) {
+  clouds.forEach(cl => {
+    cl.x += cl.v * dt; if (cl.x > 1.25) cl.x = -0.25;
+    const x = cl.x * W, y = cl.y * H, r = 16 * cl.s * W / 360;
+    ctx.globalAlpha = 0.8;
+    [[0, 0, 1.4, 0.7], [-1.1, 0.2, 0.9, 0.55], [1.2, 0.25, 1, 0.55], [0.2, -0.35, 0.9, 0.6]].forEach(([dx, dy, rx, ry]) => ell(ctx, x + dx * r, y + dy * r, rx * r, ry * r, '#fbf6ea'));
+    ctx.globalAlpha = 1;
+  });
+}
+function waveFlag(x, y, len, hgt, col, t, phase) {
+  ctx.beginPath(); ctx.moveTo(x, y);
+  for (let i = 0; i <= 6; i++) ctx.lineTo(x + len * i / 6, y + Math.sin(t * 5 + phase + i) * 1.4 * i / 6);
+  for (let i = 6; i >= 0; i--) ctx.lineTo(x + len * i / 6 - (i === 6 ? 3 : 0), y + hgt * (1 - i / 14) + Math.sin(t * 5 + phase + i) * 1.4 * i / 6);
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+}
+function archer(p, facing, tunic, trim, pull) {
+  const x = p.x, y = p.y, f = facing;
+  ell(ctx, x, y + 26, 16, 4, 'rgba(20,30,10,0.3)');
+  // boots and hose
+  ctx.fillStyle = '#3b2a1c'; ctx.fillRect(x - 6, y + 8, 4, 14); ctx.fillRect(x + 2, y + 8, 4, 14);
+  ctx.fillStyle = '#1f150d'; ctx.fillRect(x - 7, y + 21, 6, 5); ctx.fillRect(x + 1, y + 21, 6, 5);
+  // quiver on the back, with fletchings
+  ctx.save(); ctx.translate(x - 7 * f, y - 6); ctx.rotate(-0.35 * f);
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(-3, -14, 6, 20);
+  [-2, 0, 2].forEach(dx => fillPath([[dx - 1.5, -14], [dx + 1.5, -14], [dx, -20]], trim));
+  ctx.restore();
+  // tunic with a belt and a trimmed hem
+  fillPath([[x - 9, y - 11], [x + 9, y - 11], [x + 12, y + 11], [x - 12, y + 11]], tunic);
+  ctx.fillStyle = trim; ctx.fillRect(x - 12, y + 9, 24, 2);
+  ctx.fillStyle = '#5a3a1c'; ctx.fillRect(x - 10, y - 1, 20, 3); ctx.fillStyle = '#c99a2e'; ctx.fillRect(x - 2, y - 1, 4, 3);
+  // head and hood
+  ell(ctx, x, y - 18, 6.5, 7, '#e3c39a');
+  fillPath([[x - 8, y - 17], [x - 7, y - 25], [x, y - 28], [x + 7, y - 25], [x + 8, y - 17], [x + 3 * f, y - 21]], tunic);
+  fillPath([[x - 6 * f, y - 26], [x - 15 * f, y - 22], [x - 7 * f, y - 21]], tunic);
+  // arms out to the bow, which bends with the pull
+  const bx = x + 18 * f, by = y - 13, bend = 18 + pull * 4;
+  ctx.strokeStyle = tunic; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + 5 * f, y - 8); ctx.lineTo(bx - 2 * f, by); ctx.stroke();
+  const sx = bx - (3 + pull * 13) * f;
+  ctx.beginPath(); ctx.moveTo(x + 4 * f, y - 9); ctx.lineTo(sx, by); ctx.stroke();
+  ctx.strokeStyle = '#6a4220'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  if (f > 0) ctx.arc(bx - 6, by, bend, -1.05, 1.05); else ctx.arc(bx + 6, by, bend, Math.PI - 1.05, Math.PI + 1.05);
   ctx.stroke();
-  const sx = bx - (2 + pull * 12) * facing;
-  ctx.strokeStyle = '#efe3c2'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + 1 * facing, by - 16); ctx.lineTo(sx, by); ctx.lineTo(bx + 1 * facing, by + 16); ctx.stroke();
+  const tipY = Math.sin(1.05) * bend, tipX = bx + (Math.cos(1.05) * bend - 6) * f;
+  ctx.strokeStyle = '#efe3c2'; ctx.lineWidth = 1; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(tipX, by - tipY); ctx.lineTo(sx, by); ctx.lineTo(tipX, by + tipY); ctx.stroke();
+  if (pull > 0.05) { ctx.fillStyle = '#5a3a1c'; ctx.fillRect(Math.min(sx, bx + 6 * f), by - 1, Math.abs(bx + 6 * f - sx), 2); }
 }
+function banner(b) {
+  const px = b.x, top = b.y - 6, sw = Math.sin(clock * 2.4 + b.sway);
+  ell(ctx, px + 6, H - 20, 10, 2.5, 'rgba(20,30,10,0.28)');
+  ctx.fillStyle = '#5a3a1c'; ctx.fillRect(px - 2, top - 8, 4, H - 22 - top + 6);
+  ell(ctx, px, top - 10, 3.5, 3.5, '#d8ab3c');
+  ctx.globalAlpha = b.miss ? 0.35 : 1;
+  ctx.fillStyle = '#5a3a1c'; ctx.fillRect(px - 32, top - 2, 64, 4);
+  ell(ctx, px - 32, top, 2.5, 2.5, '#d8ab3c'); ell(ctx, px + 32, top, 2.5, 2.5, '#d8ab3c');
+  // cloth with a gentle ripple, a sheen down one side, and a fringe on the tails
+  const tail = 38 + sw * 2, tipL = 48 + sw * 1.5, tipR = 48 - sw * 1.5;
+  fillPath([[px - 30, top + 2], [px + 30, top + 2], [px + 30, top + tipR], [px, top + tail], [px - 30, top + tipL]], b.col);
+  const sh = ctx.createLinearGradient(px - 30, 0, px + 30, 0); sh.addColorStop(0, 'rgba(255,255,255,0.18)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.18)');
+  fillPath([[px - 30, top + 2], [px + 30, top + 2], [px + 30, top + tipR], [px, top + tail], [px - 30, top + tipL]], sh);
+  ctx.strokeStyle = '#d8ab3c'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(px - 26, top + 5); ctx.lineTo(px + 26, top + 5); ctx.stroke();
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10, fx = px - 30 + 60 * t, fy = t < 0.5 ? top + tipL + (tail - tipL) * t * 2 : top + tail + (tipR - tail) * (t - 0.5) * 2;
+    ctx.fillStyle = '#d8ab3c'; ctx.fillRect(fx - 0.75, fy, 1.5, 4);
+  }
+  ctx.fillStyle = '#f3e7c9'; ctx.fillRect(px - 24, top + 9, 48, 24);
+  ctx.strokeStyle = 'rgba(42,26,16,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(px - 22.5, top + 10.5, 45, 21);
+  ctx.font = "22px 'IM Fell English', Georgia, serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#2a1a10'; ctx.fillText(b.name, px, top + 22);
+  ctx.globalAlpha = 1;
+  if (b.burnt) { ctx.globalAlpha = 0.55; ell(ctx, px, top + 22, 30, 26, '#2a1208'); ctx.globalAlpha = 0.6; ell(ctx, px, top + 22, 14, 12, '#ff9a3a'); ctx.globalAlpha = 1; }
+  else if (b.hit) { ctx.globalAlpha = 0.28; ell(ctx, px, top + 21, 32, 32, '#f2c46a'); ctx.globalAlpha = 1; }
+}
+// ---- The dragon: perched on the right of the field, wings beating, fire building in its jaws
+let dragonMouth = { x: 0, y: 0 };
+function dragon(charge) {
+  const S = W / 360, x = W * 0.83, gy = H - 22, f = Math.sin(clock * 3) * 0.5 + 0.5;
+  const P = (dx, dy) => [x + dx * S, gy + dy * S];
+  const body = '#8a2318', dark = '#5e160f', belly = '#d08a45', wingNear = '#a32d1f', wingFar = '#4d1410';
+  ell(ctx, x + 4 * S, gy - 2, 40 * S, 6 * S, 'rgba(20,10,5,0.35)');
+  // far wing
+  fillPath([P(4, -48), P(26, -96 + f * 22), P(46, -80 + f * 12), P(40, -64), P(24, -54)], wingFar);
+  // tail curling away to the right
+  ctx.strokeStyle = body; ctx.lineCap = 'round';
+  ctx.lineWidth = 10 * S; ctx.beginPath(); ctx.moveTo(...P(24, -24)); ctx.quadraticCurveTo(...P(52, -16), ...P(50, -34)); ctx.stroke();
+  ctx.lineWidth = 5 * S; ctx.beginPath(); ctx.moveTo(...P(50, -34)); ctx.quadraticCurveTo(...P(48, -48), ...P(58, -50)); ctx.stroke();
+  fillPath([P(56, -55), P(66, -52), P(58, -45)], dark);
+  // legs with claws
+  [18, -8].forEach(dx => { ctx.fillStyle = dark; ctx.fillRect(...P(dx - 4, -20), 8 * S, 20 * S); for (let c = 0; c < 3; c++) fillPath([P(dx - 5 + c * 4, 0), P(dx - 7 + c * 4, 3), P(dx - 3 + c * 4, 0)], '#e9dcc0'); });
+  // body, belly scales and a ridge of spines
+  ell(ctx, ...P(6, -30), 26 * S, 17 * S, body);
+  ell(ctx, ...P(0, -24), 17 * S, 10 * S, belly);
+  ctx.strokeStyle = 'rgba(94,22,15,0.5)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(...P(-14 + i * 7, -32)); ctx.lineTo(...P(-12 + i * 7, -16)); ctx.stroke(); }
+  for (let i = 0; i < 5; i++) { const d = Math.abs(i - 1) * 1.5; fillPath([P(-6 + i * 8, -45 + d), P(-2 + i * 8, -53 + d), P(2 + i * 8, -45 + d)], dark); }
+  // neck rising to the head
+  ctx.strokeStyle = body; ctx.lineWidth = 13 * S; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(...P(-8, -38)); ctx.quadraticCurveTo(...P(-14, -62), ...P(-26, -66)); ctx.stroke();
+  ctx.strokeStyle = belly; ctx.lineWidth = 5 * S;
+  ctx.beginPath(); ctx.moveTo(...P(-12, -34)); ctx.quadraticCurveTo(...P(-19, -56), ...P(-28, -60)); ctx.stroke();
+  // head with horns, a jaw that opens as the fire builds, and a yellow eye
+  const hx = -30, hy = -68, jaw = 2 + charge * 5;
+  fillPath([P(hx + 10, hy - 4), P(hx + 20, hy - 16), P(hx + 13, hy - 3)], '#e9dcc0');
+  fillPath([P(hx + 5, hy - 6), P(hx + 11, hy - 18), P(hx + 9, hy - 5)], '#e9dcc0');
+  fillPath([P(hx + 10, hy - 8), P(hx - 12, hy - 6), P(hx - 22, hy - 1), P(hx - 22, hy + 1), P(hx + 10, hy + 2)], body);
+  fillPath([P(hx + 8, hy + 2), P(hx - 18, hy + 2 + jaw), P(hx - 16, hy + 5 + jaw), P(hx + 8, hy + 8)], dark);
+  if (jaw > 3) fillPath([P(hx - 18, hy + 1), P(hx - 14, hy + 4), P(hx - 10, hy + 1)], '#f3e7c9');
+  ell(ctx, ...P(hx, hy - 3), 2.6 * S, 2.2 * S, '#ffd54a'); ell(ctx, ...P(hx + 0.4, hy - 3), 0.9 * S, 2 * S, '#1a0c08');
+  // near wing, ribbed, beating
+  const tip = P(16, -104 + f * 26);
+  fillPath([P(0, -46), tip, P(40, -86 + f * 14), P(36, -70), P(22, -62), P(10, -54)], wingNear);
+  ctx.strokeStyle = dark; ctx.lineWidth = 1.5 * S;
+  [P(40, -86 + f * 14), P(36, -70), P(22, -62)].forEach(q => { ctx.beginPath(); ctx.moveTo(...tip); ctx.lineTo(...q); ctx.stroke(); });
+  ctx.lineWidth = 3 * S; ctx.beginPath(); ctx.moveTo(...P(0, -46)); ctx.lineTo(...tip); ctx.stroke();
+  // fire glowing in the jaws as it gets ready to breathe
+  const m = P(hx - 21, hy + 1 + jaw / 2); dragonMouth = { x: m[0], y: m[1] + 14 };
+  if (charge > 0.02) {
+    const r = (4 + charge * 16) * S, g = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r);
+    g.addColorStop(0, 'rgba(255,240,170,0.95)'); g.addColorStop(0.45, 'rgba(255,150,40,0.8)'); g.addColorStop(1, 'rgba(200,40,10,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m[0], m[1], r, 0, Math.PI * 2); ctx.fill();
+  }
+  // a wisp of smoke from the nostrils
+  ctx.globalAlpha = 0.35; ell(ctx, ...P(hx - 18 + Math.sin(clock * 2) * 2, hy - 10 - (clock * 10 % 10)), 3 * S, 2 * S, '#d8d0c4'); ctx.globalAlpha = 1;
+}
+function fireball(p, q) {
+  // a ball of fire with embers trailing behind it
+  for (let i = 5; i >= 1; i--) { const x = q.x + (p.x - q.x) * (1 - i * 0.18), y = q.y + (p.y - q.y) * (1 - i * 0.18); ctx.globalAlpha = 0.14 * (6 - i); ell(ctx, x, y, 12 - i * 1.6, 12 - i * 1.6, i % 2 ? '#ff8a2a' : '#ffd25a'); }
+  ctx.globalAlpha = 1;
+  const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 17); g.addColorStop(0, '#fff3c0'); g.addColorStop(0.35, '#ffb03a'); g.addColorStop(0.7, 'rgba(230,80,20,0.6)'); g.addColorStop(1, 'rgba(210,50,10,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 17, 0, Math.PI * 2); ctx.fill();
+}
+
+let lastDraw = 0;
 function drawScene() {
-  const c = ctx;
-  // sky, hills, a castle on the horizon
-  const sky = c.createLinearGradient(0, 0, 0, H * 0.4); sky.addColorStop(0, '#9cc3d9'); sky.addColorStop(1, '#dcead8');
-  c.fillStyle = sky; c.fillRect(0, 0, W, H * 0.42);
-  fillPath([[0, H * 0.36], [W * 0.25, H * 0.3], [W * 0.55, H * 0.35], [W * 0.8, H * 0.29], [W, H * 0.33], [W, H * 0.42], [0, H * 0.42]], '#86a86a');
-  c.fillStyle = '#8b8a86';
-  const cx = W * 0.62, cy = H * 0.31;
-  c.fillRect(cx - 30, cy - 16, 60, 18); c.fillRect(cx - 36, cy - 30, 12, 32); c.fillRect(cx + 24, cy - 30, 12, 32); c.fillRect(cx - 7, cy - 38, 14, 40);
-  for (let i = 0; i < 5; i++) c.fillRect(cx - 30 + i * 14, cy - 20, 6, 4);
-  fillPath([[cx - 38, cy - 30], [cx - 22, cy - 30], [cx - 30, cy - 42]], '#6a2f6e'); fillPath([[cx + 22, cy - 30], [cx + 38, cy - 30], [cx + 30, cy - 42]], '#6a2f6e');
-  // field
-  c.fillStyle = '#5f8a3a'; c.fillRect(0, H * 0.42, W, H * 0.58);
-  c.fillStyle = '#56803a'; for (let i = 0; i < 40; i++) { const gx = (i * 73) % W, gy = H * 0.45 + ((i * 37) % (H * 0.5)); c.fillRect(gx, gy, 3, 2); }
-  // striped tents along the back of the lists
-  tent(W * 0.02, H * 0.33, 54, 30, '#a8261f', '#f3e7c9');
-  tent(W * 0.82, H * 0.335, 52, 28, '#23407a', '#f3e7c9');
-  // the shooting line
-  c.fillStyle = '#efe3c2'; c.fillRect(0, H - 22, W, 3);
-  // banners on poles, each showing a chord
-  const t = clock;
-  banners && banners.forEach((b, i) => {
-    b.x = 36 + (W - 72) * b.base + Math.sin(t * 1.3 + b.sway) * 5;
-    b.y = H * (b.row ? 0.58 : 0.46);
-    const px = b.x, top = b.y - 6;
-    c.fillStyle = '#5a3a1c'; c.fillRect(px - 2, top - 8, 4, H - 22 - top + 6);
-    c.globalAlpha = b.miss ? 0.35 : 1;
-    // a swallow-tailed banner hanging from a crossbar
-    c.fillStyle = '#5a3a1c'; c.fillRect(px - 32, top - 2, 64, 4);
-    fillPath([[px - 30, top + 2], [px + 30, top + 2], [px + 30, top + 48], [px, top + 38], [px - 30, top + 48]], b.col);
-    c.fillStyle = '#f3e7c9'; c.fillRect(px - 24, top + 8, 48, 24);
-    c.font = "22px 'IM Fell English', Georgia, serif"; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillStyle = '#2a1a10'; c.fillText(b.name, px, top + 21);
-    c.globalAlpha = 1;
-    if (b.hit) { c.fillStyle = '#c99a2e'; c.beginPath(); c.arc(px, top + 21, 30, 0, Math.PI * 2); c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1; }
-  });
-  // archers: you on the left, the rival on the right drawing the bow
-  archer(YOU(), 1, '#23407a', arrows.some(a => a.mine) ? 0 : 0.3);
-  archer(RIV(), -1, '#a8261f', state === 'playing' ? draw : 0);
-  // the rival's draw as a cord under their feet
-  c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(W * 0.7, H - 12, W * 0.26, 5);
-  c.fillStyle = draw > 0.75 ? '#e0533f' : '#a8261f'; c.fillRect(W * 0.7, H - 12, W * 0.26 * draw, 5);
-  // arrows in flight
+  const now = performance.now(), dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0; lastDraw = now;
+  ctx.drawImage(sk, 0, 0, W, H);
+  drawClouds(dt);
+  ctx.drawImage(bg, 0, 0, W, H);
+  const boss = rival(match).dragon && state !== 'start';
+  if (boss) { ctx.fillStyle = 'rgba(110,30,15,0.28)'; ctx.fillRect(0, 0, W, H * 0.44); }      // the sky darkens for the final
+  flagPoles.forEach((fp, i) => waveFlag(fp.x + 0.75, fp.y, fp.small ? 9 : 13, fp.small ? 5 : 7, fp.col || (i === 0 ? '#c99a2e' : i % 2 ? '#a8261f' : '#23407a'), clock, i));
+  // banners stand in two rows; draw the back row first so poles sit behind the front cloth
+  banners && banners.forEach(b => { b.x = 36 + (W - 72) * b.base + Math.sin(clock * 1.3 + b.sway) * 5; b.y = H * (b.row ? 0.6 : 0.48); });
+  banners && banners.filter(b => !b.row).concat(banners.filter(b => b.row)).forEach(banner);
+  archer(YOU(), 1, '#23407a', '#c99a2e', arrows.some(a => a.mine) ? 0 : 0.25);
+  if (boss) dragon(state === 'playing' ? draw : 0); else archer(RIV(), -1, '#a8261f', '#f3e7c9', state === 'playing' ? draw : 0);
+  // the rival's draw shown as a cord under their feet
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(W * 0.7, H - 12, W * 0.26, 5);
+  ctx.fillStyle = draw > 0.75 ? '#e0533f' : '#a8261f'; ctx.fillRect(W * 0.7, H - 12, W * 0.26 * draw, 5);
+  // arrows in flight, with a faint trail
   arrows.forEach(a => {
-    const k = Math.min(1, a.t), x = a.from.x + (a.to.x - a.from.x) * k, y = a.from.y - 14 + (a.to.y - a.from.y + 14) * k - Math.sin(k * Math.PI) * 40;
-    const k2 = Math.max(0, k - 0.05), x2 = a.from.x + (a.to.x - a.from.x) * k2, y2 = a.from.y - 14 + (a.to.y - a.from.y + 14) * k2 - Math.sin(k2 * Math.PI) * 40;
-    const ang = Math.atan2(y - y2, x - x2);
-    c.save(); c.translate(x, y); c.rotate(ang);
-    c.fillStyle = '#5a3a1c'; c.fillRect(-18, -1, 18, 2);
-    fillPath([[0, -3], [6, 0], [0, 3]], '#8b8a86');
-    fillPath([[-18, -1], [-24, -4], [-21, 0], [-24, 4], [-18, 1]], a.mine ? '#23407a' : '#a8261f');
-    c.restore();
+    const at = k => ({ x: a.from.x + (a.to.x - a.from.x) * k, y: a.from.y - 14 + (a.to.y - a.from.y + 14) * k - Math.sin(k * Math.PI) * 40 });
+    const k = Math.min(1, a.t), p = at(k), q = at(Math.max(0, k - 0.05));
+    if (a.fire) { if (k < 1) fireball(p, at(Math.max(0, k - 0.2))); return; }
+    if (k < 1) { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); const r = at(Math.max(0, k - 0.25)); ctx.moveTo(r.x, r.y); ctx.quadraticCurveTo(q.x, q.y, p.x, p.y); ctx.stroke(); }
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.y - q.y, p.x - q.x));
+    ctx.fillStyle = '#5a3a1c'; ctx.fillRect(-20, -1, 20, 2);
+    fillPath([[0, -3], [7, 0], [0, 3]], '#9a9890');
+    fillPath([[-20, -1], [-26, -4], [-23, 0], [-26, 4], [-20, 1]], a.mine ? '#23407a' : '#a8261f');
+    ctx.restore();
   });
-  if (flash > 0) { c.fillStyle = `rgba(168,38,31,${flash * 0.18})`; c.fillRect(0, 0, W, H); }
+  const vg = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.35, W / 2, H * 0.55, H * 0.85); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(30,15,5,0.35)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  if (flash > 0) { ctx.fillStyle = `rgba(168,38,31,${flash * 0.18})`; ctx.fillRect(0, 0, W, H); }
 }
 
 // ---- Loop ----------------------------------------------------------------
@@ -307,7 +510,7 @@ function frame(t) {
   lastT = t; clock += dt;
   if (state === 'playing') {
     draw = Math.min(1, draw + dt / rival(match).draw);
-    if (draw >= 1 && !arrows.some(a => !a.mine)) loose(RIV(), banners.find(b => b.right), false);
+    if (draw >= 1 && !arrows.some(a => !a.mine)) loose(rival(match).dragon ? dragonMouth : RIV(), banners.find(b => b.right), false);
   }
   arrows.forEach(a => { a.t += dt / 0.45; if (a.t >= 1 && !a.done) { a.done = true; land(a); } });
   arrows = arrows.filter(a => !a.done || state !== 'playing');
@@ -331,20 +534,28 @@ function showStart() {
     <span class="go" onclick="startGame()">Take the Field</span>
     <p>Each end, the herald calls a chord as a number in a key, like <b>the IV in D</b>. Find its banner and tap it to loose your arrow.</p>
     <p>Your rival is drawing at the same time. Hit the right banner first to win the end. Shoot the wrong one and your arrow goes wide while the rival keeps drawing.</p>
-    <p>First to ${ENDS_TO_WIN} ends wins the match. Every rival is quicker than the last.</p>
+    <p>First to ${ENDS_TO_WIN} ends wins the match. Every rival is quicker than the last, and something waits at the end.</p>
     ${scoreTable(-1)}`);
 }
 function startGame() {
   score = 0; match = 0; youEnds = 0; rivEnds = 0; flash = 0; clock = 0;
   hideOverlay(); newEnd(); lastT = 0; tone(523, 0.1, 'square'); requestAnimationFrame(frame);
 }
-function lost() {
+let ending = { title: 'Defeated' };
+function finish(won) {
   state = 'over';
-  [392, 349, 311, 262].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle'), i * 160));
+  if (won) {
+    score += 1000;                                              // the dragon's hoard
+    ending = { title: 'Dragon Slain', line: `You are Champion of the Realm. The dragon falls, ${youEnds} ends to ${rivEnds}, and its hoard adds 1000.` };
+    fanfare(); setTimeout(fanfare, 600);
+  } else {
+    ending = { title: 'Defeated', line: `${cap(rival(match).name)} wins ${rival(match).dragon ? 'the final' : 'match ' + (match + 1)}, ${rivEnds} ends to ${youEnds}.` };
+    [392, 349, 311, 262].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle'), i * 160));
+  }
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
-  overlay(`<h2>Defeated</h2><div class="flourish"></div>
-    <div class="big">${score}</div><div class="lbl">${cap(rival(match).name)} wins match ${match + 1}, ${rivEnds} ends to ${youEnds}.</div>
+  overlay(`<h2>${ending.title}</h2><div class="flourish"></div>
+    <div class="big">${score}</div><div class="lbl">${ending.line}</div>
     ${qualifies
       ? `<p>Your name goes on the roll. Your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">Sign</button></div>`
       : '<span class="go" onclick="startGame()">Try Again</span>' + scoreTable(-1)}`);
@@ -355,7 +566,7 @@ function saveScore() {
   const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
   const top = list.slice(0, 10);
   store(HS_KEY, JSON.stringify(top));
-  overlay(`<h2>Defeated</h2><div class="flourish"></div><div class="big">${score}</div><div class="lbl">Written on the roll.</div><span class="go" onclick="startGame()">Try Again</span>${scoreTable(top.indexOf(entry))}`);
+  overlay(`<h2>${ending.title}</h2><div class="flourish"></div><div class="big">${score}</div><div class="lbl">Written on the roll.</div><span class="go" onclick="startGame()">${ending.title === 'Dragon Slain' ? 'Ride Again' : 'Try Again'}</span>${scoreTable(top.indexOf(entry))}`);
 }
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('initials')) saveScore(); });
 
@@ -365,7 +576,7 @@ function fit() {
   H = Math.round(Math.min(W * 1.15, Math.max(300, window.innerHeight - 250)));
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  drawScene();
+  paintBackdrop(); drawScene();
 }
 window.addEventListener('resize', fit);
 document.addEventListener('visibilitychange', () => {
