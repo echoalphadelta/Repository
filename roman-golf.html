@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Roman Golf | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* Roman theme: marble, terracotta, imperial purple and gold */
+:root { --marble: #f3efe6; --vein: #c9c1b2; --ink: #3a2a2a; --terra: #b5532f; --purple: #5b2a6e; --gold: #d4a52a; --stone: #cfc8b8; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: #2a1730; }
+body { color: var(--marble); font-family: 'Press Start 2P', monospace; font-size: 10px; line-height: 1.6; -webkit-user-select: none; user-select: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 520px; margin: 0 auto; padding: 8px 12px 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
+.top a { text-decoration: none; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; }
+.info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+.info div { background: var(--marble); color: var(--ink); padding: 4px 6px 4px; border-bottom: 3px solid var(--terra); font-family: 'Cinzel', serif; font-weight: 700; font-size: 10px; letter-spacing: 1px; line-height: 1.3; }
+.info b { display: block; font-family: 'Press Start 2P', monospace; font-size: 11px; font-weight: 400; letter-spacing: 0; margin-top: 3px; }
+.stage { position: relative; margin-top: 8px; border: 4px solid var(--gold); outline: 2px solid var(--purple); }
+canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.ask { margin-top: 10px; text-align: center; font-size: 9px; color: #e6d6ec; min-height: 16px; }
+.clubs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px; }
+.clubs button { height: 46px; background: var(--marble); color: var(--ink); border: none; border-bottom: 4px solid var(--terra); cursor: pointer; font-size: 11px; touch-action: manipulation; padding: 0; }
+.clubs button:active { transform: translateY(2px); border-bottom-width: 2px; }
+.clubs button.no { background: #e9a48c; }
+/* overlays are a carved stone tablet */
+.over { position: absolute; inset: 0; background: linear-gradient(160deg, #d9d3c4, #c4bcaa); color: var(--ink); padding: 14px 12px; font-size: 9px; line-height: 1.8; overflow: auto; box-shadow: inset 0 0 0 3px #b0a794, inset 0 0 0 6px #ddd7c9, inset 0 0 0 7px #a89f8b; text-shadow: 0 1px 0 rgba(255,255,255,0.55); }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 10px; font-family: 'Cinzel', serif; font-weight: 700; font-size: 26px; letter-spacing: 3px; line-height: 1.1; color: var(--purple); }
+.wreath { display: block; margin: 0 0 4px; }
+.over p { margin: 0 0 8px; }
+.over .go { display: inline-block; margin-top: 6px; background: var(--purple); color: var(--marble); padding: 8px 12px 7px; cursor: pointer; text-shadow: none; border-bottom: 3px solid #3a1747; }
+.sc { border-collapse: collapse; margin: 4px 0 10px; font-size: 8px; }
+.sc td { border: 2px solid #8f866f; padding: 4px 3px 3px; text-align: center; min-width: 22px; }
+.sc tr:first-child td { background: #8f866f; color: var(--marble); text-shadow: none; }
+.sc .u { color: var(--purple); } .sc .o { color: var(--terra); }
+.hs div { white-space: pre; }
+.hs .me { background: var(--purple); color: var(--marble); text-shadow: none; }
+.ini { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.ini input { width: 76px; font: inherit; font-size: 16px; letter-spacing: 4px; text-transform: uppercase; background: none; color: var(--ink); border: none; border-bottom: 4px solid var(--ink); border-radius: 0; padding: 2px 0 2px 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--purple); color: var(--marble); border: none; padding: 6px 8px; cursor: pointer; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="info">
+    <div>HOLE<b id="hole">1/9</b></div>
+    <div>PAR<b id="par">3</b></div>
+    <div>KEY<b id="key">C</b></div>
+    <div>SCORE<b id="tot">E</b></div>
+  </div>
+  <div class="stage">
+    <canvas id="cv" width="180" height="200"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="ask" id="ask"></div>
+  <div class="clubs" id="clubs"></div>
+</div>
+
+<script>
+// the seven chords of the key plus three borrowed from the parallel minor (bIII, iv, bVII)
+// Conventional spelling: every note takes the letter of its scale degree, then a sharp or flat as needed
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+// a key is used only if every note it needs reads cleanly: one accidental at most, and no Cb, Fb, E# or B#
+const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
+const SCALE    = [0, 2, 3, 4, 5, 5, 7, 9, 10, 11];
+const NUMERALS = ['I', 'ii', 'bIII', 'iii', 'IV', 'iv', 'V', 'vi', 'bVII', 'vii°'];
+const SUFFIX   = ['', 'm', '', 'm', '', 'm', '', 'm', '', '°'];
+const HOLES    = 9;
+const HS_KEY = 'romanGolfScores', SOUND_KEY = 'arcadeSound';
+// progressions by difficulty (indexes into NUMERALS)
+const I = 0, ii = 1, bIII = 2, iii = 3, IV = 4, iv = 5, V = 6, vi = 7, bVII = 8, vii = 9;
+const EASY = [[I, IV, V], [I, V, I], [I, IV, I], [IV, V, I], [I, bVII, I], [I, iv, I]];
+const MID  = [[I, V, vi, IV], [I, vi, IV, V], [ii, V, I], [vi, IV, I, V], [I, bVII, IV, I], [I, IV, iv, I], [I, bIII, IV, I], [I, bVII, IV, V]];
+const HARD = [[I, vi, ii, V, I], [iii, vi, ii, V, I], [I, vii, iii, vi, ii, V, I], [I, bIII, bVII, IV, I], [IV, iv, I, bVII, I], [I, V, bVII, IV, iv, I], [vi, IV, bIII, bVII, I]];
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const W = 180, H = 200;
+let state = 'start', hole, key, prog, at, strokes, card, ball, anim, course, soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const toPar = n => n === 0 ? 'E' : (n > 0 ? '+' + n : String(n));
+const STEPS = [0, 1, 2, 2, 3, 3, 4, 5, 6, 6];               // letter distance from the root for each numeral
+const chordName = d => spell(key, STEPS[d], SCALE[d]) + SUFFIX[d];
+const KEYS = KEY_NAMES.filter(k => SCALE.every((x, d) => clean(spell(k, STEPS[d], x))));
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function tone(freq, dur, type, slide) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- Course --------------------------------------------------------------
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function buildCourse(n) {
+  // tee at the bottom, cup at the top, chords as stops along a winding fairway
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    pts.push({ x: Math.round(30 + (i % 2 ? rnd(80, 120) : rnd(20, 60)) * (i === 0 || i === n ? 1 : 1)), y: Math.round(H - 26 - t * (H - 56)) });
+  }
+  pts[n].x = Math.round(rnd(70, 130));
+  // distance from a point to the fairway line
+  const fairDist = (x, y) => Math.min(...pts.slice(1).map((b, i) => {
+    const a = pts[i], dx = b.x - a.x, dy = b.y - a.y;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(x - a.x - t * dx, y - a.y - t * dy);
+  }));
+  const cup = pts[n], clear = (x, y, r) => fairDist(x, y) > r + 13 && Math.hypot(x - cup.x, y - cup.y) > r + 22;
+  // a fountain and one sand trap, each set in the most open spot left on the lawn
+  const hazards = [];
+  const place = (type, rx, ry) => {
+    let best = null, room = 4;
+    for (let y = 22; y <= H - 18; y += 2) for (let x = 24 + rx; x <= W - 24 - rx; x += 2) {
+      const r = Math.min(fairDist(x, y) - rx - 13, Math.hypot(x - cup.x, y - cup.y) - rx - 22, Math.hypot(x - pts[0].x, y - pts[0].y) - rx - 24,
+        ...hazards.map(o => Math.hypot(o.x - x, o.y - y) - o.rx - rx - 10));
+      if (r > room) { room = r; best = { type, x, y, rx, ry }; }
+    }
+    if (best) hazards.push(best);
+  };
+  place('fountain', 14, 9);
+  place('sand', 12, 7);
+  // a column at each corner of the garden
+  const deco = [[11, 32], [W - 11, 32], [11, H - 4], [W - 11, H - 4]].map(([x, y]) => ({ x, y, kind: 'column' }));
+  return { pts, hazards, deco };
+}
+
+// ---- Drawing -------------------------------------------------------------
+function txt(s, x, y, size, color, align) {
+  ctx.font = size + "px 'Press Start 2P', monospace"; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = color; ctx.fillText(s, Math.round(x), Math.round(y));
+}
+function ellipse(x, y, rx, ry, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+
+function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+// draw a list of [x, y, w, h, colour] blocks with a dark outline so they read on the grass
+function outlined(parts) {
+  parts.forEach(([x, y, w, h]) => rect(x - 1, y - 1, w + 2, h + 2, '#2b2620'));
+  parts.forEach(([x, y, w, h, c]) => rect(x, y, w, h, c));
+}
+const MARBLE = '#f3efe6', SHADE = '#c9c1b2', COL_H = 22;   // every column is the same height
+function column(x, y, h) {                       // column with base and capital, standing on y
+  outlined([
+    [x - 5, y - 3, 10, 3, SHADE],
+    [x - 3, y - h + 3, 6, h - 6, MARBLE],
+    [x - 5, y - h, 10, 3, SHADE],
+  ]);
+  rect(x - 1, y - h + 3, 1, h - 6, SHADE); rect(x + 1, y - h + 3, 1, h - 6, SHADE);
+}
+function drawDeco(d) {
+  const { x, y } = d;
+  ellipse(x + 2, y + 1, 9, 3, 'rgba(10,25,5,0.35)');
+  if (d.kind === 'column') column(x, y, COL_H);
+  else {                                       // broken column
+    outlined([
+      [x - 5, y - 3, 10, 3, SHADE],
+      [x - 3, y - 13, 6, 10, MARBLE],
+      [x, y - 16, 3, 3, MARBLE],
+    ]);
+    rect(x - 1, y - 13, 1, 10, SHADE); rect(x + 1, y - 13, 1, 10, SHADE);
+  }
+}
+
+function draw() {
+  // garden lawn with soft mowing stripes
+  for (let y = 0; y < H; y += 10) rect(0, y, W, 10, (y / 10) % 2 ? '#477534' : '#4a7a36');
+  if (!course) return;
+  const { pts, hazards, deco } = course;
+  // palace garden lawn with a clipped hedge edge
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#2f5222'; ctx.lineWidth = 26; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke();
+  ctx.strokeStyle = '#7fb257'; ctx.lineWidth = 20; ctx.stroke();
+  hazards.forEach(h => {
+    if (h.type === 'fountain') {                 // two-tier marble fountain with jets
+      const x = Math.round(h.x), y = Math.round(h.y), rx = Math.round(h.rx), ry = Math.round(h.ry);
+      ellipse(x + 2, y + 2, rx + 4, ry + 4, 'rgba(10,25,5,0.35)');
+      ellipse(x, y, rx + 4, ry + 4, '#2b2620');
+      ellipse(x, y, rx + 3, ry + 3, MARBLE);
+      ellipse(x, y + 1, rx + 1, ry + 1, SHADE);
+      ellipse(x, y, rx, ry, '#3f8fc8');
+      ctx.strokeStyle = '#7cc0ea'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(x, y + 1, rx * 0.68, ry * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+      // lower bowl, stem and upper bowl
+      ellipse(x, y + 1, 6, 3.5, '#2b2620'); ellipse(x, y + 1, 5, 2.5, MARBLE); ellipse(x, y + 1, 3.5, 1.5, '#6fb6e4');
+      rect(x - 2, y - 7, 4, 8, '#2b2620'); rect(x - 1, y - 7, 2, 8, MARBLE);
+      ellipse(x, y - 7, 4, 2, '#2b2620'); ellipse(x, y - 7, 3, 1.2, MARBLE);
+      // jets arcing out of the top bowl and splashing into the basin
+      [[0, -11], [0, -10], [-2, -9], [2, -9], [-4, -8], [4, -8], [-5, -6], [5, -6], [-6, -4], [6, -4]].forEach(([dx, dy]) => rect(x + dx, y + dy, 1, 1, '#c7e5f6'));
+      [[-7, -1], [7, -1], [-8, 1], [8, 1]].forEach(([dx, dy]) => rect(x + dx, y + dy, 1, 1, '#9fd0ee'));
+    } else { ellipse(h.x, h.y, h.rx + 1, h.ry + 1, '#c9a560'); ellipse(h.x, h.y, h.rx, h.ry, '#e9cf93'); }
+  });
+  deco.slice().sort((a, b) => a.y - b.y).forEach(drawDeco);
+  // green and cup
+  const cup = pts[pts.length - 1];
+  ellipse(cup.x, cup.y, 20, 15, '#2f5222'); ellipse(cup.x, cup.y, 18, 13, '#a2d06e'); ellipse(cup.x, cup.y, 3, 2, '#2a1730');
+  rect(cup.x, cup.y - 22, 1, 22, '#f3efe6');
+  rect(cup.x + 1, cup.y - 22, 9, 6, '#b5532f');
+  // tee box between two columns
+  const tee = pts[0];
+  rect(tee.x - 8, tee.y - 5, 16, 10, '#a2d06e');
+  ellipse(tee.x - 11, tee.y + 6, 6, 2, 'rgba(10,25,5,0.35)'); ellipse(tee.x + 15, tee.y + 6, 6, 2, 'rgba(10,25,5,0.35)');
+  column(tee.x - 13, tee.y + 6, COL_H); column(tee.x + 13, tee.y + 6, COL_H);
+  // chord stops
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i], name = chordName(prog[i - 1]), done = i <= at, next = i === at + 1;
+    const w = name.length * 8 + 6, lx = p.x + (p.x > W / 2 ? -w / 2 - 14 : w / 2 + 14);
+    ctx.fillStyle = done ? 'rgba(243,239,230,0.55)' : '#f3efe6';
+    ctx.fillRect(Math.round(lx - w / 2), Math.round(p.y - 7), Math.round(w), 13);
+    if (next) { ctx.strokeStyle = '#5b2a6e'; ctx.lineWidth = 2; ctx.strokeRect(Math.round(lx - w / 2) - 1, Math.round(p.y - 7) - 1, Math.round(w) + 2, 15); }
+    txt(name, lx, p.y, 8, done ? '#7a6e66' : '#3a2a2a');
+    if (i < pts.length - 1) { ctx.fillStyle = done ? '#f3efe6' : '#3a2a2a'; ctx.fillRect(p.x - 1, p.y - 1, 3, 3); }
+  }
+  // ball and its shadow
+  ellipse(ball.x + 1, ball.y + 2, 3, 2, 'rgba(0,0,0,0.3)');
+  ellipse(ball.x, ball.y, 3, 3, '#ffffff');
+}
+
+// gold laurel wreath (open at the top) as inline SVG
+function laurel(size) {
+  let leaves = '';
+  for (const side of [-1, 1]) for (let i = 0; i < 7; i++) {
+    const a = Math.PI / 2 + side * (0.35 + i * 0.36), r = 34;
+    const x = 50 + Math.cos(a) * r, y = 46 + Math.sin(a) * r * 0.9;
+    const rot = a * 180 / Math.PI + (side > 0 ? 60 : -60);
+    leaves += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="8" ry="3.4" transform="rotate(${rot.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#d4a52a" stroke="#8a6a12" stroke-width="1"/>`;
+  }
+  return `<svg class="wreath" width="${size}" height="${size * 0.9}" viewBox="0 0 100 90">${leaves}<rect x="44" y="78" width="12" height="5" fill="#8a6a12"/></svg>`;
+}
+
+// ---- Play ----------------------------------------------------------------
+function updateInfo() {
+  document.getElementById('hole').textContent = hole + '/' + HOLES;
+  document.getElementById('par').textContent = prog.length;
+  document.getElementById('key').textContent = key;
+  const played = card.reduce((t, c) => t + c.s - c.p, 0) + (strokes - at);
+  document.getElementById('tot').textContent = toPar(played);
+  document.getElementById('ask').textContent = at < prog.length ? `NAME THE NUMERAL OF ${chordName(prog[at])}` : '';
+}
+
+function buildClubs() {
+  document.getElementById('clubs').innerHTML = NUMERALS.map((n, d) => `<button data-d="${d}">${n}</button>`).join('');
+  document.querySelectorAll('.clubs button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); putt(+b.dataset.d, b); }));
+}
+
+function startHole() {
+  const pool = hole <= 3 ? EASY : hole <= 6 ? MID : HARD;
+  prog = pool[Math.floor(Math.random() * pool.length)];
+  key = KEYS[Math.floor(Math.random() * KEYS.length)];
+  at = 0; strokes = 0;
+  course = buildCourse(prog.length);
+  ball = { x: course.pts[0].x, y: course.pts[0].y };
+  state = 'playing';
+  document.getElementById('over').className = 'over hidden';
+  updateInfo(); draw();
+}
+
+function roll(from, to, ms, done) {
+  const t0 = performance.now();
+  anim = true;
+  (function step(t) {
+    const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    ball.x = from.x + (to.x - from.x) * e; ball.y = from.y + (to.y - from.y) * e;
+    draw();
+    if (k < 1) requestAnimationFrame(step); else { anim = false; done && done(); }
+  })(t0);
+}
+
+function putt(d, btn) {
+  if (state !== 'playing' || anim) return;
+  strokes++;
+  const from = { x: ball.x, y: ball.y };
+  if (d === prog[at]) {
+    at++;
+    tone(1200, 0.05, 'square'); setTimeout(() => tone(600, 0.12, 'triangle'), 40);
+    roll(from, course.pts[at], 450, () => {
+      updateInfo();
+      if (at === prog.length) holeDone();
+    });
+  } else {
+    btn.classList.add('no'); setTimeout(() => btn.classList.remove('no'), 300);
+    tone(200, 0.2, 'triangle', 80);
+    // a mishit: dribbles off line and back to where it was
+    const ang = Math.random() * Math.PI * 2, off = { x: from.x + Math.cos(ang) * 10, y: from.y + Math.sin(ang) * 8 };
+    roll(from, off, 220, () => roll(off, from, 260, updateInfo));
+  }
+  updateInfo();
+}
+
+function holeDone() {
+  state = 'between';
+  card.push({ p: prog.length, s: strokes });
+  const diff = strokes - prog.length;
+  const word = strokes === 1 ? 'HOLE IN ONE' : diff <= -1 ? 'BIRDIE' : diff === 0 ? 'PAR' : diff === 1 ? 'BOGEY' : diff === 2 ? 'DOUBLE BOGEY' : '+' + diff;
+  (diff <= 0 ? [784, 988, 1319] : [392, 330]).forEach((f, i) => setTimeout(() => tone(f, 0.1), i * 100));
+  setTimeout(() => {
+    overlay(`${diff <= 0 ? laurel(54) : ''}<h2>${word}</h2>
+      <p>HOLE ${hole}: ${strokes} STROKES, PAR ${prog.length}<br>${prog.map(chordName).join(' ')} = ${prog.map(x => NUMERALS[x]).join(' ')}</p>
+      ${scorecard()}
+      <span class="go" onclick="${hole < HOLES ? 'nextHole()' : 'finish()'}">${hole < HOLES ? 'NEXT HOLE' : 'SEE RESULT'}</span>`);
+  }, 350);
+}
+function nextHole() { hole++; startHole(); }
+
+function scorecard() {
+  let top = '<tr><td>H</td>', par = '<tr><td>P</td>', sc = '<tr><td>S</td>';
+  for (let i = 0; i < HOLES; i++) {
+    const c = card[i];
+    top += `<td>${i + 1}</td>`;
+    par += `<td>${c ? c.p : ''}</td>`;
+    sc += `<td class="${c ? (c.s < c.p ? 'u' : c.s > c.p ? 'o' : '') : ''}">${c ? c.s : ''}</td>`;
+  }
+  return `<table class="sc">${top}</tr>${par}</tr>${sc}</tr></table>`;
+}
+
+// ---- Screens -------------------------------------------------------------
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<p>NO ROUNDS YET</p>';
+  return '<div class="hs">' + list.map((r, i) => `<div class="${i === hi ? 'me' : ''}">${String(i + 1).padStart(2, ' ')} ${r.i} ${toPar(r.s).padStart(4, ' ')}</div>`).join('') + '</div>';
+}
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+
+function showStart() {
+  state = 'start';
+  overlay(`<h2>ROMAN<br>GOLF</h2>
+    <p>EACH HOLE IS A PROGRESSION IN A KEY. THE CHORDS MARK THE FAIRWAY.</p>
+    <p>PUTT BY PICKING EACH CHORD'S NUMERAL: IN THE KEY OF D, AN A IS THE V.</p>
+    <p>WATCH FOR CHORDS BORROWED FROM THE MINOR KEY: bIII, iv AND bVII. IN D THAT IS F, Gm AND C.</p>
+    <p>A WRONG NUMERAL COSTS A STROKE. 9 HOLES. LOWEST SCORE WINS.</p>
+    <p>BEST ROUNDS</p>${scoreTable(-1)}
+    <span class="go" onclick="startRound()">TEE OFF</span>`);
+}
+function startRound() { hole = 1; card = []; startHole(); tone(660, 0.06); }
+
+function finish() {
+  state = 'over';
+  const total = card.reduce((t, c) => t + c.s - c.p, 0);
+  const list = highScores();
+  const qualifies = list.length < 10 || total < list[list.length - 1].s;
+  overlay(`${total <= 0 ? laurel(84) : ''}<h2>ROUND<br>COMPLETE</h2>
+    ${total <= 0 ? '<p>A CLEAN ROUND. THE LAUREL IS YOURS.</p>' : ''}<p>FINAL SCORE <b>${toPar(total)}</b></p>
+    ${scorecard()}
+    ${qualifies
+      ? `<p>A BEST ROUND! ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore(${total})">OK</button></div>`
+      : scoreTable(-1) + '<span class="go" onclick="startRound()">PLAY AGAIN</span>'}`);
+}
+function saveScore(total) {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: total };
+  const list = highScores(); list.push(entry); list.sort((a, b) => a.s - b.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`${total <= 0 ? laurel(84) : ''}<h2>ROUND<br>COMPLETE</h2><p>FINAL SCORE <b>${toPar(total)}</b></p><p>BEST ROUNDS</p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startRound()">PLAY AGAIN</span>`);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) { const b = document.querySelector('.ini button'); b && b.click(); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+buildClubs();
+hole = 1; card = []; key = 'C'; prog = [I, IV, V]; at = 0; strokes = 0;
+course = buildCourse(3); ball = { x: course.pts[0].x, y: course.pts[0].y };
+draw();
+document.fonts && document.fonts.ready.then(draw);
+showStart();
+</script>
+</body>
+</html>

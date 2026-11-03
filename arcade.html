@@ -11,7 +11,7 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Arcade | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
 <style>
 :root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -77,6 +77,26 @@ a { color: inherit; text-decoration: none; }
 .pr .sub { font-size: 7px; color: #e2606a; margin-top: 4px; }
 .pr .go { display: inline-block; background: #ffd166; color: #1b1040; padding: 6px 10px 5px; font-size: 9px; }
 
+/* 04 Number Blaster: white vector lines on black */
+.nb { background: #000; color: #e8f4ff; border: 1px solid #e8f4ff; font-family: 'Share Tech Mono', monospace; }
+.nb svg { display: block; width: 100%; height: 120px; }
+.nb svg * { vector-effect: non-scaling-stroke; }
+.nb .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 12px 12px; }
+.nb .name { font-size: 22px; line-height: 1.1; letter-spacing: 2px; }
+.nb .sub { font-size: 13px; color: #8a96a3; margin-top: 4px; letter-spacing: 1px; }
+.nb .go { border: 1px solid #e8f4ff; padding: 3px 10px; font-size: 16px; letter-spacing: 2px; }
+
+/* 05 Roman Golf: stone ground, garden lawn, marble and a stone tablet */
+.ng { background: #2a1730; border: 4px solid #d4a52a; outline: 2px solid #5b2a6e; outline-offset: -1px; }
+.ng .course { position: relative; height: 112px; overflow: hidden; background: #cdbf9f; }
+.ng .course svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ng .tag { position: absolute; background: #f3efe6; color: #3a2a2a; font-size: 8px; padding: 3px 4px 2px; }
+.ng .tag.on { outline: 2px solid #5b2a6e; }
+.ng .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 10px; background: linear-gradient(160deg, #d9d3c4, #c4bcaa); color: #3a2a2a; box-shadow: inset 0 3px 0 #b0a794; }
+.ng .name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 22px; line-height: 1.05; letter-spacing: 2px; color: #5b2a6e; }
+.ng .sub { font-size: 7px; color: #3a2a2a; margin-top: 6px; }
+.ng .go { display: inline-block; background: #5b2a6e; color: #f3efe6; padding: 6px 10px 5px; font-size: 9px; border-bottom: 3px solid #3a1747; }
+
 .sub.best { color: inherit; }
 .sub.best:empty { display: none; }
 .foot { margin-top: 30px; font-size: 8px; line-height: 2; color: var(--dim); }
@@ -124,6 +144,58 @@ a { color: inherit; text-decoration: none; }
     </div>
   </a>
 
+  <a class="game nb" href="number-blaster.html">
+    <svg viewBox="0 0 360 120" fill="none" stroke="#e8f4ff" stroke-width="1.3" stroke-linejoin="round" font-family="'Share Tech Mono', monospace" font-size="15" text-anchor="middle">
+      <polygon points="44,20 64,14 80,24 78,44 60,52 40,44 34,30" />
+      <text x="58" y="38" fill="#e8f4ff" stroke="none">Eb</text>
+      <polygon points="270,58 292,52 308,64 302,84 282,90 264,80" />
+      <text x="286" y="76" fill="#e8f4ff" stroke="none">C#</text>
+      <polygon points="230,10 246,6 256,16 250,30 236,32 226,22" />
+      <text x="241" y="24" fill="#e8f4ff" stroke="none" font-size="12">A</text>
+      <polygon points="180,48 194,62 180,58 166,62" />
+      <circle cx="180" cy="58" r="22" opacity="0.2" /><circle cx="180" cy="58" r="27" opacity="0.2" />
+      <line x1="180" y1="58" x2="232" y2="22" />
+      <text x="12" y="112" fill="#e8f4ff" stroke="none" text-anchor="start" font-size="12">KEY OF G</text>
+    </svg>
+    <div class="info">
+      <div><div class="name">NUMBER<br>BLASTER</div><div class="sub">SHOOT EACH NOTE BY ITS NUMBER</div><div class="sub best" id="best4"></div></div>
+      <span class="go">START</span>
+    </div>
+  </a>
+
+  <a class="game ng" href="roman-golf.html">
+    <div class="course">
+      <svg viewBox="0 0 360 112" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">
+        <rect x="0" y="0" width="360" height="10" fill="#4a7a36"/><rect x="0" y="10" width="360" height="10" fill="#477534"/><rect x="0" y="20" width="360" height="10" fill="#4a7a36"/><rect x="0" y="30" width="360" height="10" fill="#477534"/><rect x="0" y="40" width="360" height="10" fill="#4a7a36"/><rect x="0" y="50" width="360" height="10" fill="#477534"/><rect x="0" y="60" width="360" height="10" fill="#4a7a36"/><rect x="0" y="70" width="360" height="10" fill="#477534"/><rect x="0" y="80" width="360" height="10" fill="#4a7a36"/><rect x="0" y="90" width="360" height="10" fill="#477534"/><rect x="0" y="100" width="360" height="10" fill="#4a7a36"/><rect x="0" y="110" width="360" height="10" fill="#477534"/>
+        <polyline points="76,90 150,62 250,72 318,52" fill="none" stroke="#2f5222" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" shape-rendering="auto" />
+        <polyline points="76,90 150,62 250,72 318,52" fill="none" stroke="#7fb257" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" shape-rendering="auto" />
+        <ellipse cx="318" cy="52" rx="24" ry="13" fill="#a2d06e" stroke="#2f5222" stroke-width="2" shape-rendering="auto" />
+        <ellipse cx="318" cy="52" rx="3" ry="2" fill="#2a1730" />
+        <rect x="318" y="32" width="1.5" height="20" fill="#f3efe6" /><rect x="319.5" y="32" width="11" height="7" fill="#b5532f" />
+        <!-- a column at each corner -->
+        <ellipse cx="16" cy="29" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="8" y="24" width="12" height="5" fill="#2b2620"/><rect x="10" y="8" width="8" height="18" fill="#2b2620"/><rect x="8" y="5" width="12" height="5" fill="#2b2620"/><rect x="9" y="25" width="10" height="3" fill="#c9c1b2"/><rect x="11" y="9" width="6" height="16" fill="#f3efe6"/><rect x="9" y="6" width="10" height="3" fill="#c9c1b2"/><rect x="13" y="9" width="1" height="16" fill="#c9c1b2"/><rect x="15" y="9" width="1" height="16" fill="#c9c1b2"/><ellipse cx="348" cy="29" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="340" y="24" width="12" height="5" fill="#2b2620"/><rect x="342" y="8" width="8" height="18" fill="#2b2620"/><rect x="340" y="5" width="12" height="5" fill="#2b2620"/><rect x="341" y="25" width="10" height="3" fill="#c9c1b2"/><rect x="343" y="9" width="6" height="16" fill="#f3efe6"/><rect x="341" y="6" width="10" height="3" fill="#c9c1b2"/><rect x="345" y="9" width="1" height="16" fill="#c9c1b2"/><rect x="347" y="9" width="1" height="16" fill="#c9c1b2"/><ellipse cx="16" cy="109" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="8" y="104" width="12" height="5" fill="#2b2620"/><rect x="10" y="88" width="8" height="18" fill="#2b2620"/><rect x="8" y="85" width="12" height="5" fill="#2b2620"/><rect x="9" y="105" width="10" height="3" fill="#c9c1b2"/><rect x="11" y="89" width="6" height="16" fill="#f3efe6"/><rect x="9" y="86" width="10" height="3" fill="#c9c1b2"/><rect x="13" y="89" width="1" height="16" fill="#c9c1b2"/><rect x="15" y="89" width="1" height="16" fill="#c9c1b2"/><ellipse cx="348" cy="109" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="340" y="104" width="12" height="5" fill="#2b2620"/><rect x="342" y="88" width="8" height="18" fill="#2b2620"/><rect x="340" y="85" width="12" height="5" fill="#2b2620"/><rect x="341" y="105" width="10" height="3" fill="#c9c1b2"/><rect x="343" y="89" width="6" height="16" fill="#f3efe6"/><rect x="341" y="86" width="10" height="3" fill="#c9c1b2"/><rect x="345" y="89" width="1" height="16" fill="#c9c1b2"/><rect x="347" y="89" width="1" height="16" fill="#c9c1b2"/>
+        <!-- tee between two columns -->
+        <rect x="68" y="85" width="16" height="10" fill="#a2d06e" />
+        <ellipse cx="65" cy="98" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="57" y="93" width="12" height="5" fill="#2b2620"/><rect x="59" y="77" width="8" height="18" fill="#2b2620"/><rect x="57" y="74" width="12" height="5" fill="#2b2620"/><rect x="58" y="94" width="10" height="3" fill="#c9c1b2"/><rect x="60" y="78" width="6" height="16" fill="#f3efe6"/><rect x="58" y="75" width="10" height="3" fill="#c9c1b2"/><rect x="62" y="78" width="1" height="16" fill="#c9c1b2"/><rect x="64" y="78" width="1" height="16" fill="#c9c1b2"/><ellipse cx="91" cy="98" rx="8" ry="2.5" fill="rgba(10,25,5,0.35)"/><rect x="83" y="93" width="12" height="5" fill="#2b2620"/><rect x="85" y="77" width="8" height="18" fill="#2b2620"/><rect x="83" y="74" width="12" height="5" fill="#2b2620"/><rect x="84" y="94" width="10" height="3" fill="#c9c1b2"/><rect x="86" y="78" width="6" height="16" fill="#f3efe6"/><rect x="84" y="75" width="10" height="3" fill="#c9c1b2"/><rect x="88" y="78" width="1" height="16" fill="#c9c1b2"/><rect x="90" y="78" width="1" height="16" fill="#c9c1b2"/>
+        <!-- fountain -->
+        <g shape-rendering="auto"><ellipse cx="212" cy="99" rx="21" ry="12" fill="rgba(10,25,5,0.35)"/><ellipse cx="210" cy="97" rx="21" ry="12" fill="#2b2620"/><ellipse cx="210" cy="97" rx="20" ry="11" fill="#f3efe6"/><ellipse cx="210" cy="98" rx="18" ry="9" fill="#c9c1b2"/><ellipse cx="210" cy="97" rx="17" ry="8" fill="#3f8fc8"/><ellipse cx="210" cy="98" rx="11.5" ry="5" fill="none" stroke="#7cc0ea" stroke-width="1"/>
+        <ellipse cx="210" cy="98" rx="6" ry="3.5" fill="#2b2620"/><ellipse cx="210" cy="98" rx="5" ry="2.5" fill="#f3efe6"/><ellipse cx="210" cy="98" rx="3.5" ry="1.5" fill="#6fb6e4"/></g>
+        <rect x="208" y="89" width="4" height="9" fill="#2b2620"/><rect x="209" y="89" width="2" height="9" fill="#f3efe6"/>
+        <g shape-rendering="auto"><ellipse cx="210" cy="89" rx="4" ry="2" fill="#2b2620"/><ellipse cx="210" cy="89" rx="3" ry="1.2" fill="#f3efe6"/></g>
+        <rect x="210" y="85" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="208" y="87" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="212" y="87" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="206" y="88" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="214" y="88" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="204" y="90" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="216" y="90" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="203" y="92" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="217" y="92" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="201" y="96" width="1.5" height="1.5" fill="#c7e5f6"/><rect x="219" y="96" width="1.5" height="1.5" fill="#c7e5f6"/>
+        <!-- sand -->
+        <g shape-rendering="auto"><ellipse cx="300" cy="94" rx="17" ry="8" fill="#c9a560"/><ellipse cx="300" cy="94" rx="16" ry="7" fill="#e9cf93"/></g>
+        <circle cx="150" cy="62" r="3.5" fill="#fff" shape-rendering="auto" />
+      </svg>
+      <span class="tag" style="left:43%;top:68px">Bb</span>
+      <span class="tag on" style="left:66%;top:74px">F</span>
+    </div>
+    <div class="info">
+      <div><div class="name">ROMAN<br>GOLF</div><div class="sub">PUTT WITH THE RIGHT NUMERAL</div><div class="sub best" id="best5"></div></div>
+      <span class="go">TEE OFF</span>
+    </div>
+  </a>
+
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
 <script>
@@ -144,9 +216,17 @@ function showBest(key, id) {
     if (list.length) document.getElementById(id).textContent = 'HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
   } catch (e) {}
 }
-showBest('eadNoteInvadersScores', 'best1');
-showBest('eadShapeSnapScores', 'best2');
-showBest('eadProgressionRunScores', 'best3');
+showBest('noteInvadersScores', 'best1');
+showBest('shapeSnapScores', 'best2');
+showBest('progressionRunScores', 'best3');
+showBest('numberBlasterScores', 'best4');
+// this font slashes its zeros, so the Blaster score shows a plain round O
+(function () { const el = document.getElementById('best4'); el.textContent = el.textContent.replace(/0/g, 'O'); })();
+// golf is scored against par, lowest first
+try {
+  const g = JSON.parse(localStorage.getItem('romanGolfScores')) || [];
+  if (g.length) document.getElementById('best5').textContent = 'BEST ' + (g[0].s === 0 ? 'E' : g[0].s > 0 ? '+' + g[0].s : g[0].s) + ' ' + g[0].i;
+} catch (e) {}
 </script>
 </body>
 </html>

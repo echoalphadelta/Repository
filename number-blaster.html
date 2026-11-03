@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Number Blaster | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* Vector theme: thin white lines on black, like early vector arcade screens */
+:root { --v: #e8f4ff; --v2: rgba(232,244,255,0.45); --bg: #000; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--bg); }
+body { color: var(--v); font-family: 'Share Tech Mono', monospace; font-size: 15px; letter-spacing: 1px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 520px; margin: 0 auto; padding: 8px 12px 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
+.top a { text-decoration: none; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; }
+.stage { position: relative; margin-top: 6px; border: 1px solid var(--v2); }
+canvas { display: block; margin: 0 auto; }
+.pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.pad button { height: 44px; background: none; border: 1px solid var(--v); cursor: pointer; font-size: 17px; touch-action: manipulation; }
+.pad button:active, .pad button.hit { background: var(--v); color: var(--bg); }
+.pad button.no { border-color: #ff6b6b; color: #ff6b6b; }
+.over { position: absolute; inset: 0; background: rgba(0,0,0,0.88); padding: 18px 16px; line-height: 1.6; overflow: auto; }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 12px; font-size: 26px; font-weight: 400; letter-spacing: 4px; }
+.over p { margin: 0 0 10px; color: var(--v2); }
+.over p b { color: var(--v); font-weight: 400; }
+.over .go { display: inline-block; margin-top: 4px; padding: 4px 12px; border: 1px solid var(--v); cursor: pointer; animation: bl 1.2s steps(1) infinite; }
+@keyframes bl { 50% { opacity: 0.3; } }
+.hs { margin: 6px 0 12px; }
+.hs div { white-space: pre; color: var(--v2); }
+.hs .me { color: var(--v); }
+.ini { display: flex; gap: 10px; align-items: center; margin: 8px 0 12px; }
+.ini input { width: 84px; font: inherit; font-size: 24px; letter-spacing: 6px; text-transform: uppercase; background: none; color: var(--v); border: none; border-bottom: 1px solid var(--v); border-radius: 0; padding: 0 0 0 6px; }
+.ini input:focus { outline: none; }
+.ini button { background: none; border: 1px solid var(--v); padding: 2px 12px; cursor: pointer; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="pad" id="pad"></div>
+</div>
+
+<script>
+// Conventional spelling: every note takes the letter of its scale degree, then a sharp or flat as needed
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+// a key is used only if every note it needs reads cleanly: one accidental at most, and no Cb, Fb, E# or B#
+const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
+const NUM = { 0:'1', 1:'b2', 2:'2', 3:'b3', 4:'3', 5:'4', 6:'#4', 7:'5', 8:'b6', 9:'6', 10:'b7', 11:'Maj7' };
+const DIATONIC = [0, 2, 4, 5, 7, 9, 11];
+const CHROMATIC = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];          // letter distance from the root for each number
+const noteOf = deg => spell(key, STEPS[deg], deg);
+function pickKey() { const ok = KEY_NAMES.filter(k => pool().every(d => clean(spell(k, STEPS[d], d))) && k !== key); return ok[Math.floor(Math.random() * ok.length)]; }
+const HS_KEY = 'numberBlasterScores', SOUND_KEY = 'arcadeSound';
+
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let S = 360;                       // drawing size in CSS pixels (square)
+let state = 'start', score, lives, level, kills, key, rocks, shots, bits, lastT, spawnT, shipAngle, flash;
+let soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const pad = (n, w) => String(n).padStart(w, '0');
+const plain = t => String(t).replace(/0/g, 'O');   // this font slashes its zeros; show a plain round O
+
+function pool()        { return level <= 2 ? DIATONIC : CHROMATIC; }
+function rockSpeed()   { return 22 + level * 6; }
+function spawnEvery()  { return Math.max(900, 2600 - level * 220); }
+function maxRocks()    { return Math.min(5, 1 + Math.ceil(level / 2)); }
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function tone(freq, dur, type, slide) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- Keypad --------------------------------------------------------------
+function buildPad() {
+  document.getElementById('pad').innerHTML = pool().map(d => `<button data-d="${d}">${NUM[d]}</button>`).join('');
+  document.querySelectorAll('#pad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); fire(+b.dataset.d, b); }));
+}
+
+// ---- Rocks ---------------------------------------------------------------
+function spawn() {
+  const used = rocks.map(r => r.deg);
+  const choices = pool().filter(d => !used.includes(d));
+  if (!choices.length) return;
+  const deg = choices[Math.floor(Math.random() * choices.length)];
+  const a = Math.random() * Math.PI * 2, R = S * 0.62;
+  const verts = Array.from({ length: 10 }, (_, i) => 0.72 + Math.random() * 0.32);
+  rocks.push({ deg, name: noteOf(deg), x: S / 2 + Math.cos(a) * R, y: S / 2 + Math.sin(a) * R, r: 24, verts, spin: (Math.random() - 0.5) * 0.8, rot: 0 });
+}
+
+function fire(deg, btn) {
+  if (state !== 'playing') return;
+  // nearest rock carrying this number
+  let target = null, best = Infinity;
+  rocks.forEach(r => { const d = Math.hypot(r.x - S / 2, r.y - S / 2); if (r.deg === deg && d < best) { best = d; target = r; } });
+  if (target) {
+    shipAngle = Math.atan2(target.y - S / 2, target.x - S / 2);
+    shots.push({ x: target.x, y: target.y, t: 0.12 });
+    burst(target.x, target.y);
+    rocks = rocks.filter(r => r !== target);
+    kills++;
+    score += Math.round((100 + best) * level);
+    btn.classList.add('hit'); setTimeout(() => btn.classList.remove('hit'), 120);
+    tone(880, 0.12, 'sawtooth', 220); setTimeout(() => tone(140, 0.2, 'triangle', 60), 40);
+    if (kills % 12 === 0) levelUp();
+  } else {
+    btn.classList.add('no'); setTimeout(() => btn.classList.remove('no'), 220);
+    score = Math.max(0, score - 25 * level);
+    tone(160, 0.15, 'square', 90);
+  }
+}
+
+function burst(x, y) {
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 80;
+    bits.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, a: Math.random() * Math.PI, len: 4 + Math.random() * 6, t: 0.6 });
+  }
+}
+
+function levelUp() {
+  level++;
+  key = pickKey();
+  rocks.forEach(r => burst(r.x, r.y)); rocks = [];
+  buildPad();
+  flash = 1.4;
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.09), i * 80));
+}
+
+// ---- Drawing -------------------------------------------------------------
+function line(pts, close) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  if (close) ctx.closePath(); ctx.stroke();
+}
+function text(s, x, y, size, align, color) {
+  ctx.font = size + "px 'Share Tech Mono', monospace"; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = color || '#e8f4ff'; ctx.fillText(plain(s), x, y);
+}
+
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+  ctx.strokeStyle = '#e8f4ff'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(232,244,255,0.7)'; ctx.shadowBlur = 4;
+  // rocks
+  rocks.forEach(r => {
+    const pts = r.verts.map((k, i) => { const a = r.rot + i / r.verts.length * Math.PI * 2; return [r.x + Math.cos(a) * r.r * k, r.y + Math.sin(a) * r.r * k]; });
+    line(pts, true);
+    text(r.name, r.x, r.y + 1, 15);
+  });
+  // ship
+  const cx = S / 2, cy = S / 2, a = shipAngle;
+  const p = (ang, d) => [cx + Math.cos(a + ang) * d, cy + Math.sin(a + ang) * d];
+  line([p(0, 14), p(2.5, 11), p(Math.PI, 5), p(-2.5, 11)], true);
+  // shield ring for each life
+  for (let i = 0; i < lives; i++) { ctx.beginPath(); ctx.arc(cx, cy, 24 + i * 5, 0, Math.PI * 2); ctx.globalAlpha = 0.18; ctx.stroke(); ctx.globalAlpha = 1; }
+  // shots
+  shots.forEach(s => line([[cx, cy], [s.x, s.y]]));
+  bits.forEach(b => { ctx.globalAlpha = Math.max(0, b.t / 0.6); line([[b.x, b.y], [b.x + Math.cos(b.a) * b.len, b.y + Math.sin(b.a) * b.len]]); ctx.globalAlpha = 1; });
+  ctx.shadowBlur = 0;
+  // HUD
+  text(pad(score, 6), 10, 16, 17, 'left');
+  text('KEY OF ' + (key || 'C'), S / 2, 16, 17);
+  text('LV ' + pad(level, 2), S - 10, 16, 17, 'right');
+  if (flash > 0) text('KEY CHANGE: ' + key, S / 2, S / 2 + 52, 18, 'center', `rgba(232,244,255,${Math.min(1, flash)})`);
+}
+
+// ---- Loop ----------------------------------------------------------------
+function frame(t) {
+  if (state !== 'playing') return;
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+  lastT = t;
+  spawnT += dt * 1000;
+  if (rocks.length < maxRocks() && spawnT > spawnEvery()) { spawn(); spawnT = 0; }
+  rocks.forEach(r => {
+    const dx = S / 2 - r.x, dy = S / 2 - r.y, d = Math.hypot(dx, dy);
+    r.x += dx / d * rockSpeed() * dt; r.y += dy / d * rockSpeed() * dt; r.rot += r.spin * dt;
+  });
+  const hit = rocks.find(r => Math.hypot(r.x - S / 2, r.y - S / 2) < 22 + r.r * 0.6);
+  if (hit) {
+    rocks = rocks.filter(r => r !== hit); burst(hit.x, hit.y); lives--;
+    tone(90, 0.4, 'sawtooth', 40);
+    cv.style.transform = 'translate(3px, -2px)'; setTimeout(() => cv.style.transform = '', 90);
+    if (lives <= 0) { draw(); gameOver(); return; }
+  }
+  shots.forEach(s => s.t -= dt); shots = shots.filter(s => s.t > 0);
+  bits.forEach(b => { b.x += b.vx * dt; b.y += b.vy * dt; b.t -= dt; }); bits = bits.filter(b => b.t > 0);
+  flash = Math.max(0, flash - dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<p>NO SCORES YET</p>';
+  return '<div class="hs">' + list.map((r, i) => `<div class="${i === hi ? 'me' : ''}">${String(i + 1).padStart(2, ' ')}  ${r.i}  ${pad(r.s, 6)}</div>`).join('') + '</div>';
+}
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html.replace(/>([^<]*)</g, (m, t) => '>' + plain(t) + '<'); }
+
+function showStart() {
+  state = 'start';
+  overlay(`<h2>NUMBER<br>BLASTER</h2>
+    <p>NOTES DRIFT IN TOWARD YOUR SHIP. THE KEY IS SHOWN AT THE TOP.</p>
+    <p>BLAST EACH NOTE BY TAPPING ITS <b>NUMBER</b> IN THAT KEY. IN THE KEY OF G, A <b>D</b> IS A <b>5</b>.</p>
+    <p>THE KEY CHANGES EVERY LEVEL. FROM LEVEL 3, ALL TWELVE NUMBERS COME INTO PLAY.</p>
+    ${scoreTable(-1)}
+    <span class="go" onclick="startGame()">START</span>`);
+}
+
+function startGame() {
+  score = 0; lives = 3; level = 1; kills = 0; rocks = []; shots = []; bits = []; lastT = 0; spawnT = 1800; shipAngle = -Math.PI / 2; flash = 1.4;
+  key = undefined; key = pickKey();
+  buildPad();
+  document.getElementById('over').className = 'over hidden';
+  state = 'playing';
+  tone(660, 0.08);
+  requestAnimationFrame(frame);
+}
+
+function gameOver() {
+  state = 'over';
+  [392, 330, 262, 196].forEach((f, i) => setTimeout(() => tone(f, 0.15, 'triangle'), i * 140));
+  const list = highScores();
+  const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
+  setTimeout(() => overlay(`<h2>GAME OVER</h2>
+    <p>SCORE <b>${pad(score, 6)}</b><br>LEVEL <b>${pad(level, 2)}</b>  NOTES <b>${kills}</b></p>
+    ${qualifies
+      ? `<p>NEW HIGH SCORE. ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      : scoreTable(-1) + '<span class="go" onclick="startGame()">START</span>'}`), 500);
+}
+
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: score };
+  const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`<h2>GAME OVER</h2><p>SCORE <b>${pad(score, 6)}</b></p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">START</span>`);
+}
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  S = Math.min(document.querySelector('.stage').clientWidth || 360, Math.max(240, window.innerHeight - 250));
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(S * dpr); cv.height = Math.round(S * dpr);
+  cv.style.width = S + 'px'; cv.style.height = S + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (state !== 'playing') draw();
+}
+window.addEventListener('resize', fit);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) saveScore();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+score = 0; lives = 3; level = 1; kills = 0; rocks = []; shots = []; bits = []; shipAngle = -Math.PI / 2; flash = 0; key = 'G';
+buildPad();
+fit();
+document.fonts && document.fonts.ready.then(() => { if (state !== 'playing') draw(); });
+showStart();
+</script>
+</body>
+</html>
