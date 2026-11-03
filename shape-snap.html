@@ -323,7 +323,7 @@ function answer(shape) {
     const rowsLeft = ROWS - (piece.y + piece.h);
     score += (100 + rowsLeft * 10) * level;
     snaps++;
-    say(`${piece.name} WAS<br>${piece.shape.toUpperCase()}!`);
+    say('');
     beep(1047, 0.05); setTimeout(() => beep(1568, 0.07), 60);
     let n = 0;
     const blink = setInterval(() => {
@@ -336,7 +336,7 @@ function answer(shape) {
       }
     }, 70);
   } else {
-    say(`NO!<br>${piece.name} WAS<br>${piece.shape.toUpperCase()}`);
+    say('');
     beep(147, 0.12);
     while (fits(piece, piece.y + 1)) piece.y++;   // hard drop
     render(); lock();
