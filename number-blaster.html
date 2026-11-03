@@ -34,9 +34,9 @@ canvas { display: block; margin: 0 auto; }
 .over h2 { margin: 0 0 12px; font-size: 26px; font-weight: 400; letter-spacing: 4px; }
 .over p { margin: 0 0 10px; color: var(--v2); }
 .over p b { color: var(--v); font-weight: 400; }
-.over .go { display: inline-block; margin-top: 4px; padding: 4px 12px; border: 1px solid var(--v); cursor: pointer; animation: bl 1.2s steps(1) infinite; }
+.over .go { display: inline-block; margin: 0 0 14px; padding: 4px 12px; border: 1px solid var(--v); cursor: pointer; animation: bl 1.2s steps(1) infinite; }
 @keyframes bl { 50% { opacity: 0.3; } }
-.hs { margin: 6px 0 12px; }
+.hs { margin: 0 0 12px; }
 .hs div { white-space: pre; color: var(--v2); }
 .hs .me { color: var(--v); }
 .ini { display: flex; gap: 10px; align-items: center; margin: 8px 0 12px; }
@@ -71,8 +71,10 @@ function spell(keyName, steps, semis) {
 // a key is used only if every note it needs reads cleanly: one accidental at most, and no Cb, Fb, E# or B#
 const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
 const NUM = { 0:'1', 1:'b2', 2:'2', 3:'b3', 4:'3', 5:'4', 6:'#4', 7:'5', 8:'b6', 9:'6', 10:'b7', 11:'Maj7' };
-const DIATONIC = [0, 2, 4, 5, 7, 9, 11];
 const CHROMATIC = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+// how often each number turns up: common tones more, the rest less, every one in play
+//              1  b2  2  b3  3   4  #4  5  b6  6  b7 Maj7
+const WEIGHT = [5,  1, 3,  2, 4,  4,  1, 5,  1, 3,  2,  2];
 const STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];          // letter distance from the root for each number
 const noteOf = deg => spell(key, STEPS[deg], deg);
 function pickKey() { const ok = KEY_NAMES.filter(k => pool().every(d => clean(spell(k, STEPS[d], d))) && k !== key); return ok[Math.floor(Math.random() * ok.length)]; }
@@ -89,7 +91,7 @@ function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e)
 const pad = (n, w) => String(n).padStart(w, '0');
 const plain = t => String(t).replace(/0/g, 'O');   // this font slashes its zeros; show a plain round O
 
-function pool()        { return level <= 2 ? DIATONIC : CHROMATIC; }
+function pool()        { return CHROMATIC; }
 function rockSpeed()   { return 22 + level * 6; }
 function spawnEvery()  { return Math.max(900, 2600 - level * 220); }
 function maxRocks()    { return Math.min(5, 1 + Math.ceil(level / 2)); }
@@ -124,7 +126,8 @@ function spawn() {
   const used = rocks.map(r => r.deg);
   const choices = pool().filter(d => !used.includes(d));
   if (!choices.length) return;
-  const deg = choices[Math.floor(Math.random() * choices.length)];
+  let r = Math.random() * choices.reduce((t, d) => t + WEIGHT[d], 0), deg = choices[0];
+  for (const d of choices) { r -= WEIGHT[d]; if (r < 0) { deg = d; break; } }
   const a = Math.random() * Math.PI * 2, R = S * 0.62;
   const verts = Array.from({ length: 10 }, (_, i) => 0.72 + Math.random() * 0.32);
   rocks.push({ deg, name: noteOf(deg), x: S / 2 + Math.cos(a) * R, y: S / 2 + Math.sin(a) * R, r: 24, verts, spin: (Math.random() - 0.5) * 0.8, rot: 0 });
@@ -242,11 +245,11 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   overlay(`<h2>NUMBER<br>BLASTER</h2>
+    <span class="go" onclick="startGame()">START</span>
     <p>NOTES DRIFT IN TOWARD YOUR SHIP. THE KEY IS SHOWN AT THE TOP.</p>
     <p>BLAST EACH NOTE BY TAPPING ITS <b>NUMBER</b> IN THAT KEY. IN THE KEY OF G, A <b>D</b> IS A <b>5</b>.</p>
-    <p>THE KEY CHANGES EVERY LEVEL. FROM LEVEL 3, ALL TWELVE NUMBERS COME INTO PLAY.</p>
-    ${scoreTable(-1)}
-    <span class="go" onclick="startGame()">START</span>`);
+    <p>ALL TWELVE NUMBERS ARE IN PLAY. THE KEY CHANGES EVERY LEVEL.</p>
+    ${scoreTable(-1)}`);
 }
 
 function startGame() {
@@ -268,7 +271,7 @@ function gameOver() {
     <p>SCORE <b>${pad(score, 6)}</b><br>LEVEL <b>${pad(level, 2)}</b>  NOTES <b>${kills}</b></p>
     ${qualifies
       ? `<p>NEW HIGH SCORE. ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
-      : scoreTable(-1) + '<span class="go" onclick="startGame()">START</span>'}`), 500);
+      : '<span class="go" onclick="startGame()">START</span>' + scoreTable(-1)}`), 500);
 }
 
 function saveScore() {
@@ -277,7 +280,7 @@ function saveScore() {
   const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
   const top = list.slice(0, 10);
   store(HS_KEY, JSON.stringify(top));
-  overlay(`<h2>GAME OVER</h2><p>SCORE <b>${pad(score, 6)}</b></p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">START</span>`);
+  overlay(`<h2>GAME OVER</h2><p>SCORE <b>${pad(score, 6)}</b></p><span class="go" onclick="startGame()">START</span>${scoreTable(top.indexOf(entry))}`);
 }
 
 // ---- Setup ---------------------------------------------------------------
