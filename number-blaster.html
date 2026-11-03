@@ -11,38 +11,46 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Number Blaster | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@1,800&family=Jersey+10&display=swap" rel="stylesheet">
 <style>
-/* Vector theme: thin white lines on black, like early vector arcade screens */
-:root { --v: #e8f4ff; --v2: rgba(232,244,255,0.45); --bg: #000; }
+/* Wood-grain home console from the late 70s: blocky TV graphics, a 12-key keyboard controller, a cartridge-label start screen */
+:root { --cream: #f1e6c8; --orange: #f08a24; --rust: #d9542a; --gold: #f2b33a; --red: #b52a2a; --black: #121212; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; background: var(--bg); }
-body { color: var(--v); font-family: 'Share Tech Mono', monospace; font-size: 15px; letter-spacing: 1px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+html, body { margin: 0; padding: 0; background: #1b120b; }
+body { color: var(--cream); font-family: 'Jersey 10', monospace; font-size: 20px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
 a, button { font: inherit; color: inherit; }
 .screen { max-width: 520px; margin: 0 auto; padding: 8px 12px 14px; }
-.top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 20px; }
 .top a { text-decoration: none; }
-.top button { background: none; border: none; padding: 0; cursor: pointer; }
-.stage { position: relative; margin-top: 6px; border: 1px solid var(--v2); }
-canvas { display: block; margin: 0 auto; }
-.pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
-.pad button { height: 44px; background: none; border: 1px solid var(--v); cursor: pointer; font-size: 17px; touch-action: manipulation; }
-.pad button:active, .pad button.hit { background: var(--v); color: var(--bg); }
-.pad button.no { border-color: #ff6b6b; color: #ff6b6b; }
-.over { position: absolute; inset: 0; background: rgba(0,0,0,0.88); padding: 18px 16px; line-height: 1.6; overflow: auto; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: #b89f78; }
+/* the console: black ribbed top over a wood-grain front, with the TV screen set in */
+.console { margin-top: 6px; background: repeating-linear-gradient(91deg, #6b4423 0 7px, #5c381c 7px 10px, #77502b 10px 17px, #4f2f17 17px 19px, #6b4423 19px 26px); border-radius: 3px; padding: 22px 10px 10px; position: relative; }
+.console::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 14px; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(#0d0d0d 0 2px, #2b2b2b 2px 4px); }
+.stage { position: relative; border: 6px solid #0d0d0d; background: #000; }
+canvas { display: block; margin: 0 auto; image-rendering: pixelated; }
+/* keyboard controller: black body, square rubber keys */
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; padding: 12px; background: #0f0f0f; border-top: 3px solid #2b2b2b; border-radius: 4px; }
+.pad button { height: 40px; border: none; border-radius: 3px; cursor: pointer; font-size: 26px; touch-action: manipulation; color: var(--cream); background: #262626; box-shadow: inset 0 2px 0 #3d3d3d, 0 4px 0 #000; }
+.pad button:active, .pad button.hit { transform: translateY(3px); box-shadow: inset 0 2px 0 #3d3d3d, 0 1px 0 #000; background: #333; }
+.pad button.no { background: var(--red); color: var(--cream); }
+/* overlays read like a cartridge label */
+.over { position: absolute; inset: 0; background: #000; padding: 16px 16px; overflow: auto; }
 .over.hidden { display: none; }
-.over h2 { margin: 0 0 12px; font-size: 26px; font-weight: 400; letter-spacing: 4px; }
-.over p { margin: 0 0 10px; color: var(--v2); }
-.over p b { color: var(--v); font-weight: 400; }
-.over .go { display: inline-block; margin: 0 0 14px; padding: 4px 12px; border: 1px solid var(--v); cursor: pointer; animation: bl 1.2s steps(1) infinite; }
-@keyframes bl { 50% { opacity: 0.3; } }
-.hs { margin: 0 0 12px; }
-.hs div { white-space: pre; color: var(--v2); }
-.hs .me { color: var(--v); }
-.ini { display: flex; gap: 10px; align-items: center; margin: 8px 0 12px; }
-.ini input { width: 84px; font: inherit; font-size: 24px; letter-spacing: 6px; text-transform: uppercase; background: none; color: var(--v); border: none; border-bottom: 1px solid var(--v); border-radius: 0; padding: 0 0 0 6px; }
+.stripes { height: 26px; margin: 0 -16px 14px; background: linear-gradient(var(--gold) 0 25%, var(--orange) 25% 50%, var(--rust) 50% 75%, var(--red) 75%); }
+.over h2 { margin: 0 0 4px; font-family: 'Kanit', sans-serif; font-style: italic; font-weight: 800; font-size: 44px; line-height: 0.92; text-transform: uppercase; color: var(--cream); letter-spacing: -1px; }
+.tag { font-size: 17px; color: var(--orange); margin: 0 0 16px; }
+.over p { margin: 0 0 8px; font-size: 20px; line-height: 1.35; }
+.over .go { display: inline-block; margin: 2px 0 16px; padding: 8px 22px 7px; background: var(--orange); color: #000; font-size: 26px; cursor: pointer; }
+.big { font-size: 52px; color: var(--gold); margin: 0; line-height: 1; }
+.lbl { font-size: 18px; color: #b89f78; margin: 4px 0 14px; }
+.hs-h { font-size: 18px; color: var(--orange); margin: 14px 0 4px; }
+.hs { display: grid; grid-template-columns: 2em 3.2em auto; row-gap: 1px; font-size: 21px; }
+.hs span:nth-child(3n) { color: var(--gold); }
+.hs .me { background: #3a2412; }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 14px; }
+.ini input { width: 86px; font: inherit; font-size: 36px; letter-spacing: 3px; text-transform: uppercase; background: none; color: var(--gold); border: none; border-bottom: 3px solid var(--orange); border-radius: 0; padding: 0 0 0 4px; }
 .ini input:focus { outline: none; }
-.ini button { background: none; border: 1px solid var(--v); padding: 2px 12px; cursor: pointer; border-radius: 0; }
+.ini button { background: var(--orange); color: #000; border: none; padding: 6px 14px 5px; cursor: pointer; border-radius: 0; }
 </style>
 </head>
 <body>
@@ -51,9 +59,11 @@ canvas { display: block; margin: 0 auto; }
     <a href="arcade.html">&lt; ARCADE</a>
     <button id="snd" onclick="toggleSound()">SND ON</button>
   </div>
-  <div class="stage">
-    <canvas id="cv"></canvas>
-    <div class="over" id="over"></div>
+  <div class="console">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="over" id="over"></div>
+    </div>
   </div>
   <div class="pad" id="pad"></div>
 </div>
@@ -89,7 +99,7 @@ function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
 const pad = (n, w) => String(n).padStart(w, '0');
-const plain = t => String(t).replace(/0/g, 'O');   // this font slashes its zeros; show a plain round O
+const plain = t => String(t);                       // this font already has a plain zero
 
 function pool()        { return CHROMATIC; }
 function rockSpeed()   { return 22 + level * 6; }
@@ -130,7 +140,7 @@ function spawn() {
   for (const d of choices) { r -= WEIGHT[d]; if (r < 0) { deg = d; break; } }
   const a = Math.random() * Math.PI * 2, R = S * 0.62;
   const verts = Array.from({ length: 10 }, (_, i) => 0.72 + Math.random() * 0.32);
-  rocks.push({ deg, name: noteOf(deg), x: S / 2 + Math.cos(a) * R, y: S / 2 + Math.sin(a) * R, r: 24, verts, spin: (Math.random() - 0.5) * 0.8, rot: 0 });
+  rocks.push({ deg, name: noteOf(deg), tint: Math.floor(Math.random() * 4), x: S / 2 + Math.cos(a) * R, y: S / 2 + Math.sin(a) * R, r: 24, verts, spin: (Math.random() - 0.5) * 0.8, rot: 0 });
 }
 
 function fire(deg, btn) {
@@ -178,35 +188,39 @@ function line(pts, close) {
   if (close) ctx.closePath(); ctx.stroke();
 }
 function text(s, x, y, size, align, color) {
-  ctx.font = size + "px 'Share Tech Mono', monospace"; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = color || '#e8f4ff'; ctx.fillText(plain(s), x, y);
+  ctx.font = Math.round(size * 1.3) + "px 'Jersey 10', monospace"; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = color || '#f1e6c8'; ctx.fillText(plain(s), Math.round(x), Math.round(y));
 }
 
+// everything on the TV is drawn in fat blocks, like an old home console
+let B = 4;
+function blk(x, y, c) { ctx.fillStyle = c; ctx.fillRect(Math.floor(x / B) * B, Math.floor(y / B) * B, B, B); }
+const ROCK = ['#e07b2c', '#d9542a', '#e8a83a', '#c4632a'], SHIP = '#e8e05c', SHIELD = '#5c8ce8', CREAM = '#f1e6c8';
+const SHIP_SPRITE = ['...X...', '..XXX..', '..XXX..', '.XXXXX.', 'XXXXXXX', 'XX.X.XX'];
+let stars = Array.from({ length: 26 }, () => [Math.random(), Math.random()]);
 function draw() {
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
-  ctx.strokeStyle = '#e8f4ff'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
-  ctx.shadowColor = 'rgba(232,244,255,0.7)'; ctx.shadowBlur = 4;
-  // rocks
+  ctx.fillStyle = '#0b0b33'; ctx.fillRect(0, 0, S, S);
+  stars.forEach(st => blk(st[0] * S, st[1] * S, '#2e2e6e'));
+  // rocks: solid blocky blobs with the note name on top
   rocks.forEach(r => {
-    const pts = r.verts.map((k, i) => { const a = r.rot + i / r.verts.length * Math.PI * 2; return [r.x + Math.cos(a) * r.r * k, r.y + Math.sin(a) * r.r * k]; });
-    line(pts, true);
-    text(r.name, r.x, r.y + 1, 15);
+    const R = r.r, c = ROCK[r.tint];
+    for (let y = -R; y <= R; y += B) for (let x = -R; x <= R; x += B) {
+      const a = (Math.atan2(y, x) + Math.PI * 2) % (Math.PI * 2), i = Math.floor(a / (Math.PI * 2) * r.verts.length);
+      if (Math.hypot(x, y) <= R * r.verts[i]) blk(r.x + x, r.y + y, c);
+    }
+    text(r.name, r.x, r.y + 1, 21, 'center', '#120a04');
   });
-  // ship
-  const cx = S / 2, cy = S / 2, a = shipAngle;
-  const p = (ang, d) => [cx + Math.cos(a + ang) * d, cy + Math.sin(a + ang) * d];
-  line([p(0, 14), p(2.5, 11), p(Math.PI, 5), p(-2.5, 11)], true);
-  // shield ring for each life
-  for (let i = 0; i < lives; i++) { ctx.beginPath(); ctx.arc(cx, cy, 24 + i * 5, 0, Math.PI * 2); ctx.globalAlpha = 0.18; ctx.stroke(); ctx.globalAlpha = 1; }
-  // shots
-  shots.forEach(s => line([[cx, cy], [s.x, s.y]]));
-  bits.forEach(b => { ctx.globalAlpha = Math.max(0, b.t / 0.6); line([[b.x, b.y], [b.x + Math.cos(b.a) * b.len, b.y + Math.sin(b.a) * b.len]]); ctx.globalAlpha = 1; });
-  ctx.shadowBlur = 0;
-  // HUD
-  text(pad(score, 6), 10, 16, 17, 'left');
-  text('KEY OF ' + (key || 'C'), S / 2, 16, 17);
-  text('LV ' + pad(level, 2), S - 10, 16, 17, 'right');
-  if (flash > 0) text('KEY CHANGE: ' + key, S / 2, S / 2 + 52, 18, 'center', `rgba(232,244,255,${Math.min(1, flash)})`);
+  // ship sprite in the middle, shields as block rings
+  const cx = S / 2, cy = S / 2;
+  SHIP_SPRITE.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'X') blk(cx + (i - 3) * B, cy + (j - 3) * B, SHIP); }));
+  for (let i = 0; i < lives; i++) { const rr = 26 + i * 7; for (let t = 0; t < 40; t += 2) blk(cx + Math.cos(t / 40 * Math.PI * 2) * rr, cy + Math.sin(t / 40 * Math.PI * 2) * rr, SHIELD); }
+  shots.forEach(sh => { const d = Math.hypot(sh.x - cx, sh.y - cy); for (let k = 0; k < d; k += B * 2) blk(cx + (sh.x - cx) * k / d, cy + (sh.y - cy) * k / d, SHIP); });
+  bits.forEach(b => { if (b.t > 0) blk(b.x, b.y, b.t > 0.3 ? '#e8a83a' : '#d9542a'); });
+  // score, key and level
+  text(pad(score, 6), 10, 18, 22, 'left', '#f08a24');
+  text('KEY ' + (key || 'C'), S / 2, 18, 20, 'center', CREAM);
+  text('LV ' + level, S - 10, 18, 20, 'right', CREAM);
+  if (flash > 0 && Math.floor(flash * 6) % 2 === 0) text('NEW KEY: ' + key, S / 2, S / 2 + 58, 22, 'center', SHIP);
 }
 
 // ---- Loop ----------------------------------------------------------------
@@ -237,18 +251,18 @@ function frame(t) {
 // ---- Screens -------------------------------------------------------------
 function scoreTable(hi) {
   const list = highScores();
-  if (!list.length) return '<p>NO SCORES YET</p>';
-  return '<div class="hs">' + list.map((r, i) => `<div class="${i === hi ? 'me' : ''}">${String(i + 1).padStart(2, ' ')}  ${r.i}  ${pad(r.s, 6)}</div>`).join('') + '</div>';
+  if (!list.length) return '<div class="hs-h">NO SCORES YET</div>';
+  return '<div class="hs-h">TOP SCORES</div><div class="hs">' + list.map((r, i) => { const c = i === hi ? ' class="me"' : ''; return `<span${c}>${i + 1}</span><span${c}>${r.i}</span><span${c}>${pad(r.s, 6)}</span>`; }).join('') + '</div>';
 }
 function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html.replace(/>([^<]*)</g, (m, t) => '>' + plain(t) + '<'); }
 
 function showStart() {
   state = 'start';
-  overlay(`<h2>NUMBER<br>BLASTER</h2>
+  overlay(`<div class="stripes"></div><h2>Number<br>Blaster</h2>
+    <div class="tag">A game of notes and numbers</div>
     <span class="go" onclick="startGame()">START</span>
-    <p>NOTES DRIFT IN TOWARD YOUR SHIP. THE KEY IS SHOWN AT THE TOP.</p>
-    <p>BLAST EACH NOTE BY TAPPING ITS <b>NUMBER</b> IN THAT KEY. IN THE KEY OF G, A <b>D</b> IS A <b>5</b>.</p>
-    <p>ALL TWELVE NUMBERS ARE IN PLAY. THE KEY CHANGES EVERY LEVEL.</p>
+    <p>Notes drift toward your ship. Tap each one's number to blast it. In the key of G, a D is a 5.</p>
+    <p>Three shields. A new key every level.</p>
     ${scoreTable(-1)}`);
 }
 
@@ -267,10 +281,10 @@ function gameOver() {
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => tone(f, 0.15, 'triangle'), i * 140));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
-  setTimeout(() => overlay(`<h2>GAME OVER</h2>
-    <p>SCORE <b>${pad(score, 6)}</b><br>LEVEL <b>${pad(level, 2)}</b>  NOTES <b>${kills}</b></p>
+  setTimeout(() => overlay(`<div class="stripes"></div><h2>Game<br>Over</h2>
+    <div class="big">${pad(score, 6)}</div><div class="lbl">LEVEL ${level}, ${kills} NOTES</div>
     ${qualifies
-      ? `<p>NEW HIGH SCORE. ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      ? `<p>New high score. Enter your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
       : '<span class="go" onclick="startGame()">START</span>' + scoreTable(-1)}`), 500);
 }
 
@@ -280,12 +294,13 @@ function saveScore() {
   const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
   const top = list.slice(0, 10);
   store(HS_KEY, JSON.stringify(top));
-  overlay(`<h2>GAME OVER</h2><p>SCORE <b>${pad(score, 6)}</b></p><span class="go" onclick="startGame()">START</span>${scoreTable(top.indexOf(entry))}`);
+  overlay(`<div class="stripes"></div><h2>Game<br>Over</h2><div class="big">${pad(score, 6)}</div><div class="lbl">SAVED</div><span class="go" onclick="startGame()">START</span>${scoreTable(top.indexOf(entry))}`);
 }
 
 // ---- Setup ---------------------------------------------------------------
 function fit() {
-  S = Math.min(document.querySelector('.stage').clientWidth || 360, Math.max(240, window.innerHeight - 250));
+  S = Math.min((document.querySelector('.stage').clientWidth || 372) - 12, Math.max(240, window.innerHeight - 330));
+  B = Math.max(3, Math.round(S / 90));
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(S * dpr); cv.height = Math.round(S * dpr);
   cv.style.width = S + 'px'; cv.style.height = S + 'px';
