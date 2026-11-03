@@ -11,7 +11,7 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Arcade | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=Jersey+10&family=Kanit:ital,wght@1,800&family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=Jersey+10&family=Limelight&family=Special+Elite&family=Kanit:ital,wght@1,800&family=VT323&display=swap" rel="stylesheet">
 <style>
 :root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -100,6 +100,17 @@ a { color: inherit; text-decoration: none; }
 .ng .name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 22px; line-height: 1.05; letter-spacing: 2px; color: #5b2a6e; }
 .ng .sub { font-size: 7px; color: #3a2a2a; margin-top: 6px; }
 .ng .go { display: inline-block; background: #5b2a6e; color: #f3efe6; padding: 6px 10px 5px; font-size: 9px; border-bottom: 3px solid #3a1747; }
+
+/* 06 Safe Cracker: a 1930s vault door with a typed docket */
+.sc { display: grid; grid-template-columns: 132px 1fr; gap: 12px; align-items: center; background: #14110d; border: 2px solid #c9a24a; padding: 12px; font-family: 'Special Elite', monospace; color: #efe3c2; }
+.sc svg { display: block; width: 132px; height: 132px; }
+.sc .slip { background: #efe3c2; color: #2a2118; padding: 6px 9px 7px; font-size: 11px; line-height: 1.4; margin-bottom: 10px; box-shadow: 0 2px 0 #b9ab86; }
+.sc .slip b { display: block; font-family: 'Limelight', serif; font-weight: 400; font-size: 22px; line-height: 1.1; }
+.sc .slip b span { color: #c43a3a; }
+.sc .name { font-family: 'Limelight', serif; font-size: 26px; line-height: 1; color: #c9a24a; }
+.sc .sub { font-size: 12px; color: #efe3c2; margin-top: 6px; }
+.sc .sub.best { color: #c9a24a; }
+.sc .go { display: inline-block; margin-top: 10px; background: #c9a24a; color: #14110d; padding: 5px 12px 4px; font-family: 'Limelight', serif; font-size: 15px; }
 
 .sub.best { color: inherit; }
 .sub.best:empty { display: none; }
@@ -197,6 +208,27 @@ a { color: inherit; text-decoration: none; }
     </div>
   </a>
 
+  <a class="game sc" href="safe-cracker.html">
+    <svg viewBox="0 0 132 132" aria-hidden="true">
+      <defs><radialGradient id="scSteel" cx="35%" cy="35%" r="70%"><stop offset="0" stop-color="#9fa3a6"/><stop offset="1" stop-color="#55595c"/></radialGradient>
+      <linearGradient id="scBrass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2c06a"/><stop offset="0.5" stop-color="#8a6a26"/><stop offset="1" stop-color="#c9a24a"/></linearGradient>
+      <radialGradient id="scKnob" cx="40%" cy="40%" r="60%"><stop offset="0" stop-color="#f0d890"/><stop offset="1" stop-color="#8a6a26"/></radialGradient></defs>
+      <circle cx="66" cy="66" r="62" fill="url(#scBrass)"/><circle cx="66" cy="66" r="55.8" fill="url(#scSteel)"/>
+      <path d="M 66 7.1 A 58.9 58.9 0 1 1 32.7 17.4" fill="none" stroke="#b8332a" stroke-width="2.5"/>
+      <circle cx="111.8" cy="85.0" r="3" fill="#c9a24a"/><circle cx="85.0" cy="111.8" r="3" fill="#c9a24a"/><circle cx="47.0" cy="111.8" r="3" fill="#c9a24a"/><circle cx="20.2" cy="85.0" r="3" fill="#c9a24a"/><circle cx="20.2" cy="47.0" r="3" fill="#c9a24a"/><circle cx="47.0" cy="20.2" r="3" fill="#c9a24a"/><circle cx="85.0" cy="20.2" r="3" fill="#c9a24a"/><circle cx="111.8" cy="47.0" r="3" fill="#c9a24a"/>
+      <circle cx="66" cy="66" r="39" fill="#8a6a26"/><circle cx="66" cy="66" r="36" fill="#17130e"/>
+      <g fill="#efe3c2" font-family="Limelight, serif" font-size="8" text-anchor="middle"><text x="39.4" y="69.0" transform="rotate(-90 39.4 66.0)">1</text><text x="42.9" y="55.7" transform="rotate(-60 42.9 52.7)">2</text><text x="52.7" y="45.9" transform="rotate(-30 52.7 42.9)">3</text><text x="66.0" y="42.4" transform="rotate(0 66.0 39.4)">4</text><text x="79.3" y="45.9" transform="rotate(30 79.3 42.9)">5</text><text x="89.1" y="55.7" transform="rotate(60 89.1 52.7)">6</text><text x="92.6" y="69.0" transform="rotate(90 92.6 66.0)">7</text><text x="89.1" y="82.3" transform="rotate(120 89.1 79.3)">8</text><text x="79.3" y="92.1" transform="rotate(150 79.3 89.1)">9</text><text x="66.0" y="95.6" transform="rotate(180 66.0 92.6)">10</text><text x="52.7" y="92.1" transform="rotate(210 52.7 89.1)">11</text><text x="42.9" y="82.3" transform="rotate(240 42.9 79.3)">12</text></g>
+      <circle cx="66" cy="66" r="13.0" fill="url(#scKnob)"/><circle cx="66" cy="66" r="5.0" fill="#17130e"/>
+      <polygon points="61,21 71,21 66,28" fill="#e2c06a"/>
+    </svg>
+    <div>
+      <div class="slip">SAFE No. 1, TUMBLER 1<b>Ab <span>ALPHA</span></b></div>
+      <div class="name">Safe<br>Cracker</div>
+      <div class="sub">Dial in each shape's root fret</div><div class="sub best" id="best6"></div>
+      <span class="go">CRACK IT</span>
+    </div>
+  </a>
+
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
 <script>
@@ -221,6 +253,10 @@ showBest('noteInvadersScores', 'best1');
 showBest('shapeSnapScores', 'best2');
 showBest('progressionRunScores', 'best3');
 showBest('numberBlasterScores', 'best4');
+try {
+  const sc = JSON.parse(localStorage.getItem('safeCrackerScores')) || [];
+  if (sc.length) document.getElementById('best6').textContent = 'BIGGEST JOB $' + sc[0].s.toLocaleString('en-US') + ' ' + sc[0].i;
+} catch (e) {}
 // golf is scored against par, lowest first
 try {
   const g = JSON.parse(localStorage.getItem('romanGolfScores')) || [];

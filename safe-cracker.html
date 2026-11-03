@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Safe Cracker | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+/* A 1930s bank vault: black enamel, brass trim, a steel door, a typewritten docket */
+:root { --enamel: #14110d; --brass: #c9a24a; --brass2: #8a6a26; --paper: #efe3c2; --ink: #2a2118; --red: #b8332a;
+        --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--enamel); }
+body { color: var(--paper); font-family: 'Special Elite', 'Courier New', monospace; font-size: 15px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 480px; margin: 0 auto; padding: 8px 12px 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 14px; }
+.top a { text-decoration: none; color: var(--brass); }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: #9a8a66; }
+/* the docket: a slip of paper pinned above the vault */
+.docket { margin-top: 6px; background: var(--paper); color: var(--ink); padding: 8px 12px 9px; display: flex; justify-content: space-between; align-items: flex-end; box-shadow: 0 3px 0 #b9ab86; }
+.docket .meta { font-size: 12px; line-height: 1.5; }
+.docket .ask { font-family: 'Limelight', serif; font-size: 30px; line-height: 1; white-space: nowrap; }
+.docket .ask small { font-family: 'Special Elite', monospace; font-size: 13px; display: block; text-align: right; margin-bottom: 3px; }
+.docket .ask .e { color: #2f6fc4; } .docket .ask .a { color: #c43a3a; } .docket .ask .d { color: #2f9a52; }
+.stage { position: relative; margin-top: 10px; }
+canvas { display: block; margin: 0 auto; touch-action: none; }
+#neck { margin-top: 8px; }
+.controls { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 8px; margin-top: 10px; }
+.controls button { height: 52px; border: 2px solid var(--brass); background: #1f1a13; color: var(--brass); font-family: 'Limelight', serif; font-size: 22px; cursor: pointer; touch-action: manipulation; }
+.controls button.open { background: var(--brass); color: var(--enamel); }
+.controls button:active { transform: translateY(2px); }
+.over { position: absolute; inset: 0; background: var(--enamel); padding: 16px 16px; overflow: auto; border: 2px solid var(--brass); }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 4px; font-family: 'Limelight', serif; font-weight: 400; font-size: 40px; line-height: 1; color: var(--brass); }
+.rule { height: 0; border-top: 2px solid var(--brass); border-bottom: 1px solid var(--brass); padding-top: 3px; margin: 8px 0 12px; }
+.over p { margin: 0 0 8px; line-height: 1.4; font-size: 14px; }
+.over p b { font-weight: 400; color: var(--brass); }
+.over .e { color: var(--echo); } .over .a { color: var(--alpha); } .over .d { color: var(--delta); }
+.over .go { display: inline-block; margin: 4px 0 14px; padding: 8px 20px 7px; background: var(--brass); color: var(--enamel); font-family: 'Limelight', serif; font-size: 20px; cursor: pointer; }
+.big { font-family: 'Limelight', serif; font-size: 40px; color: var(--paper); line-height: 1; margin: 2px 0 2px; }
+.lbl { font-size: 13px; color: #9a8a66; margin: 0 0 12px; }
+.hs-h { font-size: 13px; color: var(--brass); margin: 10px 0 4px; }
+.hs { display: grid; grid-template-columns: 1.8em 3.2em auto; row-gap: 2px; font-size: 15px; }
+.hs span:nth-child(3n) { color: var(--brass); }
+.hs .me { background: #3a2f1c; }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
+.ini input { width: 86px; font: inherit; font-size: 26px; letter-spacing: 3px; text-transform: uppercase; background: none; color: var(--paper); border: none; border-bottom: 2px solid var(--brass); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--brass); color: var(--enamel); border: none; padding: 6px 14px 5px; cursor: pointer; border-radius: 0; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="docket">
+    <div class="meta" id="meta">SAFE No. 1<br>TUMBLER 1 OF 3</div>
+    <div class="ask" id="ask"></div>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <canvas id="neck"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="controls">
+    <button id="left" aria-label="Turn left">&lt;</button>
+    <button id="open" class="open">OPEN</button>
+    <button id="right" aria-label="Turn right">&gt;</button>
+  </div>
+</div>
+
+<script>
+// ---- Music ---------------------------------------------------------------
+// each shape's root sits on one string: Echo on the low E, Alpha on the A, Delta on the D
+const STR_OPEN = [4, 9, 2, 7, 11, 4];
+const SHAPES = ['ECHO', 'ALPHA', 'DELTA'], ANCHOR = [0, 1, 2], SHAPE_CLS = ['e', 'a', 'd'];
+const SHAPE_COL = ['#4a9eff', '#ff4a4a', '#4aff7a'];
+// conventional spelling, as in the other games
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+const pcOf = n => (LETTER_PC[LETTERS.indexOf(n[0])] + (n[1] === '#' ? 1 : n[1] === 'b' ? 11 : 0)) % 12;
+const ROOTS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const KEYS = ['C', 'D', 'Eb', 'E', 'F', 'G', 'A', 'Bb'];
+const DEG = [{ n: 'I', s: 0, st: 0 }, { n: 'ii', s: 2, st: 1 }, { n: 'iii', s: 4, st: 2 }, { n: 'IV', s: 5, st: 3 }, { n: 'V', s: 7, st: 4 }, { n: 'vi', s: 9, st: 5 }];
+const answerFret = t => { for (let f = 1; f <= 12; f++) if ((STR_OPEN[ANCHOR[t.shape]] + f) % 12 === t.pc) return f; };
+
+// ---- State ---------------------------------------------------------------
+const HS_KEY = 'safeCrackerScores', SOUND_KEY = 'arcadeSound';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const nk = document.getElementById('neck'), nctx = nk.getContext('2d');
+let V = 300, NW = 300, NH = 74;
+let state = 'start', cash, safe, tumbler, task, fret, shown, timeLeft, timeMax, lastT, shake, glow, soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const money = n => '$' + n.toLocaleString('en-US');
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function tone(freq, dur, type, slide, vol) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+const click = () => tone(1800, 0.02, 'square', 0, 0.03);
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- Tasks ---------------------------------------------------------------
+function newTask() {
+  const shape = Math.floor(Math.random() * 3);
+  let t;
+  if (safe >= 3 && Math.random() < 0.55) {       // from safe 3, some dockets give a number in a key instead of a note
+    const k = KEYS[Math.floor(Math.random() * KEYS.length)], d = DEG[Math.floor(Math.random() * DEG.length)];
+    const note = spell(k, d.st, d.s);
+    t = { shape, pc: pcOf(note), note, label: d.n, sub: 'THE ' + d.n + ' IN ' + k };
+  } else {
+    const note = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+    t = { shape, pc: pcOf(note), note, label: note, sub: 'ROOT' };
+  }
+  if (task && t.pc === task.pc && t.shape === task.shape) return newTask();
+  task = t;
+  updateDocket();
+}
+function updateDocket() {
+  document.getElementById('meta').innerHTML = `SAFE No. ${safe}<br>TUMBLER ${tumbler} OF 3`;
+  document.getElementById('ask').innerHTML = task
+    ? `<small>${task.sub}</small>${task.label} <span class="${SHAPE_CLS[task.shape]}">${SHAPES[task.shape]}</span>`
+    : '';
+}
+
+// ---- Input ---------------------------------------------------------------
+function turn(dir) {
+  if (state !== 'playing') return;
+  fret = (fret - 1 + dir + 12) % 12 + 1;
+  click();
+}
+function tryOpen() {
+  if (state !== 'playing') return;
+  if (fret === answerFret(task)) {
+    glow = 1;
+    cash += 100 * safe;
+    tone(520, 0.06, 'square'); setTimeout(() => tone(780, 0.08, 'square'), 60);
+    if (tumbler === 3) return safeOpen();
+    tumbler++;
+    newTask();
+  } else {
+    shake = 1;
+    timeLeft = Math.max(0, timeLeft - 4);
+    [0, 120, 240].forEach(d => setTimeout(() => tone(880, 0.09, 'square', 0, 0.06), d));
+  }
+}
+function safeOpen() {
+  state = 'between';
+  const bonus = Math.round(timeLeft) * 20;
+  cash += bonus;
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle'), i * 90));
+  setTimeout(() => overlay(`<h2>Safe ${safe}<br>Open</h2><div class="rule"></div>
+    <div class="big">${money(cash)}</div><div class="lbl">TIME BONUS ${money(bonus)}</div>
+    <span class="go" onclick="nextSafe()">NEXT SAFE</span>
+    <p>The next door is faster. From safe 3 the docket may give a number in a key, like <b>the IV in F</b>.</p>`), 300);
+}
+function nextSafe() { safe++; tumbler = 1; timeMax = Math.max(12, 30 - (safe - 1) * 3); timeLeft = timeMax; task = null; newTask(); hideOverlay(); state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+
+document.getElementById('left').addEventListener('pointerdown', e => { e.preventDefault(); turn(-1); });
+document.getElementById('right').addEventListener('pointerdown', e => { e.preventDefault(); turn(1); });
+document.getElementById('open').addEventListener('pointerdown', e => { e.preventDefault(); tryOpen(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') turn(-1);
+  else if (e.key === 'ArrowRight') turn(1);
+  else if (e.key === ' ' || (e.key === 'Enter' && !document.getElementById('initials'))) { e.preventDefault(); tryOpen(); }
+  else if (e.key === 'Enter' && document.getElementById('initials')) saveScore();
+});
+// drag the dial itself
+let dragA = null;
+cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); dragA = Math.atan2(e.clientY - r.top - V / 2, e.clientX - r.left - V / 2); cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (dragA === null) return;
+  const r = cv.getBoundingClientRect(), a = Math.atan2(e.clientY - r.top - V / 2, e.clientX - r.left - V / 2);
+  let d = a - dragA; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+  const step = Math.PI * 2 / 12;
+  while (d > step / 2) { turn(-1); dragA += step; d -= step; }
+  while (d < -step / 2) { turn(1); dragA -= step; d += step; }
+});
+cv.addEventListener('pointerup', () => dragA = null);
+
+// ---- Drawing: vault door and dial ----------------------------------------
+function circ(c, x, y, r, fill) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = fill; c.fill(); }
+function drawVault() {
+  const c = ctx, m = V / 2, R = V * 0.47;
+  c.clearRect(0, 0, V, V);
+  c.save();
+  if (shake > 0) c.translate(Math.sin(shake * 40) * 4 * shake, 0);
+  // door: brass rim, steel face with brushed rings, bolts
+  circ(c, m, m, R + 2, '#0b0907');
+  const rim = c.createLinearGradient(0, 0, V, V); rim.addColorStop(0, '#e2c06a'); rim.addColorStop(0.5, '#8a6a26'); rim.addColorStop(1, '#c9a24a');
+  circ(c, m, m, R, rim);
+  const face = c.createRadialGradient(m - R * 0.3, m - R * 0.3, R * 0.1, m, m, R);
+  face.addColorStop(0, '#9fa3a6'); face.addColorStop(1, '#55595c');
+  circ(c, m, m, R * 0.9, face);
+  c.strokeStyle = 'rgba(255,255,255,0.08)'; c.lineWidth = 1;
+  for (let r = R * 0.38; r < R * 0.9; r += 4) { c.beginPath(); c.arc(m, m, r, 0, Math.PI * 2); c.stroke(); }
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * Math.PI * 2 + Math.PI / 8, x = m + Math.cos(a) * R * 0.8, y = m + Math.sin(a) * R * 0.8;
+    circ(c, x + 1, y + 1, R * 0.045, 'rgba(0,0,0,0.4)'); circ(c, x, y, R * 0.045, '#c9a24a'); circ(c, x - 1, y - 1, R * 0.02, '#f0d890');
+  }
+  // timer: a thin red arc that burns down around the rim
+  const f = timeMax ? Math.max(0, timeLeft / timeMax) : 1;
+  c.strokeStyle = f < 0.25 ? '#ff5a4a' : '#b8332a'; c.lineWidth = 4; c.lineCap = 'butt';
+  c.beginPath(); c.arc(m, m, R * 0.95, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); c.stroke();
+  // dial: black enamel with a knurled brass edge and fret numbers 1 to 12
+  const diff = (((fret - 1) - shown) % 12 + 18) % 12 - 6;          // shortest way round to the set number
+  shown = (shown + (Math.abs(diff) < 0.02 ? diff : diff * 0.35) + 12) % 12;
+  const D = R * 0.58, rot = -shown / 12 * Math.PI * 2;
+  circ(c, m, m + 3, D + 4, 'rgba(0,0,0,0.45)');
+  circ(c, m, m, D + 4, '#8a6a26');
+  c.strokeStyle = '#e2c06a'; c.lineWidth = 2;
+  for (let i = 0; i < 60; i++) { const a = rot + i / 60 * Math.PI * 2; c.beginPath(); c.moveTo(m + Math.cos(a) * (D + 1), m + Math.sin(a) * (D + 1)); c.lineTo(m + Math.cos(a) * (D + 4), m + Math.sin(a) * (D + 4)); c.stroke(); }
+  circ(c, m, m, D, '#17130e');
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = 0; i < 12; i++) {
+    const a = rot + i / 12 * Math.PI * 2 - Math.PI / 2, x = m + Math.cos(a) * D * 0.76, y = m + Math.sin(a) * D * 0.76;
+    c.save(); c.translate(x, y); c.rotate(a + Math.PI / 2);
+    c.font = `${Math.round(D * 0.2)}px 'Limelight', serif`; c.fillStyle = '#efe3c2'; c.fillText(String(i + 1), 0, 1);
+    c.restore();
+    const a2 = rot + (i + 0.5) / 12 * Math.PI * 2 - Math.PI / 2;
+    c.strokeStyle = '#6d5a33'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(m + Math.cos(a2) * D * 0.93, m + Math.sin(a2) * D * 0.93); c.lineTo(m + Math.cos(a2) * D * 0.99, m + Math.sin(a2) * D * 0.99); c.stroke();
+  }
+  // centre knob
+  const kb = c.createRadialGradient(m - D * 0.1, m - D * 0.1, 2, m, m, D * 0.36);
+  kb.addColorStop(0, '#f0d890'); kb.addColorStop(1, '#8a6a26');
+  circ(c, m, m, D * 0.36, kb); circ(c, m, m, D * 0.14, '#17130e');
+  // pointer at the top
+  c.fillStyle = '#e2c06a'; c.beginPath(); c.moveTo(m - 9, m - D - 16); c.lineTo(m + 9, m - D - 16); c.lineTo(m, m - D - 3); c.closePath(); c.fill();
+  // three tumbler lamps
+  for (let i = 0; i < 3; i++) {
+    const x = m + (i - 1) * 26, y = m + R * 0.73, on = i < tumbler - 1 || state === 'between';
+    circ(c, x, y, 8, '#2a2118'); circ(c, x, y, 6, on ? '#ffcf5a' : '#4a3d26');
+  }
+  if (glow > 0) { c.globalAlpha = glow * 0.35; circ(c, m, m, D, '#ffcf5a'); c.globalAlpha = 1; }
+  c.restore();
+}
+
+// ---- Drawing: the neck under the vault, showing where the dial setting lands
+function drawNeck() {
+  const c = nctx, L = 22, Rt = NW - 6, top = 10, bot = NH - 18;
+  c.clearRect(0, 0, NW, NH);
+  // fret positions with real spacing up to the 12th fret
+  const pos = [0]; for (let n = 1; n <= 12; n++) pos.push(1 - Math.pow(2, -n / 12));
+  const X = n => L + (Rt - L) * pos[n] / pos[12];
+  c.fillStyle = '#3a2a1a'; c.fillRect(L, top, Rt - L, bot - top);
+  c.fillStyle = '#efe3c2'; c.fillRect(L - 4, top - 1, 4, bot - top + 2);
+  for (let n = 1; n <= 12; n++) { c.fillStyle = '#c9a24a'; c.fillRect(X(n) - 1, top, 2, bot - top); }
+  [3, 5, 7, 9].forEach(n => circ(c, (X(n - 1) + X(n)) / 2, (top + bot) / 2, 3, '#7a6a4a'));
+  circ(c, (X(11) + X(12)) / 2, (top + bot) / 2 - 9, 3, '#7a6a4a'); circ(c, (X(11) + X(12)) / 2, (top + bot) / 2 + 9, 3, '#7a6a4a');
+  // strings, high e on top; the shape's root string is drawn in its colour
+  for (let s = 0; s < 6; s++) {
+    const y = top + 4 + (bot - top - 8) * (5 - s) / 5, root = task && ANCHOR[task.shape] === s;
+    c.fillStyle = root ? SHAPE_COL[task.shape] : '#cfc7b0'; c.fillRect(L, y - (root ? 1 : 0.5), Rt - L, root ? 2 : 1);
+  }
+  if (task) {
+    const s = ANCHOR[task.shape], y = top + 4 + (bot - top - 8) * (5 - s) / 5, x = (X(fret - 1) + X(fret)) / 2;
+    circ(c, x, y, 7, '#17130e'); circ(c, x, y, 5.5, '#e2c06a');
+  }
+  c.font = "11px 'Special Elite', monospace"; c.textAlign = 'center'; c.fillStyle = '#9a8a66';
+  [3, 5, 7, 9, 12].forEach(n => c.fillText(String(n), (X(n - 1) + X(n)) / 2, NH - 4));
+}
+
+// ---- Loop ----------------------------------------------------------------
+function frame(t) {
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
+  lastT = t;
+  if (state === 'playing') {
+    timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; drawVault(); drawNeck(); return caught(); }
+  }
+  shake = Math.max(0, shake - dt * 3); glow = Math.max(0, glow - dt * 3);
+  drawVault(); drawNeck();
+  if (state === 'playing' || shake > 0 || glow > 0) requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+function hideOverlay() { document.getElementById('over').className = 'over hidden'; }
+function scoreTable(hi) {
+  const list = highScores();
+  if (!list.length) return '<div class="hs-h">NO JOBS ON RECORD</div>';
+  return '<div class="hs-h">BIGGEST JOBS</div><div class="hs">' + list.map((r, i) => { const c = i === hi ? ' class="me"' : ''; return `<span${c}>${i + 1}</span><span${c}>${r.i}</span><span${c}>${money(r.s)}</span>`; }).join('') + '</div>';
+}
+function showStart() {
+  state = 'start';
+  overlay(`<h2>Safe<br>Cracker</h2><div class="rule"></div>
+    <span class="go" onclick="startGame()">CRACK IT</span>
+    <p>Each safe has three tumblers. The docket names a root and a shape. Turn the dial to the fret where that root sits, then press <b>OPEN</b>.</p>
+    <p><span class="e">ECHO</span> roots sit on the low E string, <span class="a">ALPHA</span> on the A string and <span class="d">DELTA</span> on the D string.</p>
+    <p>A wrong fret trips the alarm and costs time. Beat the clock to keep going.</p>
+    ${scoreTable(-1)}`);
+}
+function startGame() {
+  cash = 0; safe = 1; tumbler = 1; timeMax = 30; timeLeft = timeMax; fret = 1; task = null; shake = 0; glow = 0;
+  newTask(); hideOverlay(); state = 'playing'; lastT = 0; tone(440, 0.06); requestAnimationFrame(frame);
+}
+function caught() {
+  state = 'over';
+  [660, 660, 660, 660].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.06), i * 200));
+  const list = highScores();
+  const qualifies = cash > 0 && (list.length < 10 || cash > list[list.length - 1].s);
+  setTimeout(() => overlay(`<h2>Caught</h2><div class="rule"></div>
+    <div class="big">${money(cash)}</div><div class="lbl">REACHED SAFE ${safe}, TUMBLER ${tumbler}. THE ANSWER WAS FRET ${answerFret(task)}.</div>
+    ${qualifies
+      ? `<p>A big job. Sign the ledger:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">SIGN</button></div>`
+      : '<span class="go" onclick="startGame()">TRY AGAIN</span>' + scoreTable(-1)}`), 700);
+}
+function saveScore() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: cash };
+  const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
+  const top = list.slice(0, 10);
+  store(HS_KEY, JSON.stringify(top));
+  overlay(`<h2>Caught</h2><div class="rule"></div><div class="big">${money(cash)}</div><div class="lbl">IN THE LEDGER</div><span class="go" onclick="startGame()">TRY AGAIN</span>${scoreTable(top.indexOf(entry))}`);
+}
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  const w = Math.min(document.querySelector('.screen').clientWidth - 24, 456);
+  V = Math.min(w, Math.max(220, window.innerHeight - 330)); NW = w;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(V * dpr); cv.height = Math.round(V * dpr); cv.style.width = V + 'px'; cv.style.height = V + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  nk.width = Math.round(NW * dpr); nk.height = Math.round(NH * dpr); nk.style.width = NW + 'px'; nk.style.height = NH + 'px'; nctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawVault(); drawNeck();
+}
+window.addEventListener('resize', fit);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+cash = 0; safe = 1; tumbler = 1; fret = 1; shown = 0; timeMax = 30; timeLeft = 30; shake = 0; glow = 0; task = null;
+updateDocket();
+fit();
+document.fonts && document.fonts.ready.then(fit);
+showStart();
+</script>
+</body>
+</html>
