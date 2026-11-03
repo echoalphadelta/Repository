@@ -14,54 +14,66 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 /* Pocket theme: four greens of an old handheld screen */
-:root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --cell: 24px; }
+:root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --row: 36px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; background: var(--g3); }
 body { color: var(--g0); font-family: 'Press Start 2P', monospace; font-size: 10px; line-height: 1.5; -webkit-user-select: none; user-select: none; }
 a, button { font: inherit; color: inherit; }
-.screen { max-width: 480px; margin: 0 auto; padding: 10px 14px 18px; }
+.screen { max-width: 680px; margin: 0 auto; padding: 10px 12px 18px; }
 
 .top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
 .top a { text-decoration: none; }
 .top button { background: none; border: none; padding: 0; cursor: pointer; }
 .top a:active, .top button:active { background: var(--g0); color: var(--g3); }
 
-.game { position: relative; display: flex; gap: 10px; margin-top: 8px; }
-.neck { display: flex; gap: 3px; flex: none; }
-.frets { display: grid; grid-auto-rows: var(--cell); padding-top: 6px; font-size: 7px; text-align: right; width: 16px; }
-.frets span { line-height: var(--cell); color: var(--g1); }
-.frets span.mk { color: var(--g0); }
-.well { display: grid; grid-template-columns: repeat(6, var(--cell)); grid-auto-rows: var(--cell); border: 4px solid var(--g0); background: var(--g2); padding: 2px; }
-.c { width: var(--cell); height: var(--cell); border-bottom: 1px solid rgba(15,56,15,0.18); }
-.c.p, .c.b, .c.f { border: 3px solid; }
+.title { margin: 14px 0 10px; font-size: 14px; }
+
+/* The neck: nut on the left, body on the right, high e on top */
+.game { position: relative; }
+.neckrow { display: flex; align-items: stretch; }
+.slabels { display: grid; grid-auto-rows: var(--row); width: 16px; font-size: 8px; padding-top: 3px; }
+.slabels span { line-height: var(--row); color: var(--g1); }
+.neck { flex: 1; display: grid; grid-auto-rows: var(--row); background: var(--g2); border-top: 3px solid var(--g0); border-bottom: 3px solid var(--g0); position: relative; }
+.c { position: relative; border-right: 2px solid var(--g1); }
+.c::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: var(--sw, 1px) solid rgba(15,56,15,0.55); }
+.c.open { border-right: 7px solid var(--g0); background: var(--g3); }
+.c.last { border-right: none; }
+.c.inlay::after { content: ''; position: absolute; left: 50%; top: 100%; width: 7px; height: 7px; margin: -3px 0 0 -3px; background: var(--g1); z-index: 1; }
+.c.p, .c.b, .c.f { border-style: solid; border-width: 3px; }
+.c.p::before, .c.b::before, .c.f::before { display: none; }
 .c.p { background: var(--g1); border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
 .c.b { background: var(--g0); border-color: var(--g1) var(--g0) var(--g0) var(--g1); }
 .c.f { background: var(--g3); border-color: var(--g3) var(--g1) var(--g1) var(--g3); }
-.strings { display: grid; grid-template-columns: repeat(6, var(--cell)); padding: 0 6px 0 25px; font-size: 8px; text-align: center; margin-top: 4px; }
+.body { width: 7px; background: var(--g0); }
+.fnums { display: grid; margin-left: 16px; margin-right: 7px; font-size: 7px; text-align: center; margin-top: 5px; }
+.fnums span { color: var(--g1); }
+.fnums span.mk { color: var(--g0); }
 
-.side { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-bottom: 22px; }
-.box { border: 3px solid var(--g0); background: var(--g3); padding: 6px 6px 5px; }
+.panel { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
+.box { border: 3px solid var(--g0); padding: 6px 6px 5px; min-width: 0; }
 .box .k { font-size: 8px; color: var(--g1); }
-.box .v { font-size: 13px; margin-top: 4px; }
-.next { display: grid; grid-template-columns: repeat(6, 11px); grid-auto-rows: 11px; margin-top: 6px; }
-.next .p { background: var(--g1); border: 2px solid; border-color: var(--g2) var(--g0) var(--g0) var(--g2); }
-.msg { min-height: 34px; font-size: 10px; line-height: 1.7; }
-.now { margin-top: auto; }
-.now .v { font-size: 24px; margin-top: 10px; line-height: 1.2; }
+.box .v { font-size: 12px; margin-top: 4px; }
+.box.wide { grid-column: span 2; }
+.now .v { font-size: 26px; margin-top: 8px; line-height: 1.1; }
 .now.shift .v { animation: shift 0.12s steps(1) 6; }
 @keyframes shift { 50% { background: var(--g0); color: var(--g3); } }
+.next { display: grid; grid-auto-rows: 9px; gap: 1px; margin-top: 6px; }
+.next div { background: rgba(15,56,15,0.08); }
+.next .p { background: var(--g1); }
+.msg { grid-column: span 3; min-height: 18px; font-size: 10px; text-align: center; }
 
-.pad { display: flex; justify-content: center; margin: 14px 0 0; }
+.pad { display: flex; justify-content: center; margin-top: 10px; }
 .drop { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 0; cursor: pointer; touch-action: manipulation; }
-.drop i { display: block; width: 190px; height: 58px; border-radius: 29px; background: #8b1d4a; box-shadow: inset -4px -5px 0 #5c1031, 0 3px 0 #3a2a30; }
+.drop i { display: block; width: 200px; height: 56px; border-radius: 28px; background: #8b1d4a; box-shadow: inset -4px -5px 0 #5c1031, 0 3px 0 #3a2a30; }
 .drop:active i, .drop.down i { transform: translateY(3px); box-shadow: inset -2px -2px 0 #5c1031, 0 0 0 #3a2a30; }
 .drop span { font-size: 10px; letter-spacing: 2px; }
 
-.over { position: absolute; inset: -4px; z-index: 5; background: var(--g3); border: 4px solid var(--g0); padding: 14px 12px; font-size: 10px; line-height: 1.8; overflow: auto; }
+.over { position: absolute; inset: -6px; z-index: 5; background: var(--g3); border: 4px solid var(--g0); padding: 12px; font-size: 10px; line-height: 1.8; overflow: auto; }
 .over.hidden { display: none; }
-.over h2 { font-size: 16px; font-weight: 400; margin: 0 0 12px; line-height: 1.4; }
+.over h2 { font-size: 16px; font-weight: 400; margin: 0 0 10px; line-height: 1.4; }
+.over p { margin: 0 0 8px; }
 .over .inv { background: var(--g0); color: var(--g3); padding: 2px 6px; }
-.over .go { cursor: pointer; display: inline-block; margin-top: 10px; animation: bl 1s steps(1) infinite; }
+.over .go { cursor: pointer; display: inline-block; margin-top: 6px; animation: bl 1s steps(1) infinite; }
 @keyframes bl { 50% { visibility: hidden; } }
 .hs div { white-space: pre; }
 .hs .me { background: var(--g0); color: var(--g3); }
@@ -77,22 +89,23 @@ a, button { font: inherit; color: inherit; }
     <a href="arcade.html">&lt; ARCADE</a>
     <button id="snd" onclick="toggleSound()">SND ON</button>
   </div>
+  <div class="title">SHAPE SNAP</div>
 
   <div class="game">
-    <div>
-      <div class="neck">
-        <div class="frets" id="frets"></div>
-        <div class="well" id="well"></div>
-      </div>
-      <div class="strings"><span>E</span><span>A</span><span>D</span><span>G</span><span>B</span><span>e</span></div>
+    <div class="neckrow">
+      <div class="slabels"><span>e</span><span>B</span><span>G</span><span>D</span><span>A</span><span>E</span></div>
+      <div class="neck" id="neck"></div>
+      <div class="body"></div>
     </div>
-    <div class="side">
+    <div class="fnums" id="fnums"></div>
+
+    <div class="panel">
       <div class="box"><div class="k">SCORE</div><div class="v" id="score">000000</div></div>
       <div class="box"><div class="k">LEVEL</div><div class="v" id="level">01</div></div>
       <div class="box"><div class="k">STREAK</div><div class="v" id="streak">00</div></div>
+      <div class="box wide now" id="nowBox"><div class="k">CHORD</div><div class="v" id="now">&nbsp;</div></div>
       <div class="box"><div class="k">NEXT</div><div class="next" id="next"></div></div>
       <div class="msg" id="msg"></div>
-      <div class="box now" id="nowBox"><div class="k">CHORD</div><div class="v" id="now">&nbsp;</div></div>
     </div>
     <div class="over" id="over"></div>
   </div>
@@ -187,9 +200,10 @@ function computeGripTones(shapeName, qualStr, rootPc) {
   return result;
 }
 
-// ---- Game ---------------------------------------------------------------
-// The well is the neck: each row is a fret (0 at the top), each column a string.
-const COLS = 6, ROWS = 15;
+// The neck lies sideways: columns are frets (0 = open, at the nut), rows are strings (high e on top).
+// Grips slide from the nut toward the body. Misses pile up against the body.
+const NF = 14, COLS = NF + 1, ROWS = 6;
+const STR_W = [3, 2.5, 2, 1.5, 1.2, 1];   // drawn thickness, low E to high e
 const SHAPES = ['echo', 'alpha', 'delta'];
 const QUAL_LABEL = { '':'', 'm':'m', '7':'7', 'maj7':'maj7', 'm7':'m7', 'sus4':'sus4' };
 const HS_KEY = 'eadShapeSnapScores', SOUND_KEY = 'eadArcadeSound';
@@ -201,6 +215,7 @@ function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function highScores() { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
 const pad = (n, w) => String(n).padStart(w, '0');
+const rowOf = s => 5 - s;   // string index to screen row
 
 function qualitiesForLevel() {
   if (level <= 2) return [''];
@@ -210,18 +225,18 @@ function qualitiesForLevel() {
 }
 function shapeShiftChance()   { return level < 2 ? 0 : Math.min(0.6, 0.25 + (level - 2) * 0.08); }
 function qualityShiftChance() { return level < 4 ? 0 : Math.min(0.4, 0.15 + (level - 4) * 0.06); }
-function tickMs() { return Math.max(160, Math.round(620 * Math.pow(0.87, level - 1))); }
+function tickMs() { return Math.max(170, Math.round(640 * Math.pow(0.87, level - 1))); }
 
-// A grip as it sits on the real neck. target = the fret its top row belongs on.
+// A grip as it sits on the real neck. target = the fret its lowest note belongs on.
 function grip(shape, q, root) {
   const af = findFrets(GRIP_CONFIG[shape].anchor, root)[0];
   if (af < 1 || af > 10) return null;
   const pts = [...computeGripTones(shape, q, root)].map(k => { const [f, s] = k.split('-').map(Number); return { f, s }; });
   if (!pts.length) return null;
   const min = Math.min(...pts.map(p => p.f)), max = Math.max(...pts.map(p => p.f));
-  if (max - min > 4 || max >= ROWS) return null;
-  return { shape, q, root, name: PC_NAMES[root] + QUAL_LABEL[q], target: min, h: max - min + 1,
-           cells: pts.map(p => ({ c: p.s, r: p.f - min })) };
+  if (max - min > 4 || max > NF) return null;
+  return { shape, q, root, name: PC_NAMES[root] + QUAL_LABEL[q], target: min, w: max - min + 1,
+           cells: pts.map(p => ({ c: p.f - min, r: rowOf(p.s) })) };
 }
 
 function makePiece() {
@@ -234,7 +249,7 @@ function makePiece() {
   }
 }
 
-// Decide whether this piece will morph on the way down, and into what
+// Decide whether this piece will morph on the way up the neck, and into what
 function planShift(g) {
   const roll = Math.random();
   if (roll < shapeShiftChance()) {
@@ -251,11 +266,11 @@ function planShift(g) {
   return null;
 }
 
-function fits(cells, y) {
+function fits(cells, x) {
   return cells.every(({ c, r }) => {
-    const row = y + r;
-    if (row >= ROWS) return false;
-    return row < 0 || !stack[row][c];
+    const col = x + c;
+    if (col > NF) return false;
+    return col < 0 || !stack[r][col];
   });
 }
 
@@ -279,23 +294,46 @@ function toggleSound() {
   document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
 }
 
-// Drawing
+// Neck layout: open column, then frets that narrow like a real neck
+const colTemplate = '22px ' + Array.from({ length: NF }, (_, i) => Math.pow(2, -i / 12).toFixed(3) + 'fr').join(' ');
+function buildNeck() {
+  const neck = document.getElementById('neck');
+  neck.style.gridTemplateColumns = colTemplate;
+  let h = '';
+  for (let r = 0; r < ROWS; r++) for (let f = 0; f <= NF; f++) {
+    const cls = ['c'];
+    if (f === 0) cls.push('open');
+    if (f === NF) cls.push('last');
+    // inlays sit between the G and D strings (rows 2 and 3); 12 gets two
+    if ((r === 2 && [3, 5, 7, 9].includes(f)) || ((r === 1 || r === 3) && f === 12)) cls.push('inlay');
+    h += `<div class="${cls.join(' ')}" style="--sw:${STR_W[5 - r]}px"></div>`;
+  }
+  neck.innerHTML = h;
+  const nums = document.getElementById('fnums');
+  nums.style.gridTemplateColumns = colTemplate;
+  nums.innerHTML = Array.from({ length: COLS }, (_, f) => `<span class="${[3, 5, 7, 9, 12].includes(f) ? 'mk' : ''}">${f > 12 ? '' : f}</span>`).join('');
+}
+
 function render(flash) {
-  const cells = document.getElementById('well').children;
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    cells[r * COLS + c].className = 'c' + (stack[r][c] ? ' b' : '');
+  const cells = document.getElementById('neck').children;
+  for (let r = 0; r < ROWS; r++) for (let f = 0; f <= NF; f++) {
+    const el = cells[r * COLS + f];
+    el.classList.remove('p', 'b', 'f');
+    if (stack[r][f]) el.classList.add('b');
   }
   if (piece) piece.cells.forEach(({ c, r }) => {
-    const row = piece.y + r;
-    if (row >= 0 && row < ROWS) cells[row * COLS + c].className = 'c ' + (flash ? 'f' : 'p');
+    const col = piece.x + c;
+    if (col >= 0 && col <= NF) { const el = cells[r * COLS + col]; el.classList.remove('b'); el.classList.add(flash ? 'f' : 'p'); }
   });
   document.getElementById('now').innerHTML = piece && state === 'playing' ? piece.name : '&nbsp;';
 }
 function renderNext() {
-  let h = '';
+  const box = document.getElementById('next');
+  box.style.gridTemplateColumns = 'repeat(5, 9px)';
   const on = new Set(nextPiece.cells.map(({ c, r }) => r + '-' + c));
-  for (let r = 0; r < 5; r++) for (let c = 0; c < COLS; c++) h += `<div class="${on.has(r + '-' + c) ? 'p' : ''}"></div>`;
-  document.getElementById('next').innerHTML = h;
+  let h = '';
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < 5; c++) h += `<div class="${on.has(r + '-' + c) ? 'p' : ''}"></div>`;
+  box.innerHTML = h;
 }
 function hud() {
   document.getElementById('score').textContent = pad(score, 6);
@@ -306,18 +344,18 @@ function say(t) { document.getElementById('msg').innerHTML = t; }
 
 // Flow
 function spawn() {
-  piece = nextPiece; piece.y = 1 - piece.h;
+  piece = nextPiece; piece.x = 1 - piece.w;   // enters through the nut
   nextPiece = makePiece();
   renderNext();
-  if (!fits(piece.cells, piece.y)) { gameOver(); return; }
+  if (!fits(piece.cells, piece.x)) { gameOver(); return; }
   render();
 }
 
 function morph() {
   const n = piece.shift.into;
   piece.shift = null;
-  if (!fits(n.cells, piece.y)) return;
-  Object.assign(piece, { shape: n.shape, q: n.q, name: n.name, target: n.target, h: n.h, cells: n.cells });
+  if (!fits(n.cells, piece.x)) return;
+  Object.assign(piece, { shape: n.shape, q: n.q, name: n.name, target: n.target, w: n.w, cells: n.cells });
   say('SHIFT!');
   const box = document.getElementById('nowBox');
   box.classList.remove('shift'); void box.offsetWidth; box.classList.add('shift');
@@ -325,34 +363,39 @@ function morph() {
 }
 
 function lock() {
-  let topOut = false;
+  let jammed = false;
   piece.cells.forEach(({ c, r }) => {
-    const row = piece.y + r;
-    if (row < 0) topOut = true; else stack[row][c] = 1;
+    const col = piece.x + c;
+    if (col < 1) jammed = true;
+    if (col >= 0) stack[r][col] = 1;
   });
   piece = null;
+  // A fret filled on all six strings clears, and the pile slides toward the body
   let cleared = 0;
-  for (let r = ROWS - 1; r >= 0; r--) {
-    if (stack[r].every(Boolean)) { stack.splice(r, 1); stack.unshift(Array(COLS).fill(0)); cleared++; r++; }
+  for (let f = NF; f >= 1; f--) {
+    if (stack.every(row => row[f])) {
+      stack.forEach(row => { row.splice(f, 1); row.splice(1, 0, 0); });
+      cleared++; f++;
+    }
   }
   if (cleared) { score += 500 * cleared * level; hud(); [784, 988, 1175].forEach((n, i) => setTimeout(() => beep(n, 0.06), i * 70)); }
   else beep(90, 0.08);
-  if (topOut) { render(); gameOver(); return; }
+  if (jammed) { render(); gameOver(); return; }
   spawn();
 }
 
 function miss() {
   streak = 0; hud();
   say('MISS');
-  while (fits(piece.cells, piece.y + 1)) piece.y++;   // slam down
+  while (fits(piece.cells, piece.x + 1)) piece.x++;   // slam into the body end
   render(); lock();
 }
 
 function tick() {
   if (state !== 'playing' || busy || !piece) return;
-  if (fits(piece.cells, piece.y + 1)) {
-    piece.y++;
-    if (piece.shift && piece.y >= piece.shift.at) morph();
+  if (fits(piece.cells, piece.x + 1)) {
+    piece.x++;
+    if (piece.shift && piece.x >= piece.shift.at) morph();
     render();
   } else miss();
 }
@@ -363,7 +406,7 @@ function drop() {
   if (state !== 'playing' || busy || !piece) return;
   const btn = document.getElementById('dropBtn');
   btn.classList.add('down'); setTimeout(() => btn.classList.remove('down'), 120);
-  const off = Math.abs(piece.y - piece.target);
+  const off = Math.abs(piece.x - piece.target);
   if (off > 1) { miss(); return; }
   busy = true;
   landed++;
@@ -400,11 +443,11 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 
 function showStart() {
   state = 'start';
-  overlay(`<h2>SHAPE<br>SNAP</h2>
-    <p>A GRIP FALLS DOWN THE NECK. ITS CHORD IS SHOWN BOTTOM RIGHT.</p>
+  overlay(`<h2>SHAPE SNAP</h2>
+    <p>A GRIP SLIDES UP THE NECK FROM THE NUT. ITS CHORD IS SHOWN BELOW.</p>
     <p>HIT <span class="inv">DROP</span> WHEN IT REACHES THE FRET WHERE THAT SHAPE PLAYS THAT CHORD.</p>
-    <p>WATCH OUT: SOME GRIPS <span class="inv">SHIFT</span> INTO ANOTHER SHAPE ON THE WAY DOWN.</p>
-    <p>HIGH SCORES</p>${scoreTable(-1)}
+    <p>SOME GRIPS <span class="inv">SHIFT</span> ON THE WAY. MISSES PILE UP AT THE BODY.</p>
+    ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PUSH START</span>`);
 }
 
@@ -424,11 +467,11 @@ function gameOver() {
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
-  setTimeout(() => overlay(`<h2>GAME<br>OVER</h2>
+  setTimeout(() => overlay(`<h2>GAME OVER</h2>
     <p>SCORE <span class="inv">${pad(score, 6)}</span></p>
     <p>LEVEL ${pad(level, 2)}  LANDED ${pad(landed, 3)}</p>
     ${qualifies
-      ? `<p>NEW HIGH SCORE!<br>ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      ? `<p>NEW HIGH SCORE! ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
       : scoreTable(-1) + '<span class="go" onclick="startGame()">PUSH START</span>'}`), 400);
 }
 
@@ -438,7 +481,7 @@ function saveScore() {
   const list = highScores(); list.push(entry); list.sort((a, b) => b.s - a.s);
   const top = list.slice(0, 10);
   store(HS_KEY, JSON.stringify(top));
-  overlay(`<h2>GAME<br>OVER</h2><p>SCORE <span class="inv">${pad(score, 6)}</span></p><p>HIGH SCORES</p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">PUSH START</span>`);
+  overlay(`<h2>GAME OVER</h2><p>SCORE <span class="inv">${pad(score, 6)}</span></p>${scoreTable(top.indexOf(entry))}<span class="go" onclick="startGame()">PUSH START</span>`);
 }
 
 // Input
@@ -452,20 +495,9 @@ document.addEventListener('visibilitychange', () => {
   else if (!document.hidden && state === 'paused') { state = 'playing'; restartTimer(); }
 });
 
-// Size the neck to the screen
-function sizeWell() {
-  const byHeight = Math.floor((window.innerHeight - 214) / ROWS);
-  const byWidth = Math.floor((Math.min(window.innerWidth, 480) - 28 - 19 - 12 - 10 - 120) / COLS);
-  const cell = Math.max(14, Math.min(28, byHeight, byWidth));
-  document.documentElement.style.setProperty('--cell', cell + 'px');
-}
-window.addEventListener('resize', sizeWell);
-
-document.getElementById('well').innerHTML = '<div class="c"></div>'.repeat(ROWS * COLS);
-document.getElementById('frets').innerHTML = Array.from({ length: ROWS }, (_, f) => `<span class="${[3, 5, 7, 9, 12].includes(f) ? 'mk' : ''}">${f}</span>`).join('');
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
-sizeWell();
+buildNeck();
 stack = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
 score = 0; level = 1; landed = 0; streak = 0;
 nextPiece = makePiece(); renderNext(); render(); hud();
