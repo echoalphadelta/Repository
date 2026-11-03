@@ -11,7 +11,7 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Arcade | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
 :root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -29,26 +29,56 @@ a { color: inherit; text-decoration: none; }
 .title .a { color: var(--alpha); padding-left: 2.4em; }   /* G chord on a real (logarithmic) neck: Echo fret 3, Delta fret 5, Alpha fret 10 */
 .title .d { color: var(--delta); padding-left: 0.79em; }
 .label { margin: 18px 0 0; display: inline-block; background: var(--ink); color: var(--bg); font-size: 14px; padding: 6px 10px 5px; letter-spacing: 4px; }
-.credits { margin: 14px 0 40px; font-size: 10px; color: var(--dim); }
+.credits { margin: 14px 0 36px; font-size: 10px; color: var(--dim); }
 .credits b { font-weight: 400; color: var(--ink); }
 
-.card { display: block; position: relative; margin: 0 6px 22px 0; padding: 16px 14px 14px; border: 4px solid var(--ink); background: var(--bg); }
-.card.c1 { box-shadow: 6px 6px 0 var(--echo); }
-.card.c2 { box-shadow: 6px 6px 0 var(--alpha); }
-.card.c3 { box-shadow: 6px 6px 0 var(--delta); }
-a.card:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--echo); }
-a.card.c2:active { box-shadow: 2px 2px 0 var(--alpha); }
-a.card.c3:active { box-shadow: 2px 2px 0 var(--delta); }
-.card .no { position: absolute; top: -12px; right: 12px; background: var(--bg); padding: 0 6px; font-size: 10px; color: var(--dim); }
-.card .name { font-size: 16px; line-height: 1.4; }
-.card .info { margin-top: 10px; font-size: 9px; line-height: 1.8; color: var(--dim); }
-.card .go { display: inline-block; margin-top: 14px; font-size: 11px; background: var(--echo); color: var(--bg); padding: 6px 10px 5px; }
-.card.c2 .go { background: var(--alpha); }
-.card.c3 .go { background: var(--delta); }
-.card.locked { border-color: var(--dim); color: var(--dim); }
-.card.locked .go { background: none; border: 2px dashed var(--dim); color: var(--dim); }
-.best { color: var(--ink); }
+.game { display: block; margin-bottom: 22px; }
+.game:active { transform: translate(2px, 2px); }
 
+/* 01 Note Invaders: amber DOS screen */
+.ni { background: #0b0700; color: #ffb000; border: 4px double #ffb000; font-family: 'VT323', monospace; }
+.ni .bar { display: flex; justify-content: space-between; background: #ffb000; color: #0b0700; font-size: 18px; padding: 0 6px; line-height: 1.3; }
+.ni .view { position: relative; height: 92px; margin: 0 10px; border-bottom: 2px dashed #b37b00; overflow: hidden; }
+.ni .blk { position: absolute; background: #ffb000; color: #0b0700; font-size: 26px; line-height: 1; padding: 0 5px; }
+.ni .bits { position: absolute; font-size: 18px; color: #ffb000; letter-spacing: 3px; }
+.ni .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 10px 8px; font-size: 20px; line-height: 1.1; }
+.ni .name { font-size: 28px; }
+.ni .sub { color: #b37b00; font-size: 18px; }
+.ni .go { background: #ffb000; color: #0b0700; padding: 0 6px; font-size: 22px; }
+
+/* 02 Shape Snap: handheld green with a sideways neck */
+.ss { background: #9bbc0f; color: #0f380f; border: 4px solid #0f380f; padding: 10px; }
+.ss .neck { display: grid; grid-template-columns: 10px repeat(10, 1fr); grid-auto-rows: 13px; background: #8bac0f; border-top: 3px solid #0f380f; border-bottom: 3px solid #0f380f; border-right: 5px solid #0f380f; }
+.ss .neck i { border-right: 2px solid #306230; position: relative; }
+.ss .neck i::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid rgba(15,56,15,0.5); }
+.ss .neck i.n { border-right: 5px solid #0f380f; background: #9bbc0f; }
+.ss .neck i.p { background: #306230; border: 2px solid; border-color: #8bac0f #0f380f #0f380f #8bac0f; }
+.ss .neck i.p::before { display: none; }
+.ss .neck i.w { background: #0f380f; }
+.ss .neck i.w::before { display: none; }
+.ss .info { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; }
+.ss .name { font-size: 13px; line-height: 1.4; }
+.ss .sub { font-size: 7px; color: #306230; margin-top: 4px; }
+.ss .go { display: inline-block; background: #8b1d4a; color: #9bbc0f; border-radius: 14px; padding: 6px 12px 5px; font-size: 9px; box-shadow: inset -2px -3px 0 #5c1031; }
+
+/* 03 Progression Run: sunset road */
+.pr { position: relative; overflow: hidden; border: 4px solid #0d0820; background: #0d0820; }
+.pr .scene { position: relative; height: 128px; background: linear-gradient(#1b1040 0 14%, #2c1452 14% 28%, #4a1a62 28% 40%, #7a2266 40% 50%, #b23a6b 50% 58%, #f48f55 58% 62%, #234628 62%); overflow: hidden; }
+.pr .sun { position: absolute; left: 50%; top: 36px; width: 56px; height: 28px; margin-left: -28px; background: repeating-linear-gradient(#ffd166 0 5px, transparent 5px 7px); border-radius: 28px 28px 0 0; }
+.pr .road { position: absolute; left: 0; right: 0; top: 62%; bottom: 0; background: #43425a; clip-path: polygon(46% 0, 54% 0, 100% 100%, 0 100%); }
+.pr .edge { position: absolute; left: 0; right: 0; top: 62%; bottom: 0; background: repeating-linear-gradient(#f4f1ea 0 4px, #d2364a 4px 8px); clip-path: polygon(45% 0, 46% 0, 0 100%, 0 92%, 0 100%); }
+.pr .edge.r { clip-path: polygon(54% 0, 55% 0, 100% 92%, 100% 100%); }
+.pr .sign { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: #ffd166; color: #1b1040; font-size: 10px; padding: 4px 8px 3px; white-space: nowrap; }
+.pr .car { position: absolute; left: 50%; bottom: 8px; width: 30px; height: 10px; margin-left: -15px; background: #d2364a; }
+.pr .car::before { content: ''; position: absolute; left: 6px; right: 6px; top: -5px; height: 5px; background: #a3243a; }
+.pr .car::after { content: ''; position: absolute; left: 1px; right: 1px; bottom: -5px; height: 5px; background: linear-gradient(90deg, #111 0 7px, transparent 7px calc(100% - 7px), #111 calc(100% - 7px)); }
+.pr .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 10px; color: #fff3d6; }
+.pr .name { font-size: 13px; line-height: 1.4; color: #ffd166; }
+.pr .sub { font-size: 7px; color: #e2606a; margin-top: 4px; }
+.pr .go { display: inline-block; background: #ffd166; color: #1b1040; padding: 6px 10px 5px; font-size: 9px; }
+
+.sub.best { color: inherit; }
+.sub.best:empty { display: none; }
 .foot { margin-top: 30px; font-size: 8px; line-height: 2; color: var(--dim); }
 </style>
 </head>
@@ -60,37 +90,61 @@ a.card.c3:active { box-shadow: 2px 2px 0 var(--delta); }
   <div class="label">ARCADE</div>
   <div class="credits">CREDITS <b>99</b></div>
 
-  <a class="card c1" href="note-invaders.html">
-    <span class="no">01</span>
-    <div class="name">NOTE INVADERS</div>
-    <div class="info">FIND FALLING NOTES ON THE NECK<span class="best" id="best"></span></div>
-    <span class="go">PLAY</span>
+  <a class="game ni" href="note-invaders.html">
+    <div class="bar"><span>NOTEINV.EXE</span><span>01</span></div>
+    <div class="view">
+      <span class="blk" style="left:18%;top:14px">F#</span>
+      <span class="blk" style="left:62%;top:44px">Bb</span>
+      <span class="bits" style="left:40%;top:58px">* + #</span>
+    </div>
+    <div class="info">
+      <div><div class="name">NOTE INVADERS</div><div class="sub">FIND FALLING NOTES ON THE NECK</div><div class="sub best" id="best1"></div></div>
+      <span class="go">RUN</span>
+    </div>
   </a>
 
-  <a class="card c2" href="shape-snap.html">
-    <span class="no">02</span>
-    <div class="name">SHAPE SNAP</div>
-    <div class="info">LAND EACH GRIP ON THE RIGHT FRET<span class="best" id="best2"></span></div>
-    <span class="go">PLAY</span>
+  <a class="game ss" href="shape-snap.html">
+    <div class="neck" id="ssNeck"></div>
+    <div class="info">
+      <div><div class="name">SHAPE<br>SNAP</div><div class="sub">LAND EACH GRIP ON THE RIGHT FRET</div><div class="sub best" id="best2"></div></div>
+      <span class="go">PLAY</span>
+    </div>
   </a>
 
-  <a class="card c3" href="progression-run.html">
-    <span class="no">03</span>
-    <div class="name">PROGRESSION RUN</div>
-    <div class="info">STEER INTO THE RIGHT SHAPE FOR EACH CHORD<span class="best" id="best3"></span></div>
-    <span class="go">PLAY</span>
+  <a class="game pr" href="progression-run.html">
+    <div class="scene">
+      <div class="sun"></div>
+      <div class="road"></div><div class="edge"></div><div class="edge r"></div>
+      <div class="sign">IV @8</div>
+      <div class="car"></div>
+    </div>
+    <div class="info">
+      <div><div class="name">PROGRESSION<br>RUN</div><div class="sub">STEER INTO THE RIGHT SHAPE</div><div class="sub best" id="best3"></div></div>
+      <span class="go">START</span>
+    </div>
   </a>
 
   <div class="foot">HIGH SCORES ARE SAVED ON THIS DEVICE ONLY</div>
 </div>
 <script>
+// Little Shape Snap neck: nut, a grip sliding in, and a wall at the body end
+(function () {
+  const grip = new Set(['0-3', '1-3', '2-4', '3-5', '4-5', '5-3']);
+  let h = '';
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 11; c++) {
+    const cls = c === 0 ? 'n' : c >= 10 ? 'w' : grip.has(r + '-' + c) ? 'p' : '';
+    h += `<i class="${cls}"></i>`;
+  }
+  document.getElementById('ssNeck').innerHTML = h;
+})();
+
 function showBest(key, id) {
   try {
     const list = JSON.parse(localStorage.getItem(key)) || [];
-    if (list.length) document.getElementById(id).textContent = ' / HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
+    if (list.length) document.getElementById(id).textContent = 'HI ' + String(list[0].s).padStart(6, '0') + ' ' + list[0].i;
   } catch (e) {}
 }
-showBest('eadNoteInvadersScores', 'best');
+showBest('eadNoteInvadersScores', 'best1');
 showBest('eadShapeSnapScores', 'best2');
 showBest('eadProgressionRunScores', 'best3');
 </script>
