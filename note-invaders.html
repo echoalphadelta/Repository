@@ -47,6 +47,15 @@ a, button { color: inherit; font: inherit; }
 .cur { display: inline-block; width: 11px; height: 18px; background: var(--a); vertical-align: -2px; animation: cur 1s steps(1) infinite; }
 @keyframes cur { 50% { opacity: 0; } }
 .go { cursor: pointer; }
+/* title screen */
+.title { text-align: center; padding-top: 4px; }
+.title h1 { margin: 0; font-size: 64px; font-weight: normal; line-height: 0.82; letter-spacing: 2px; }
+.title h1 span { display: block; color: var(--bg); background: var(--a); margin: 6px auto 0; width: max-content; padding: 4px 10px 0; }
+.title .rule { margin: 12px 0 8px; }
+.adv { display: inline-grid; grid-template-columns: auto auto; gap: 4px 14px; align-items: center; text-align: left; margin: 0 0 8px; }
+.adv svg { display: block; }
+.title .hs { display: inline-block; text-align: left; }
+.start { display: inline-block; margin-top: 10px; background: var(--a); color: var(--bg); padding: 2px 14px; font-size: 28px; cursor: pointer; }
 .hs { margin: 6px 0 8px; }
 .hs div { white-space: pre; }
 .hs .me { background: var(--a); color: var(--bg); }
@@ -277,19 +286,27 @@ function showConsole(html) {
   c.innerHTML = html;
 }
 
+// a little invader drawn pixel by pixel: a note with eyes, a flag and two feet
+const ALIEN = ['......#..', '......##.', '......#.#', '......#..', '..#####..', '.#######.', '##.###.##', '#########', '.#######.', '.#.....#.'];
+function alien(px, shade) {
+  let r = '';
+  ALIEN.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') r += `<rect x="${x}" y="${y}" width="1" height="1"/>`; }));
+  return `<svg width="${9 * px}" height="${10 * px}" viewBox="0 0 9 10" fill="${shade}" shape-rendering="crispEdges">${r}</svg>`;
+}
+
 function showStart() {
   state = 'start';
-  showConsole(`
-    <p>C:\\ARCADE&gt; NOTEINV</p>
-    <p class="dim">NOTE INVADERS  REV 1</p>
-    <p>&nbsp;</p>
-    <p>NOTES DROP FROM THE TOP.</p>
-    <p>FIND EACH ONE ON THE NECK</p>
-    <p>BEFORE IT HITS THE GROUND.</p>
-    <p>&nbsp;</p>
+  showConsole(`<div class="title">
+    <h1>NOTE<span>INVADERS</span></h1>
+    <p class="rule">Find each falling note on the neck before it lands.</p>
+    <div class="adv">
+      ${alien(3, 'var(--a)')}<span>HIGH UP &nbsp;200</span>
+      ${alien(3, 'var(--a)')}<span>HALFWAY 125</span>
+      ${alien(3, 'var(--a2)')}<span>LOW &nbsp;&nbsp;&nbsp;&nbsp;50</span>
+    </div>
     <p class="dim">HIGH SCORES</p>
     ${scoreTable(-1)}
-    <p class="go" onclick="startGame()"><span class="inv">TAP TO RUN</span> <span class="cur"></span></p>`);
+    <div><span class="start go" onclick="startGame()">START</span></div></div>`);
 }
 
 function startGame() {

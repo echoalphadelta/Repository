@@ -41,6 +41,8 @@ canvas { display: block; width: 100%; image-rendering: pixelated; image-renderin
 .over.hidden { display: none; }
 .carved { text-align: center; margin-bottom: 14px; }
 .carved p { margin: 0 6px 12px; }
+.carved .head { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.carved .head h2 { margin: 0; }
 .over h2 { margin: 0 0 10px; font-family: 'Cinzel', serif; font-weight: 700; font-size: 26px; letter-spacing: 3px; line-height: 1.1; color: var(--purple); }
 .wreath { display: block; margin: 0 0 4px; }
 .over p { margin: 0 0 8px; }
@@ -258,6 +260,23 @@ function draw() {
 }
 
 // gold laurel wreath (open at the top) as inline SVG
+// the title badge: a golf ball framed by laurel on its left and right
+function ballBadge(size) {
+  let leaves = '';
+  for (const side of [-1, 1]) for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 2 + side * (0.5 + i * 0.42), r = 38;
+    const x = 50 + Math.cos(a) * r, y = 50 + Math.sin(a) * r;
+    const rot = a * 180 / Math.PI + (side > 0 ? 60 : -60);
+    leaves += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="9" ry="3.8" transform="rotate(${rot.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})" fill="#d4a52a" stroke="#8a6a12" stroke-width="1"/>`;
+  }
+  let dimples = '';
+  for (let y = 38; y <= 64; y += 6.5) for (let x = 36 + ((y - 38) / 6.5 % 2) * 3.25; x <= 64; x += 6.5)
+    if (Math.hypot(x - 50, y - 50) < 15) dimples += `<circle cx="${x.toFixed(1)}" cy="${y}" r="1.5" fill="#c9c4b6"/>`;
+  return `<svg class="badge" width="${size}" height="${size}" viewBox="0 0 100 100">${leaves}
+    <circle cx="50" cy="50" r="20" fill="#fbfaf5" stroke="#6b6352" stroke-width="2"/>${dimples}
+    <path d="M38 40 A18 18 0 0 1 52 32" stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+}
+
 function laurel(size) {
   let leaves = '';
   for (const side of [-1, 1]) for (let i = 0; i < 7; i++) {
@@ -365,7 +384,7 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   // carved into the stone like an inscription, centred
-  overlay(`<div class="carved"><h2>ROMAN GOLF</h2>
+  overlay(`<div class="carved"><div class="head"><h2>ROMAN GOLF</h2>${ballBadge(62)}</div>
     <p>PUTT DOWN EACH FAIRWAY BY NAMING THE NUMERAL OF EVERY CHORD ON IT. LATER HOLES BORROW bIII, iv AND bVII.</p>
     <span class="go" onclick="startRound()">TEE OFF</span></div>
     <p>BEST ROUNDS</p>${scoreTable(-1)}`);
