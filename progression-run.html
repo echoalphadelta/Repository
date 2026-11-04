@@ -613,9 +613,7 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   overlay(`<h2>PROGRESSION<br>RUN</h2>
-    <p>EACH SIGN SHOWS A CHORD AND A FRET, LIKE <b style="color:#ffd166">C @8</b>.</p>
-    <p>STEER INTO THE LANE OF THE SHAPE THAT PLAYS THAT CHORD THERE: <span class="e">ECHO</span> <span class="a">ALPHA</span> <span class="d">DELTA</span>.</p>
-    <p>KEEP GETTING THEM RIGHT AND YOUR RIDE GETS UPGRADED. EVERY 20 RIGHT, A PIT STOP FIXES YOUR CAR.</p>
+    <p>STEER INTO THE SHAPE THAT PLAYS EACH SIGN'S CHORD AT ITS FRET.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PRESS START</span>`);
 }

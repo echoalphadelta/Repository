@@ -259,10 +259,8 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   overlay(`<div class="stripes"></div><h2>Number<br>Blaster</h2>
-    <div class="tag">A game of notes and numbers</div>
     <span class="go" onclick="startGame()">START</span>
-    <p>Notes drift toward your ship. Tap each one's number to blast it. In the key of G, a D is a 5.</p>
-    <p>Three shields. A new key every level.</p>
+    <p>Tap the number of each note before it reaches your ship.</p>
     ${scoreTable(-1)}`);
 }
 

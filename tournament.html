@@ -41,6 +41,8 @@ canvas { display: block; margin: 0 auto; border: 3px solid #1a110b; touch-action
 .board .match { color: #b39a72; font-size: 15px; }
 .over { position: absolute; inset: 0; background: var(--parch); color: var(--ink); padding: 16px 18px; overflow: auto; border: 3px solid var(--gold); }
 .over.hidden { display: none; }
+.decree { text-align: center; margin-bottom: 12px; }
+.decree p { font-size: 20px; margin: 10px 4px 16px; }
 .over h2 { margin: 0 0 2px; font-family: 'UnifrakturMaguntia', serif; font-weight: 400; font-size: 46px; line-height: 1; color: var(--red); }
 .flourish { height: 6px; margin: 6px 0 12px; background: linear-gradient(90deg, var(--blue) 0 33%, var(--gold) 33% 66%, var(--red) 66%); }
 .over p { margin: 0 0 8px; line-height: 1.35; }
@@ -530,11 +532,10 @@ function scoreTable(hi) {
 }
 function showStart() {
   state = 'start';
-  overlay(`<h2>The Tournament</h2><div class="flourish"></div>
-    <span class="go" onclick="startGame()">Take the Field</span>
-    <p>Each end, the herald calls a chord as a number in a key, like <b>the IV in D</b>. Find its banner and tap it to loose your arrow.</p>
-    <p>Your rival is drawing at the same time. Hit the right banner first to win the end. Shoot the wrong one and your arrow goes wide while the rival keeps drawing.</p>
-    <p>First to ${ENDS_TO_WIN} ends wins the match. Every rival is quicker than the last, and something waits at the end.</p>
+  // read out like a proclamation: centred, the button at the foot
+  overlay(`<div class="decree"><h2>The Tournament</h2>
+    <p>The herald calls a chord by its number. Shoot its banner before your rival does.</p>
+    <span class="go" onclick="startGame()">Take the Field</span></div>
     ${scoreTable(-1)}`);
 }
 function startGame() {

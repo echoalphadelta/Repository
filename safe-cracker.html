@@ -362,11 +362,9 @@ function scoreTable(hi) {
 }
 function showStart() {
   state = 'start';
-  overlay(`<h2>Safe<br>Cracker</h2><div class="rule"></div>
+  overlay(`<h2>Safe<br>Cracker</h2>
+    <p>Set the pins to the grip on the docket, then press <b>OPEN</b>.</p>
     <span class="go" onclick="startGame()">CRACK IT</span>
-    <p>The docket names a chord and a shape. Slide a brass pin along each string until the pins form that grip, then press <b>OPEN</b>.</p>
-    <p><span class="e">ECHO</span> uses all six strings, <span class="a">ALPHA</span> five and <span class="d">DELTA</span> four. Strings marked X stay out.</p>
-    <p>Three grips crack a safe. A wrong grip trips the alarm, costs time and tells you how many pins were right.</p>
     ${scoreTable(-1)}`);
 }
 function startGame() {

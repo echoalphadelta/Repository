@@ -40,7 +40,7 @@ canvas { display: block; margin: 0 auto; touch-action: none; image-rendering: pi
 .controls button.on { box-shadow: inset 0 3px 0 #8a1a14; transform: translateY(2px); }
 .over { position: absolute; inset: 6px; padding: 16px 16px; overflow: auto; }
 .over.hidden { display: none; }
-.over h2 { margin: 0; font-family: 'Tiny5', monospace; font-weight: 400; font-size: 68px; line-height: 0.9; letter-spacing: 3px; color: var(--yellow); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 var(--ink); }
+.over h2 { margin: 0 0 12px; font-family: 'Tiny5', monospace; font-weight: 400; font-size: 68px; line-height: 0.9; letter-spacing: 3px; color: var(--yellow); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 var(--ink); }
 .bands { height: 6px; margin: 12px 0 14px; background: repeating-linear-gradient(90deg, var(--yellow) 0 6px, transparent 6px 12px); }
 .over p { margin: 0 0 10px; line-height: 1.15; font-size: 24px; }
 .over p b { color: var(--yellow); font-weight: 400; }
@@ -443,10 +443,9 @@ const ICON = {
 function bestFor(r) { const t = times()[r] || []; return t.length ? fmt(t[0].s) : ''; }
 function showStart() {
   state = 'start';
-  overlay(`<h2>SLALOM</h2><div class="bands"></div>
-    <p>Snowboard down the mountain through the gates. Each gate has a note. Ride through the one that is the <b>number</b> shown, in the key shown.</p>
-    <div class="runs">${Object.entries(RUNS).map(([id, r]) => `<button class="run" onclick="startRun('${id}')">${ICON[id]}<span><span class="name">${r.name}</span><br><span class="what">${r.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>
-    <p>Hold the arrows or drag to carve your board. A wrong gate or a missed one adds ${PENALTY} seconds. Fastest time wins.</p>`);
+  overlay(`<h2>SLALOM</h2>
+    <p>Ride through the gate whose note is the <b>number</b> shown.</p>
+    <div class="runs">${Object.entries(RUNS).map(([id, r]) => `<button class="run" onclick="startRun('${id}')">${ICON[id]}<span><span class="name">${r.name}</span><br><span class="what">${r.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>`);
 }
 function startRun(id) {
   run = id;

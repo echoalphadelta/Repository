@@ -434,9 +434,7 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function showStart() {
   state = 'start';
   overlay(`<h2>SHAPE SNAP</h2>
-    <p>A GRIP SLIDES UP THE NECK FROM THE NUT. ITS CHORD IS SHOWN BELOW.</p>
-    <p>HIT <span class="inv">DROP</span> WHEN IT REACHES THE FRET WHERE THAT SHAPE PLAYS THAT CHORD.</p>
-    <p>SOME GRIPS <span class="inv">SHIFT</span> ON THE WAY. EVERY MISS SLAMS INTO THE BODY AND THICKENS THE WALL.</p>
+    <p>HIT <span class="inv">DROP</span> WHEN THE GRIP REACHES THE FRET WHERE IT PLAYS THE CHORD BELOW.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PUSH START</span>`);
 }
