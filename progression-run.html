@@ -89,7 +89,8 @@ function rootFrets(shape, pc) {
 const PIT_TIME = 3.8;
 const PIT_EVERY = 20, BASE_SPEED = 6.5;                  // a pit stop every 20 correct
 // rides you earn as you go: [correct signs needed, name on the upgrade banner]
-const RIDES = [[0, ''], [10, 'MONSTER TRUCK'], [20, 'SUPERCAR'], [30, 'TANK']];
+const RIDES = [[0, ''], [10, 'MONSTER TRUCK'], [20, 'SUPERCAR'], [30, 'TANK'], [40, 'FIGHTER JET']];
+const JET = 4, FINISH_AT = 50, JET_SPREAD = 1.45;        // in the sky the hoops (and the jet's lanes) sit further apart                            // ten hoops in the jet, then the chequered finish
 const RELOAD = 6;                                         // seconds between tank rounds
 const W = 180, H = 260, HORIZON = 92, Z_NEAR = 1, Z_FAR = 40, GATE_GAP = 13;
 const HS_KEY = 'progressionRunScores', SOUND_KEY = 'arcadeSound';
@@ -97,7 +98,7 @@ const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 
 let state = 'start', score, lives, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
 let pitT = 0, pitFixed = false;
-let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, ride = 0, pendingRide = 0, upgradeT = 0, reload = 0, shells = [], booms = [], muzzle = 0;
+let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, ride = 0, pendingRide = 0, finishing = false, upgradeT = 0, reload = 0, shells = [], booms = [], muzzle = 0;
 let soundOn = true;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -119,6 +120,7 @@ function refill() {
 }
 function nextGate() { if (!queue.length) refill(); return queue.shift(); }
 function label(g) {
+  if (g.finish) return 'FINISH';
   const chord = PC_NAMES[g.root] + (g.minor ? 'm' : '');
   return chord + ' @' + g.fret;
 }
@@ -281,6 +283,7 @@ function drawCar(tod) {
   if (ride === 1) return drawTruck(x, y, px, tod);
   if (ride === 2) return drawSupercar(x, y, px);
   if (ride === 3) return drawTank(x, y, px);
+  if (ride === JET) return drawJet(x, y, px);
   px(-13, 6, 26, 10, '#d2364a');      // body
   px(-9, 1, 18, 6, '#a3243a');        // roof
   px(-7, 2, 14, 4, '#6ac7ff');        // rear window
@@ -346,10 +349,22 @@ function drawTank(x, y, px) {
 }
 function drawShells() {
   shells.forEach(sh => {
+    if (sh.wait > 0) return;
+    if (sh.tracer) { const s = Z_NEAR / sh.z, y = HOOP_Y(sh.z), x = centreAt(sh.z) + (sh.x - W / 2) * s; ctx.fillStyle = '#ffd166'; ctx.fillRect(Math.round(x), Math.round(y), 1, Math.max(2, Math.round(6 * s))); return; }
     const s = Z_NEAR / sh.z, y = rowAt(sh.z), x = centreAt(sh.z) + (sh.x - W / 2) * s, r = Math.max(1, Math.round(3 * s));
     ctx.fillStyle = '#fff3c0'; ctx.fillRect(Math.round(x - r / 2), Math.round(y - 6 * s - r), r, r * 2);
   });
   booms.forEach(b => {
+    if (b.hoops) {
+      // the hoops break apart into coloured pieces
+      const s = Z_NEAR / b.z, y = HOOP_Y(b.z), half = halfAt(b.z), cx = centreAt(b.z);
+      ctx.globalAlpha = 1 - b.t / 0.8;
+      for (let l = 0; l < 3; l++) for (let k = 0; k < 8; k++) {
+        const a = k / 8 * Math.PI * 2 + l, d = (half / 3) * (1.1 + b.t * 2.5);
+        ctx.fillStyle = COLORS[l]; ctx.fillRect(Math.round(cx + (l - 1) * half * 2 / 3 * JET_SPREAD + Math.cos(a) * d), Math.round(y + Math.sin(a) * d + b.t * 30 * s), Math.max(1, Math.round(4 * s)), Math.max(1, Math.round(4 * s)));
+      }
+      ctx.globalAlpha = 1; return;
+    }
     const s = Math.max(0.35, Z_NEAR / b.z), y = rowAt(b.z) - 40 * (Z_NEAR / b.z), x = centreAt(b.z), r = (12 + b.t * 70) * s;
     ctx.globalAlpha = 1 - b.t / 0.8;
     ctx.fillStyle = '#ff6a2a'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
@@ -357,6 +372,72 @@ function drawShells() {
     ctx.fillStyle = '#fff3c0'; ctx.beginPath(); ctx.arc(x, y, r * 0.3, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
   });
+}
+// ---- The sky stage -------------------------------------------------------
+const HOOP_Y = z => rowAt(z) + 8 * (Z_NEAR / z);            // hoops sit at the jet's height, so it flies right through them
+const CLOUDS = Array.from({ length: 9 }, (_, i) => ({ z: 3 + i * 4.2, x: (Math.random() - 0.5) * 3.2, w: 0.6 + Math.random() * 0.6 }));
+function drawAir(tod) {
+  // farmland far below, scrolling in patches, and clouds rushing past at flying height
+  for (let y = HORIZON; y < H; y++) {
+    const z = Z_NEAR * (H - 34 - HORIZON) / Math.max(0.5, y - HORIZON), band = Math.floor((z + travel) / 3) % 3;
+    ctx.fillStyle = band === 1 ? tod.grass[1] : tod.grass[0]; ctx.fillRect(0, y, W, 1);
+    if (band === 2) { ctx.fillStyle = 'rgba(201,168,90,0.22)'; ctx.fillRect(0, y, W, 1); }      // a field of wheat
+    const cx = centreAt(z), river = Math.max(1, Math.round(halfAt(z) * 0.25));
+    ctx.fillStyle = mix('#4a7ab0', '#1a2a44', tod.stars); ctx.fillRect(Math.round(cx - river / 2 + Math.sin(z * 0.3) * halfAt(z)), y, river, 1);
+  }
+  CLOUDS.forEach(c => {
+    let z = ((c.z - travel * 0.9) % 38 + 38) % 38 + 1.2;
+    const s = Z_NEAR / z, y = HOOP_Y(z) + 10 * s, x = centreAt(z) + c.x * 70 * s, r = 26 * c.w * s;
+    if (r < 1) return;
+    ctx.globalAlpha = Math.min(0.85, 0.25 + s * 0.8);
+    ctx.fillStyle = tod.stars > 0.5 ? '#6a6f8a' : '#f4f1ea';
+    [[0, 0, 1], [-0.8, 0.25, 0.7], [0.8, 0.25, 0.75], [0, 0.35, 0.8]].forEach(([dx, dy, k]) => { ctx.beginPath(); ctx.arc(x + dx * r, y + dy * r, r * k, 0, Math.PI * 2); ctx.fill(); });
+    ctx.globalAlpha = 1;
+  });
+}
+function ring(x, y, r, th, colour, checks) {
+  // a hoop: one solid colour, or black and white checks like a chequered flag
+  ctx.lineWidth = th;
+  if (!checks) { ctx.strokeStyle = colour; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); return; }
+  const n = 24;
+  for (let k = 0; k < n; k++) {
+    // two rows of squares around the ring, offset like a flag
+    [[r - th / 4, k % 2], [r + th / 4, (k + 1) % 2]].forEach(([rr, w]) => {
+      ctx.lineWidth = th / 2; ctx.strokeStyle = w ? '#f4f1ea' : '#111';
+      ctx.beginPath(); ctx.arc(x, y, rr, k / n * Math.PI * 2, (k + 1) / n * Math.PI * 2); ctx.stroke();
+    });
+  }
+}
+function drawHoops(g) {
+  if (g.z > Z_FAR || g.z < Z_NEAR * 0.6) return;
+  const s = Z_NEAR / g.z, half = halfAt(g.z), cx = centreAt(g.z), y = HOOP_Y(g.z);
+  if (g.finish) {
+    const r = half * 1.15, th = Math.max(3, r * 0.26);
+    ring(cx, y, r, th, null, true);
+    if (s > 0.25) txt('FINISH', cx, y - r - th - Math.max(8, 10 * s) - 2, Math.max(8, Math.round(10 * s)), '#f4f1ea', 'center');
+    return;
+  }
+  const r = half / 3 * 1.1, th = Math.max(2, r * 0.3);
+  for (let l = 0; l < 3; l++) ring(cx + (l - 1) * half * 2 / 3 * JET_SPREAD, y, r, th, COLORS[l], false);
+  // the chord and fret ride on a little banner above the hoops
+  if (s > 0.3) {
+    const fs = Math.max(8, Math.round(12 * s)), bw = half * 1.6, by = y - r - th - fs - 8 * s;
+    ctx.fillStyle = '#ffd166'; ctx.fillRect(Math.round(cx - bw / 2), Math.round(by), Math.round(bw), Math.round(fs + 6 * s));
+    txt(label(g), cx, by + 3 * s, fs, '#1b1040', 'center');
+  }
+}
+function drawJet(x, y, px) {
+  // a fighter from behind: swept wings, twin tails, canopy, and two afterburners glowing
+  const yy = y - 8, P = (dx, dy, w, h, c) => px(dx, dy - 8, w, h, c);
+  P(-24, 10, 48, 2, '#6d7788'); P(-18, 8, 36, 2, '#6d7788'); P(-12, 6, 24, 2, '#7a8496');      // wings
+  P(-24, 10, 3, 2, '#d2364a'); P(21, 10, 3, 2, '#4aff7a');                                     // wingtip lights
+  P(-4, -2, 8, 20, '#8a94a6'); P(-4, -2, 2, 20, '#a0aabb');                                    // fuselage
+  P(-2, 0, 4, 5, '#3ef0ff');                                                                   // canopy
+  P(-9, -4, 2, 11, '#5a6474'); P(7, -4, 2, 11, '#5a6474');                                     // twin tails
+  P(-12, 13, 24, 2, '#5a6474');                                                                // tailplanes
+  P(-4, 17, 3, 3, '#2a2e38'); P(1, 17, 3, 3, '#2a2e38');                                       // nozzles
+  [-4, 1].forEach(dx => { const len = 3 + Math.floor(Math.random() * 5); P(dx, 20, 3, 1, '#ffffff'); for (let k = 1; k < len; k++) P(dx, 20 + k, 3, 1, k < 2 ? '#6ac7ff' : k < len - 1 ? '#ffd166' : '#ff6a2a'); });
+  if (muzzle > 0) { P(-7, -4, 2, 3, '#ffd166'); P(5, -4, 2, 3, '#ffd166'); }
 }
 function drawPit() {
   // a chequered pit board, two crew in overalls, a fuel hose and sparks from the wrench
@@ -395,14 +476,14 @@ function drawHud() {
 
 function draw() {
   const tod = timeOfDay();
-  drawSky(tod); drawRoad(tod);
-  gates.slice().sort((a, b) => b.z - a.z).forEach(drawGate);
+  drawSky(tod); if (ride === JET) drawAir(tod); else drawRoad(tod);
+  gates.slice().sort((a, b) => b.z - a.z).forEach(ride === JET ? drawHoops : drawGate);
   drawShells(); drawCar(tod); drawHud();
   if (pitT > 0) drawPit();
   if (upgradeT > 0 && Math.floor(upgradeT * 4) % 2 === 0) {
     ctx.fillStyle = 'rgba(20,10,38,0.85)'; ctx.fillRect(W / 2 - 74, 100, 148, 34);
     txt('UPGRADE!', W / 2, 105, 8, '#3ef0ff', 'center');
-    txt(RIDES[ride][1], W / 2, 119, 10, ride === 3 ? '#b8c46a' : ride === 2 ? '#ffb000' : '#ff3df2', 'center');
+    txt(RIDES[ride][1], W / 2, 119, 10, ride === JET ? '#9ec8f2' : ride === 3 ? '#b8c46a' : ride === 2 ? '#ffb000' : '#ff3df2', 'center');
   }
   if (flash > 0) { ctx.fillStyle = `rgba(255,${flash > 0.5 ? 255 : 74},74,${Math.min(0.6, flash)})`; ctx.fillRect(0, 0, W, H); }
 }
@@ -416,8 +497,14 @@ function setLane(l) {
 }
 
 function milestone() {
+  if (ride === JET && passed >= FINISH_AT && !finishing) {
+    finishing = true;
+    const z = gates.length ? Math.max(gates[0].z, Z_FAR * 0.5) : Z_FAR * 0.5;
+    gates = [{ finish: true, z }];
+    return;
+  }
   const next = RIDES.findIndex(r => r[0] === passed);
-  if (passed % PIT_EVERY === 0) { pitT = PIT_TIME; pitFixed = false; [659, 523].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 140)); }
+  if (passed % PIT_EVERY === 0 && passed < 40) { pitT = PIT_TIME; pitFixed = false; [659, 523].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 140)); }
   if (next > ride) { if (pitT > 0) pendingRide = next; else upgrade(next); }     // during a pit stop, the new ride waits until you pull away
 }
 function upgrade(r) {
@@ -425,6 +512,7 @@ function upgrade(r) {
   [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70));
 }
 function pass(g) {
+  if (g.finish) return win();
   if (SHAPES[lane] === g.shape) {
     passed++; streak++;
     score += 100 + 20 * Math.min(streak, 10);
@@ -456,8 +544,8 @@ function frame(t) {
   gates.forEach(g => g.z -= v * dt);
   // tank rounds fly up the road; the sign they hit is blown away and counts as cleared
   reload = Math.max(0, reload - dt); muzzle = Math.max(0, muzzle - dt);
-  shells.forEach(sh => { sh.z += 55 * dt; if (!sh.done && sh.target && sh.z >= sh.target.z) { sh.done = true; blast(sh.target); } });
-  shells = shells.filter(sh => !sh.done && sh.z < Z_FAR);
+  shells.forEach(sh => { if (sh.wait > 0) { sh.wait -= dt; return; } sh.z += 55 * dt; if (!sh.done && sh.target && sh.z >= sh.target.z) { sh.done = true; blast(sh.target); } });
+  shells = shells.filter(sh => !sh.done && sh.z < Z_FAR && gates.includes(sh.target));
   booms.forEach(b => { b.z -= v * dt; b.t += dt; }); booms = booms.filter(b => b.t < 0.8 && b.z > Z_NEAR * 0.6);
   updateFire();
   // pick a new bend now and then: about half the time the road runs straight
@@ -470,8 +558,8 @@ function frame(t) {
   upgradeT = Math.max(0, upgradeT - dt);
   while (gates.length && gates[0].z <= Z_NEAR) { const g = gates.shift(); pass(g); if (state !== 'playing') { draw(); return; } }
   const last = gates[gates.length - 1];
-  if (!last || last.z < Z_FAR - GATE_GAP) gates.push(Object.assign(nextGate(), { z: (last ? last.z : Z_FAR - GATE_GAP) + GATE_GAP }));
-  const targetX = laneX(lane, halfAt(Z_NEAR * 1.08));
+  if (!finishing && (!last || last.z < Z_FAR - GATE_GAP)) gates.push(Object.assign(nextGate(), { z: (last ? last.z : Z_FAR - GATE_GAP) + GATE_GAP }));
+  const targetX = W / 2 + (laneX(lane, halfAt(Z_NEAR * 1.08)) - W / 2) * (ride === JET ? JET_SPREAD : 1);
   carX += (targetX - carX) * Math.min(1, dt * 14);
   shake = Math.max(0, shake - dt); flash = Math.max(0, flash - dt * 2.5);
   draw();
@@ -481,25 +569,32 @@ function frame(t) {
 // ---- The tank's gun ------------------------------------------------------
 function updateFire() {
   const b = document.getElementById('fire');
-  b.classList.toggle('hidden', ride !== 3 || state !== 'playing');
+  b.classList.toggle('hidden', ride < 3 || state !== 'playing' || finishing);
   b.classList.toggle('wait', reload > 0);
   const label = reload > 0 ? String(Math.ceil(reload)) : 'FIRE';                // while reloading, a countdown
   if (b.textContent !== label) b.textContent = label;
 }
 function fire() {
-  if (state !== 'playing' || ride !== 3 || reload > 0 || pitT > 0) return;
-  const target = gates.find(g => !g.marked && g.z > Z_NEAR);
+  if (state !== 'playing' || ride < 3 || reload > 0 || pitT > 0 || finishing) return;
+  const target = gates.find(g => !g.marked && !g.finish && g.z > Z_NEAR);
   if (!target) return;
   target.marked = true; reload = RELOAD; muzzle = 0.15;
-  shells.push({ z: Z_NEAR * 1.1, x: carX, target });
-  beep(90, 0.12, 'square'); setTimeout(() => beep(60, 0.2, 'sawtooth'), 40);
+  if (ride === JET) {
+    muzzle = 0.45;
+    // a machine gun burst: a stream of tracers, the first one to arrive shreds the hoops
+    for (let i = 0; i < 10; i++) shells.push({ z: Z_NEAR * 1.1, x: carX + (i % 2 ? 5 : -5), target, wait: i * 0.04, tracer: true });
+    for (let i = 0; i < 8; i++) setTimeout(() => beep(160 + (i % 2) * 40, 0.03, 'square'), i * 45);
+  } else {
+    shells.push({ z: Z_NEAR * 1.1, x: carX, target });
+    beep(90, 0.12, 'square'); setTimeout(() => beep(60, 0.2, 'sawtooth'), 40);
+  }
   updateFire();
 }
 function blast(g) {
   // the sign is gone: no lane to pick, and it counts as a cleared sign
   const i = gates.indexOf(g); if (i < 0) return;
   gates.splice(i, 1);
-  booms.push({ z: g.z, t: 0 });
+  booms.push({ z: g.z, t: 0, hoops: ride === JET });
   passed++; streak++; score += 50;
   beep(70, 0.3, 'sawtooth'); setTimeout(() => beep(45, 0.35, 'square'), 60);
   shake = 0.25;
@@ -528,7 +623,7 @@ function showStart() {
 function startGame() {
   score = 0; lives = 3; passed = 0; streak = 0; speed = BASE_SPEED; travel = 0; pitT = 0; pitFixed = false;
   gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
-  curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; ride = 0; pendingRide = 0; upgradeT = 0; reload = 0; shells = []; booms = []; muzzle = 0;
+  curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; ride = 0; pendingRide = 0; finishing = false; upgradeT = 0; reload = 0; shells = []; booms = []; muzzle = 0;
   updateFire();
   setLane(1); carX = W / 2;
   let z = 18;
@@ -539,6 +634,19 @@ function startGame() {
   requestAnimationFrame(frame);
 }
 
+function win() {
+  state = 'over'; updateFire();
+  score += 1000 + lives * 500;
+  [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 120));
+  const list = highScores();
+  const qualifies = list.length < 10 || score > list[list.length - 1].s;
+  setTimeout(() => overlay(`<h2>YOU<br>MADE IT!</h2>
+    <p>THROUGH THE FINISH WITH ${lives} ${lives === 1 ? 'LIFE' : 'LIVES'} LEFT. BONUS ${pad(1000 + lives * 500, 4)}</p>
+    <p>SCORE ${pad(score, 6)}</p>
+    ${qualifies
+      ? `<p>NEW HIGH SCORE! ENTER INITIALS</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveScore()">OK</button></div>`
+      : scoreTable(-1) + '<span class="go" onclick="startGame()">PRESS START</span>'}`), 600);
+}
 function gameOver() {
   state = 'over'; updateFire();
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
