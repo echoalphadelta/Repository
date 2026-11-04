@@ -137,6 +137,7 @@ function toggleSound() {
 }
 
 // ---- The course: rows of three gates, one of them the number asked for ----
+const FALLOFF = 0.15;                                          // gentle perspective, so the next gates are readable early
 const ROW_GAP = 12, Z_NEAR = 1, Z_FAR = 46, LANES = [-1, 0, 1], GATE_HALF = 0.3;
 function makeRow(i) {
   const degs = RUNS[run].degs, deg = degs[Math.floor(Math.random() * degs.length)];
@@ -158,9 +159,10 @@ function plantTrees() { trees = Array.from({ length: 26 }, (_, i) => ({ z: 2 + i
 const LW = 192, low = document.createElement('canvas'), lc = low.getContext('2d');
 let LH = 256, LHZ = 76, LNEAR = 220, PXS = 2;
 let HZ = 0, NEAR_Y = 0;                                         // the same lines in page pixels
-const sc = z => (W * 0.3) * (Z_NEAR / z);                       // page pixels per lane, used for steering
-const lrow = z => Math.round(LHZ + (LNEAR - LHZ) * (Z_NEAR / z));
-const lsc = z => (LW * 0.3) * (Z_NEAR / z);
+const depth = z => 1 / (1 + (z - Z_NEAR) * FALLOFF);                // how big things look at distance z (1 right in front of you)
+const sc = z => (W * 0.3) * depth(z);                            // page pixels per lane, used for steering
+const lrow = z => Math.round(LHZ + (LNEAR - LHZ) * depth(z));
+const lsc = z => (LW * 0.3) * depth(z);
 const lsx = (uu, z) => LW / 2 + (uu - u * 0.55) * lsc(z);
 const riderX = () => Math.round(LW / 2 + u * 0.45 * lsc(Z_NEAR));
 
@@ -214,7 +216,7 @@ function scenery() {
 function slope() {
   // snow in rows toward the camera: soft stripes, mogul shadows, sparkles, and the fenced edges of the run
   for (let y = LHZ; y < LH; y++) {
-    const z = Z_NEAR * (LNEAR - LHZ) / Math.max(0.5, y - LHZ), s = lsc(z), wz = z + travel;
+    const f = Math.max(0.02, (y - LHZ) / (LNEAR - LHZ)), z = Z_NEAR + (1 / f - 1) / FALLOFF, s = lsc(z), wz = z + travel;
     px(0, y, LW, 1, Math.floor(wz / 2.6) % 2 ? '#eef5fd' : '#f8fbff');
     const step = Math.max(1, Math.round(4 / Math.max(0.5, s / 20)));
     for (let x = 0; x < LW; x += step) {
@@ -252,8 +254,8 @@ function tree(t) {
   pine(Math.round(lsx(t.u, t.z)), lrow(t.z), lsc(t.z) * 0.9 * t.s);
 }
 function gateRow(r) {
-  if (r.z > Z_FAR || r.z < 0.6) return;
-  const y = lrow(r.z), s = lsc(r.z), k = Z_NEAR / r.z;
+  if (r.z > 34 || r.z < 0.6) return;                              // only the next few rows are on the slope
+  const y = lrow(r.z), s = lsc(r.z), k = depth(r.z);
   r.gates.forEach((name, i) => {
     const cx = lsx(LANES[i], r.z), pl = Math.round(cx - GATE_HALF * s), pr = Math.round(cx + GATE_HALF * s), ph = Math.round(s * 0.62);
     const hit = r.done && r.taken === i, dim = r.done && !hit;
@@ -268,7 +270,7 @@ function gateRow(r) {
       px(bx, by, bw, bh, OUT);
       px(bx + 1, by + 1, bw - 2, bh - 2, hit ? (r.good ? '#22b05a' : '#e0322b') : dim ? '#dfe5f2' : '#ffffff');
       if (bh > 5) px(bx + 1, by + bh - 2, bw - 2, 1, hit ? 'rgba(0,0,0,0.25)' : '#c8d4ec');
-      if (k > 0.2) labels.push({ x: cx, y: by + bh / 2, size: bh * 0.62, text: name, color: hit ? '#ffffff' : dim ? '#8a90b0' : '#1c2a5a' });
+      if (k > 0.24) labels.push({ x: cx, y: by + bh / 2, size: bh * 0.62, w: bw, text: name, color: hit ? '#ffffff' : dim ? '#8a90b0' : '#1c2a5a' });
     }
     px(pl - 2, y, pr - pl + 4, 1, '#b8cce8');
   });
@@ -301,13 +303,16 @@ const PAL = { k: OUT, y: '#ffd23a', Y: '#d99a1a', w: '#ffffff', t: '#18b5a6', T:
 function rider() {
   const x0 = riderX(), yb = LNEAR + 10 + Math.round(wobble * Math.sin(performance.now() / 40) * 2);
   const lean = Math.max(-1, Math.min(1, vu / 3.4)), Z = 2;     // each sprite pixel is two screen pixels
-  // shadow
-  px(x0 - 20, yb + 3, 40, 3, '#b8cce8');
-  // the board: tilted on its edge as you carve
-  const bl = 22;
-  for (let i = -bl; i <= bl; i++) {
-    const yy = yb + Math.round(i * lean * 0.16);
-    px(x0 + i, yy - 2, 1, 1, OUT); px(x0 + i, yy - 1, 1, 2, Math.abs(i) > bl - 3 ? '#c4501a' : (Math.abs(i) < 4 ? '#ffd23a' : '#ff7b24')); px(x0 + i, yy + 1, 1, 1, OUT);
+  // the board lies flat on the snow at a diagonal, like a real stance;
+  // seen from behind and above it is squashed short, and it swings a little as you carve
+  const ang = -0.42 + lean * 0.3, ca = Math.cos(ang), sa = Math.sin(ang), L = 24, FLAT = 0.35;
+  const at = t => [x0 + t * ca, yb + 2 + t * sa * FLAT];
+  for (let t = -L; t <= L; t += 0.5) { const [x, y] = at(t); px(x - 4, y + 2, 9, 2, '#b8cce8'); }          // shadow on the snow
+  for (let t = -L; t <= L; t += 0.5) { const [x, y] = at(t), w = Math.abs(t) > L - 2 ? 3 : 4; px(x - w - 1, y - 3, w * 2 + 3, 7, OUT); }
+  for (let t = -L + 1; t <= L - 1; t += 0.5) {
+    const [x, y] = at(t), w = Math.abs(t) > L - 3 ? 2 : 3;
+    px(x - w, y - 2, w * 2 + 1, 5, Math.abs(t) > L - 4 ? '#c4501a' : '#ff7b24');
+    if (Math.abs(t) < L - 5 && Math.abs(t % 6) < 1) px(x - 1, y - 2, 3, 5, '#ffd23a');                  // stripes on the top sheet
   }
   // body, rows shifted for a lean into the turn
   const h = SPRITE.length;
@@ -331,7 +336,7 @@ function draw() {
   ctx.drawImage(low, 0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   labels.forEach(l => {
-    const size = Math.max(6, Math.round(l.size * PXS * 0.7));
+    const size = Math.max(7, Math.round(Math.min(l.size * PXS * 0.7, (l.w - 2) * PXS * 0.9 / l.text.length)));   // fit inside the banner
     ctx.font = `${size}px 'Press Start 2P', monospace`; ctx.fillStyle = l.color;
     ctx.fillText(l.text, l.x * PXS, l.y * PXS + size * 0.08);
   });
@@ -369,22 +374,22 @@ function passRow(r) {
   const i = LANES.findIndex(l => Math.abs(u - l) <= GATE_HALF + 0.08);
   r.taken = i;
   if (i >= 0 && r.gates[i] === r.answer) {
-    r.good = true; hits++; speed = Math.min(speed + 0.6, maxSpeed());
+    r.good = true; hits++; speed = Math.min(speed + 0.3, maxSpeed());
     tone(880, 0.06, 'triangle'); setTimeout(() => tone(1320, 0.08, 'triangle'), 50);
   } else {
-    r.good = false; penalties += PENALTY; flash = 1; wobble = 0.6; speed = Math.max(7, speed * 0.75);
+    r.good = false; penalties += PENALTY; flash = 1; wobble = 0.6; speed = Math.max(5, speed * 0.75);
     tone(200, 0.25, 'sawtooth', 90, 0.05);
   }
   passedRows++;
   if (passedRows === GATES) setTimeout(finish, 450);
 }
-const maxSpeed = () => 13 + passedRows * 0.25;
+const maxSpeed = () => 8.5 + passedRows * 0.12;
 function frame(t) {
   if (state !== 'playing') return;
   const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0; lastT = t;
   time += dt;
   // the slope gets steeper the further down you go
-  speed = Math.min(maxSpeed(), speed + dt * 0.8);
+  speed = Math.min(maxSpeed(), speed + dt * 0.4);
   travel += speed * dt;
   rows.forEach(r => r.z -= speed * dt);
   trees.forEach(tr => { tr.z -= speed * dt; if (tr.z < 0.5) { tr.z += 26 * 1.8; tr.u = (Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 1.6); } });
@@ -427,7 +432,7 @@ function startRun(id) {
   key = ok[Math.floor(Math.random() * ok.length)];
   rows = Array.from({ length: GATES }, (_, i) => makeRow(i));
   plantTrees();
-  passedRows = 0; time = 0; penalties = 0; hits = 0; travel = 0; speed = 9; u = 0; vu = 0; steer = 0; spray = []; flash = 0; wobble = 0; lastT = 0; dragTarget = null;
+  passedRows = 0; time = 0; penalties = 0; hits = 0; travel = 0; speed = 6; u = 0; vu = 0; steer = 0; spray = []; flash = 0; wobble = 0; lastT = 0; dragTarget = null;
   hideOverlay(); state = 'playing';
   [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 180));
   requestAnimationFrame(frame);
@@ -464,8 +469,8 @@ function saveTime() {
 function fit() {
   W = Math.min(document.querySelector('.screen').clientWidth - 24, 436);
   H = Math.round(Math.min(W * 1.35, Math.max(300, window.innerHeight - 230)));
-  HZ = Math.round(H * 0.3); NEAR_Y = Math.round(H * 0.86);
-  PXS = W / LW; LH = Math.round(H / PXS); LHZ = Math.round(LH * 0.3); LNEAR = Math.round(LH * 0.86);
+  HZ = Math.round(H * 0.24); NEAR_Y = Math.round(H * 0.86);
+  PXS = W / LW; LH = Math.round(H / PXS); LHZ = Math.round(LH * 0.24); LNEAR = Math.round(LH * 0.86);
   low.width = LW; low.height = LH;
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
