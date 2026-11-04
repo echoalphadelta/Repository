@@ -23,12 +23,15 @@ a, button { font: inherit; color: inherit; }
 .top { display: flex; justify-content: space-between; align-items: center; height: 26px; }
 .top a { text-decoration: none; }
 .top button { background: none; border: none; padding: 0; cursor: pointer; }
-.info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+.info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
 .info div { background: var(--marble); color: var(--ink); padding: 4px 6px 4px; border-bottom: 3px solid var(--terra); font-family: 'Cinzel', serif; font-weight: 700; font-size: 10px; letter-spacing: 1px; line-height: 1.3; }
 .info b { display: block; font-family: 'Press Start 2P', monospace; font-size: 11px; font-weight: 400; letter-spacing: 0; margin-top: 3px; }
 .stage { position: relative; margin-top: 8px; border: 4px solid var(--gold); outline: 2px solid var(--purple); }
 canvas { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 .ask { margin-top: 10px; text-align: center; font-size: 9px; color: #e6d6ec; min-height: 16px; }
+.keybox { margin-top: 14px; text-align: center; color: var(--marble); }
+.keybox span { display: block; font-family: 'Cinzel', serif; font-weight: 700; font-size: 14px; letter-spacing: 4px; color: var(--gold); }
+.keybox b { display: block; font-family: 'Press Start 2P', monospace; font-weight: 400; font-size: 52px; line-height: 1.2; margin-top: 6px; }
 .clubs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px; }
 .clubs button { height: 46px; background: var(--marble); color: var(--ink); border: none; border-bottom: 4px solid var(--terra); cursor: pointer; font-size: 11px; touch-action: manipulation; padding: 0; }
 .clubs button:active { transform: translateY(2px); border-bottom-width: 2px; }
@@ -61,7 +64,6 @@ canvas { display: block; width: 100%; image-rendering: pixelated; image-renderin
   <div class="info">
     <div>HOLE<b id="hole">1/9</b></div>
     <div>PAR<b id="par">3</b></div>
-    <div>KEY<b id="key">C</b></div>
     <div>SCORE<b id="tot">E</b></div>
   </div>
   <div class="stage">
@@ -70,6 +72,7 @@ canvas { display: block; width: 100%; image-rendering: pixelated; image-renderin
   </div>
   <div class="ask" id="ask"></div>
   <div class="clubs" id="clubs"></div>
+  <div class="keybox"><span>KEY</span><b id="key">C</b></div>
 </div>
 
 <script>

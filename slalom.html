@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Slalom | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Press+Start+2P&family=Racing+Sans+One&display=swap" rel="stylesheet">
+<style>
+/* An 80s ski poster: ice blue sky, white snow, red and navy, slanted sports lettering */
+:root { --navy: #1c2a5a; --red: #e0322b; --yellow: #ffc61a; --ice: #cfe8f5; --snow: #f7fbff; --green: #1f9d55; --blue: #2363c9; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--navy); }
+body { color: var(--snow); font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 600; font-size: 17px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 460px; margin: 0 auto; padding: 8px 12px 14px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 16px; letter-spacing: 1px; }
+.top a { text-decoration: none; color: var(--yellow); }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: #9fb3d6; }
+/* the race strip: key, the number to find, time and gates */
+.strip { display: grid; grid-template-columns: 1fr 1.3fr 1fr; margin-top: 6px; background: var(--snow); color: var(--navy); border-top: 5px solid var(--red); border-bottom: 5px solid var(--yellow); }
+.strip div { padding: 4px 8px 3px; line-height: 1.05; font-size: 13px; letter-spacing: 1px; }
+.strip b { display: block; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 24px; letter-spacing: 0; }
+.strip .find { background: var(--navy); color: var(--snow); text-align: center; }
+.strip .find b { color: var(--yellow); font-size: 30px; }
+.strip .r { text-align: right; }
+.stage { position: relative; margin-top: 8px; }
+.stage:has(.over:not(.hidden)) { min-height: 470px; }
+canvas { display: block; margin: 0 auto; touch-action: none; image-rendering: pixelated; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.controls button { height: 56px; border: none; background: var(--red); color: var(--snow); font-family: 'Racing Sans One', sans-serif; font-size: 26px; cursor: pointer; touch-action: none; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.22); }
+.controls button.on { background: #b0221c; box-shadow: inset 0 3px 0 rgba(0,0,0,0.25); }
+.over { position: absolute; inset: 0; background: var(--ice); color: var(--navy); padding: 16px 16px; overflow: auto; }
+.over.hidden { display: none; }
+.over h2 { margin: 0; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 50px; line-height: 1; color: var(--red); }
+.bands { height: 12px; margin: 6px 0 14px; background: linear-gradient(var(--red) 0 33%, var(--snow) 33% 66%, var(--yellow) 66%); }
+.over p { margin: 0 0 8px; line-height: 1.3; font-size: 17px; }
+.over p b { color: var(--red); font-weight: 700; }
+.runs { display: grid; gap: 8px; margin: 4px 0 14px; }
+.run { display: flex; align-items: center; gap: 12px; padding: 9px 12px 8px; background: var(--snow); border: none; border-left: 6px solid var(--navy); text-align: left; cursor: pointer; color: var(--navy); }
+.run:active { transform: translateX(2px); }
+.run .icon { width: 26px; height: 26px; flex-shrink: 0; }
+.run .name { font-family: 'Racing Sans One', sans-serif; font-size: 22px; line-height: 1; }
+.run .what { font-size: 14px; color: #4a5a86; }
+.run .best { margin-left: auto; font-family: 'Racing Sans One', sans-serif; font-size: 18px; color: var(--red); }
+.big { font-family: 'Racing Sans One', sans-serif; font-size: 52px; line-height: 1; color: var(--navy); }
+.lbl { font-size: 16px; color: #4a5a86; margin: 4px 0 12px; }
+.go { display: inline-block; margin: 2px 8px 14px 0; padding: 8px 16px 7px; background: var(--red); color: var(--snow); font-family: 'Racing Sans One', sans-serif; font-size: 20px; cursor: pointer; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.22); }
+.go.alt { background: var(--navy); }
+.hs-h { font-size: 15px; letter-spacing: 1px; color: var(--red); margin: 6px 0 4px; }
+.hs { display: grid; grid-template-columns: 1.6em 3.2em auto; row-gap: 2px; font-size: 18px; }
+.hs span:nth-child(3n) { font-family: 'Racing Sans One', sans-serif; }
+.hs .me { background: var(--yellow); }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
+.ini input { width: 92px; font: inherit; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; background: none; color: var(--navy); border: none; border-bottom: 3px solid var(--red); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--red); color: var(--snow); border: none; padding: 7px 14px 6px; cursor: pointer; border-radius: 0; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="strip">
+    <div>KEY<b id="key">C</b></div>
+    <div class="find">FIND THE<b id="find">5</b></div>
+    <div class="r">TIME<b id="time">0:00.0</b></div>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="controls">
+    <button id="left" aria-label="Steer left">&lt;</button>
+    <button id="right" aria-label="Steer right">&gt;</button>
+  </div>
+</div>
+
+<script>
+// ---- Music ---------------------------------------------------------------
+// conventional spelling: each note takes the letter of its scale degree, then a sharp or flat
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
+const NUM = ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', 'Maj7'];
+const STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];
+// the three runs, marked like real ski trails
+const RUNS = {
+  green: { name: 'GREEN CIRCLE', what: '1, 4 and 5', degs: [0, 5, 7] },
+  blue:  { name: 'BLUE SQUARE', what: 'All seven numbers', degs: [0, 2, 4, 5, 7, 9, 11] },
+  black: { name: 'BLACK DIAMOND', what: 'All twelve', degs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+};
+const GATES = 20, PENALTY = 2;
+
+// ---- State ---------------------------------------------------------------
+const HS_KEY = 'slalomTimes', SOUND_KEY = 'arcadeSound';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W = 360, H = 480;
+let state = 'start', run, key, rows, passedRows, time, penalties, hits, travel, speed, u, vu, steer, spray, lastT, flash, wobble, soundOn = true;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function times()     { try { return JSON.parse(load(HS_KEY)) || {}; } catch (e) { return {}; } }
+const fmt = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function tone(freq, dur, type, slide, vol) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+}
+
+// ---- The course: rows of three gates, one of them the number asked for ----
+const ROW_GAP = 12, Z_NEAR = 1, Z_FAR = 46, LANES = [-1, 0, 1], GATE_HALF = 0.3;
+function makeRow(i) {
+  const degs = RUNS[run].degs, deg = degs[Math.floor(Math.random() * degs.length)];
+  const answer = spell(key, STEPS[deg], deg);
+  const notes = new Set([answer]);
+  const others = degs.filter(d => d !== deg).sort(() => Math.random() - 0.5);
+  for (const d of others) { if (notes.size >= 3) break; notes.add(spell(key, STEPS[d], d)); }
+  // if the run has only three numbers, borrow a neighbouring note so there are always three gates
+  for (let d = 0; notes.size < 3 && d < 12; d++) notes.add(spell(key, STEPS[d], d));
+  const list = [...notes].sort(() => Math.random() - 0.5);
+  return { z: Z_FAR * 0.55 + i * ROW_GAP, deg, answer, gates: list, col: i % 2 ? '#2363c9' : '#e0322b', n: i + 1, done: false };
+}
+// trees line the run on both sides
+let trees = [];
+function plantTrees() { trees = Array.from({ length: 26 }, (_, i) => ({ z: 2 + i * 1.8, u: (i % 2 ? 1 : -1) * (2.2 + Math.random() * 1.6), s: 0.8 + Math.random() * 0.5 })); }
+
+// ---- Projection ----------------------------------------------------------
+// the world is painted at console resolution into a small canvas, then scaled up with crisp pixels
+const LW = 192, low = document.createElement('canvas'), lc = low.getContext('2d');
+let LH = 256, LHZ = 76, LNEAR = 220, PXS = 2;
+let HZ = 0, NEAR_Y = 0;                                         // the same lines in page pixels
+const sc = z => (W * 0.3) * (Z_NEAR / z);                       // page pixels per lane, used for steering
+const lrow = z => Math.round(LHZ + (LNEAR - LHZ) * (Z_NEAR / z));
+const lsc = z => (LW * 0.3) * (Z_NEAR / z);
+const lsx = (uu, z) => LW / 2 + (uu - u * 0.55) * lsc(z);
+const riderX = () => Math.round(LW / 2 + u * 0.45 * lsc(Z_NEAR));
+
+// ---- Pixel helpers -------------------------------------------------------
+const OUT = '#1a1030';
+function px(x, y, w, h, c) { lc.fillStyle = c; lc.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
+let labels = [];                                                // note names, drawn sharp on top afterwards
+
+// ---- Scenery -------------------------------------------------------------
+const SKY = ['#2d4fb8', '#3a66d0', '#5288e2', '#74a8ee', '#9ac6f4', '#c4e2f9', '#e6f4fd'];
+function sky() {
+  const bh = LHZ / SKY.length;
+  for (let i = 0; i < SKY.length; i++) {
+    const y0 = Math.floor(i * bh), y1 = Math.floor((i + 1) * bh);
+    px(0, y0, LW, y1 - y0, SKY[i]);
+    // dither the seam between bands, like a 16-bit sky
+    if (i < SKY.length - 1) for (let x = 0; x < LW; x += 2) { px(x + (y1 % 2), y1 - 1, 1, 1, SKY[i + 1]); px(x + ((y1 + 1) % 2), y1, 1, 1, SKY[i]); }
+  }
+  // sun with a soft ring
+  const sx0 = 150, sy0 = 22;
+  for (let y = -9; y <= 9; y++) { const w = Math.round(Math.sqrt(81 - y * y)); px(sx0 - w, sy0 + y, w * 2, 1, y > 3 && y % 2 ? '#ffe680' : '#fff4b0'); }
+  // drifting clouds
+  const t = performance.now() / 1000;
+  [[20, 14, 1], [96, 26, 0.7], [170, 40, 0.9]].forEach(([cx, cy, k], i) => {
+    const x = ((cx + t * (3 + i) - u * 4) % (LW + 60)) - 30;
+    [[0, 0, 14, 5], [-8, 3, 12, 4], [8, 2, 12, 5], [-2, -3, 10, 4]].forEach(([dx, dy, w, h]) => px(x + dx * k, cy + dy, w * k, h, '#ffffff'));
+    px(x - 12 * k, cy + 6, 30 * k, 1, '#c4e2f9');
+  });
+}
+function ridge(base, peaks, lit, shade, snowLine, shift) {
+  // a mountain range drawn column by column: a lit face and a shaded face, snow caps, a dark outline on top
+  for (let x = 0; x < LW; x++) {
+    const wx = x + shift;
+    let h = 0, side = 1;
+    for (const [px0, ph, pw] of peaks) { const d = ((wx - px0) % 400 + 600) % 400 - 200, hh = ph - Math.abs(d) * ph / pw; if (hh > h) { h = hh; side = d; } }   // peaks repeat every 400 pixels
+    h = Math.max(0, Math.round(h));
+    if (!h) continue;
+    const top = base - h, litSide = side < 0;
+    px(x, top, 1, h, litSide ? lit : shade);
+    if (h > snowLine) px(x, top, 1, Math.round((h - snowLine) * 0.85) + 1, litSide ? '#ffffff' : '#c9d6f0');
+    px(x, top, 1, 1, OUT);
+  }
+}
+function scenery() {
+  sky();
+  ridge(LHZ, [[30, 40, 46], [120, 52, 60], [210, 36, 40], [300, 46, 52]], '#7a8ed6', '#4f5fa8', 26, -u * 3);
+  ridge(LHZ, [[70, 28, 40], [170, 34, 44], [260, 26, 36], [350, 30, 40]], '#5868b4', '#3a4688', 18, -u * 6);
+  // a band of dark forest along the horizon
+  for (let x = 0; x < LW; x++) { const h = 3 + ((x * 7 + Math.floor(-u * 9)) % 5 === 0 ? 3 : (x % 3 === 0 ? 2 : 1)); px(x, LHZ - h, 1, h, '#1d4a3a'); }
+}
+function slope() {
+  // snow in rows toward the camera: soft stripes, mogul shadows, sparkles, and the fenced edges of the run
+  for (let y = LHZ; y < LH; y++) {
+    const z = Z_NEAR * (LNEAR - LHZ) / Math.max(0.5, y - LHZ), s = lsc(z), wz = z + travel;
+    px(0, y, LW, 1, Math.floor(wz / 2.6) % 2 ? '#eef5fd' : '#f8fbff');
+    const step = Math.max(1, Math.round(4 / Math.max(0.5, s / 20)));
+    for (let x = 0; x < LW; x += step) {
+      const wx = (x - LW / 2) / s + u * 0.55;
+      const m = Math.sin(wx * 7.3 + wz * 0.4) * Math.sin(wz * 2.1 - wx * 1.7);
+      if (m > 0.86) px(x, y, step, 1, '#d6e6f6');
+      else if (m > 0.8) px(x, y, step, 1, '#e4eefa');
+    }
+    // orange fencing either side
+    if (Math.floor(wz / 0.9) % 2 === 0) [-1.85, 1.85].forEach(e => px(lsx(e, z), y, Math.max(1, s * 0.03), 1, '#ff6a1a'));
+  }
+  // sparkles that glint as you move
+  const t = Math.floor(performance.now() / 120);
+  for (let i = 0; i < 14; i++) { const x = (i * 53 + t * 7) % LW, y = LHZ + 8 + ((i * 37 + t * 3) % (LH - LHZ - 10)); px(x, y, 1, 1, '#ffffff'); }
+}
+function pine(x, yb, h) {
+  // a pixel pine: three tiers with a dark outline and snow on each tier
+  h = Math.round(h); if (h < 4) { px(x, yb - h, 1, h, '#1d4a3a'); return; }
+  const w = Math.max(2, Math.round(h * 0.42));
+  px(x - Math.max(1, w * 0.12), yb - h * 0.18, Math.max(2, w * 0.24), h * 0.18, '#5a3518');
+  for (let k = 0; k < 3; k++) {
+    const by = Math.round(yb - h * (0.14 + k * 0.26)), th = Math.round(h * 0.38), tw = Math.round(w * (1 - k * 0.24));
+    for (let r = 0; r < th; r++) {
+      const rw = Math.round(tw * (r + 1) / th), yy = by - th + r;
+      px(x - rw, yy, rw * 2 + 1, 1, r < th * 0.3 ? '#f8fbff' : (k % 2 ? '#2a8a52' : '#1f7444'));
+      px(x - rw - 1, yy, 1, 1, OUT); px(x + rw + 1, yy, 1, 1, OUT);
+    }
+    px(x - tw - 1, by, tw * 2 + 3, 1, OUT);
+  }
+  px(x, yb - h - 1, 1, 1, OUT);
+  px(x - w * 0.5, yb, w * 1.6, 1, '#b8cce8');                   // shadow on the snow
+}
+function tree(t) {
+  if (t.z < 0.6 || t.z > Z_FAR) return;
+  pine(Math.round(lsx(t.u, t.z)), lrow(t.z), lsc(t.z) * 0.9 * t.s);
+}
+function gateRow(r) {
+  if (r.z > Z_FAR || r.z < 0.6) return;
+  const y = lrow(r.z), s = lsc(r.z), k = Z_NEAR / r.z;
+  r.gates.forEach((name, i) => {
+    const cx = lsx(LANES[i], r.z), pl = Math.round(cx - GATE_HALF * s), pr = Math.round(cx + GATE_HALF * s), ph = Math.round(s * 0.62);
+    const hit = r.done && r.taken === i, dim = r.done && !hit;
+    const pole = Math.max(1, Math.round(s * 0.025));
+    px(pl - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT); px(pr - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT);
+    // pennants on top of each pole
+    const fh = Math.max(2, Math.round(s * 0.13));
+    for (let j = 0; j < fh; j++) { const fw = Math.round((fh - Math.abs(j - fh / 2) * 2) * 0.9); px(pl + pole, y - ph + j, fw, 1, r.col); px(pr - fw, y - ph + j, fw, 1, r.col); }
+    // the banner between the poles
+    const bx = pl + pole + 1, bw = pr - pl - pole - 2, bh = Math.max(3, Math.round(s * 0.26)), by = Math.round(y - ph + s * 0.17);
+    if (bw > 2) {
+      px(bx, by, bw, bh, OUT);
+      px(bx + 1, by + 1, bw - 2, bh - 2, hit ? (r.good ? '#22b05a' : '#e0322b') : dim ? '#dfe5f2' : '#ffffff');
+      if (bh > 5) px(bx + 1, by + bh - 2, bw - 2, 1, hit ? 'rgba(0,0,0,0.25)' : '#c8d4ec');
+      if (k > 0.2) labels.push({ x: cx, y: by + bh / 2, size: bh * 0.62, text: name, color: hit ? '#ffffff' : dim ? '#8a90b0' : '#1c2a5a' });
+    }
+    px(pl - 2, y, pr - pl + 4, 1, '#b8cce8');
+  });
+  if (r.n === GATES && r.z > 0.9) {                             // the finish line after the last row
+    const zf = r.z + ROW_GAP * 0.5, fy = lrow(zf), fs = lsc(zf), sq = Math.max(1, Math.round(fs * 0.1));
+    for (let i = -10; i < 10; i++) for (let j = 0; j < 2; j++) px(lsx(i * 0.2, zf), fy - sq * (j + 1), fs * 0.2 + 1, sq, (i + j) % 2 ? OUT : '#ffffff');
+  }
+}
+
+// ---- The rider: a pixel sprite seen from behind, board across the snow ----
+const SPRITE = [
+  '.....kkkkk.....',
+  '....kyyyyyk....',
+  '...kyyywyyyk...',
+  '...kyYYYYYyk...',
+  '...kkkkkkkkk...',
+  '....ktttttk....',
+  '..kkttmmmttkk..',
+  '.kttttmmmttttk.',
+  'kgkttttmttttkgk',
+  'kgkTttttttttkgk',
+  '.k.kTTTTTTTk.k.',
+  '...kpppppppk...',
+  '...kppPkPppk...',
+  '...kppk.kppk...',
+  '..kpppk.kpppk..',
+  '..kPPPk.kPPPk..',
+];
+const PAL = { k: OUT, y: '#ffd23a', Y: '#d99a1a', w: '#ffffff', t: '#18b5a6', T: '#0e7a72', m: '#ea3a83', g: '#2a2a3a', p: '#6a46b0', P: '#43287a' };
+function rider() {
+  const x0 = riderX(), yb = LNEAR + 10 + Math.round(wobble * Math.sin(performance.now() / 40) * 2);
+  const lean = Math.max(-1, Math.min(1, vu / 3.4)), Z = 2;     // each sprite pixel is two screen pixels
+  // shadow
+  px(x0 - 20, yb + 3, 40, 3, '#b8cce8');
+  // the board: tilted on its edge as you carve
+  const bl = 22;
+  for (let i = -bl; i <= bl; i++) {
+    const yy = yb + Math.round(i * lean * 0.16);
+    px(x0 + i, yy - 2, 1, 1, OUT); px(x0 + i, yy - 1, 1, 2, Math.abs(i) > bl - 3 ? '#c4501a' : (Math.abs(i) < 4 ? '#ffd23a' : '#ff7b24')); px(x0 + i, yy + 1, 1, 1, OUT);
+  }
+  // body, rows shifted for a lean into the turn
+  const h = SPRITE.length;
+  SPRITE.forEach((row, j) => {
+    const shift = Math.round((h - j) * lean * 0.35);
+    [...row].forEach((ch, i) => { if (ch !== '.') px(x0 + (i - 7.5) * Z + shift, yb - 2 - (h - j) * Z, Z, Z, PAL[ch]); });
+  });
+}
+
+// ---- Putting a frame together ---------------------------------------------
+function draw() {
+  labels = [];
+  scenery(); slope();
+  const items = trees.map(t => ({ z: t.z, f: () => tree(t) })).concat(rows.map(r => ({ z: r.z, f: () => gateRow(r) })));
+  items.sort((a, b) => b.z - a.z).forEach(it => it.f());
+  spray.forEach(p => px(p.x, p.y, p.r, p.r, p.t > 0.25 ? '#ffffff' : '#d8e8f8'));
+  rider();
+  if (flash > 0) { lc.fillStyle = `rgba(224,50,43,${flash * 0.25})`; lc.fillRect(0, 0, LW, LH); }
+  // scale the little picture up, then letter the banners crisply
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(low, 0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  labels.forEach(l => {
+    const size = Math.max(6, Math.round(l.size * PXS * 0.7));
+    ctx.font = `${size}px 'Press Start 2P', monospace`; ctx.fillStyle = l.color;
+    ctx.fillText(l.text, l.x * PXS, l.y * PXS + size * 0.08);
+  });
+}
+
+// ---- Steering: hold the buttons or drag on the slope ----------------------
+let dragX = null;
+function bindHold(id, dir) {
+  const b = document.getElementById(id);
+  const on = e => { e.preventDefault(); steer = dir; b.classList.add('on'); };
+  const off = () => { if (steer === dir) steer = 0; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
+}
+bindHold('left', -1); bindHold('right', 1);
+cv.addEventListener('pointerdown', e => { dragX = e.clientX; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (dragX === null || state !== 'playing') return; const r = cv.getBoundingClientRect(); dragTarget = ((e.clientX - r.left) - W / 2) / (0.45 * sc(Z_NEAR)); });
+cv.addEventListener('pointerup', () => { dragX = null; dragTarget = null; });
+let dragTarget = null;
+const keys = {};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) return saveTime();
+  if (e.key === 'ArrowLeft') keys.l = true; if (e.key === 'ArrowRight') keys.r = true;
+});
+document.addEventListener('keyup', e => { if (e.key === 'ArrowLeft') keys.l = false; if (e.key === 'ArrowRight') keys.r = false; });
+
+// ---- Racing --------------------------------------------------------------
+function updateStrip() {
+  document.getElementById('key').textContent = key;
+  const next = rows.find(r => !r.done);
+  document.getElementById('find').textContent = next ? NUM[next.deg] : 'GO!';
+  document.getElementById('time').textContent = fmt(time);
+}
+function passRow(r) {
+  r.done = true;
+  const i = LANES.findIndex(l => Math.abs(u - l) <= GATE_HALF + 0.08);
+  r.taken = i;
+  if (i >= 0 && r.gates[i] === r.answer) {
+    r.good = true; hits++; speed = Math.min(speed + 0.6, maxSpeed());
+    tone(880, 0.06, 'triangle'); setTimeout(() => tone(1320, 0.08, 'triangle'), 50);
+  } else {
+    r.good = false; penalties += PENALTY; flash = 1; wobble = 0.6; speed = Math.max(7, speed * 0.75);
+    tone(200, 0.25, 'sawtooth', 90, 0.05);
+  }
+  passedRows++;
+  if (passedRows === GATES) setTimeout(finish, 450);
+}
+const maxSpeed = () => 13 + passedRows * 0.25;
+function frame(t) {
+  if (state !== 'playing') return;
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0; lastT = t;
+  time += dt;
+  // the slope gets steeper the further down you go
+  speed = Math.min(maxSpeed(), speed + dt * 0.8);
+  travel += speed * dt;
+  rows.forEach(r => r.z -= speed * dt);
+  trees.forEach(tr => { tr.z -= speed * dt; if (tr.z < 0.5) { tr.z += 26 * 1.8; tr.u = (Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 1.6); } });
+  rows.forEach(r => { if (!r.done && r.z <= Z_NEAR) passRow(r); });
+  // carving: buttons and keys push sideways, a drag pulls you toward your finger
+  const dir = steer || (keys.l ? -1 : keys.r ? 1 : 0);
+  const pull = dragTarget !== null ? Math.max(-1, Math.min(1, (dragTarget - u) * 2)) : 0;
+  vu += ((dir || pull) * 3.4 - vu) * Math.min(1, dt * 7);
+  u = Math.max(-1.55, Math.min(1.55, u + vu * dt));
+  // powder sprays out from the skis when you turn hard
+  if (Math.abs(vu) > 0.8 && Math.random() < 0.8) {
+    const x = riderX() - Math.sign(vu) * 20;
+    spray.push({ x, y: LNEAR + 8, vx: -Math.sign(vu) * (20 + Math.random() * 30), vy: -14 - Math.random() * 24, r: 1 + Math.round(Math.random()), t: 0.5 });
+  }
+  spray.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 70 * dt; p.t -= dt; }); spray = spray.filter(p => p.t > 0);
+  flash = Math.max(0, flash - dt * 2); wobble = Math.max(0, wobble - dt);
+  updateStrip(); draw();
+  requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
+function hideOverlay() { document.getElementById('over').className = 'over hidden'; }
+const ICON = {
+  green: '<svg class="icon" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="#1f9d55"/></svg>',
+  blue: '<svg class="icon" viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20" fill="#2363c9"/></svg>',
+  black: '<svg class="icon" viewBox="0 0 26 26"><polygon points="13,1 25,13 13,25 1,13" fill="#111"/></svg>',
+};
+function bestFor(r) { const t = times()[r] || []; return t.length ? fmt(t[0].s) : ''; }
+function showStart() {
+  state = 'start';
+  overlay(`<h2>Slalom</h2><div class="bands"></div>
+    <p>Snowboard down the mountain through the gates. Each gate has a note. Ride through the one that is the <b>number</b> shown, in the key shown.</p>
+    <div class="runs">${Object.entries(RUNS).map(([id, r]) => `<button class="run" onclick="startRun('${id}')">${ICON[id]}<span><span class="name">${r.name}</span><br><span class="what">${r.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>
+    <p>Hold the arrows or drag to carve your board. A wrong gate or a missed one adds ${PENALTY} seconds. Fastest time wins.</p>`);
+}
+function startRun(id) {
+  run = id;
+  const ok = KEY_NAMES.filter(k => RUNS[run].degs.every(d => clean(spell(k, STEPS[d], d))));
+  key = ok[Math.floor(Math.random() * ok.length)];
+  rows = Array.from({ length: GATES }, (_, i) => makeRow(i));
+  plantTrees();
+  passedRows = 0; time = 0; penalties = 0; hits = 0; travel = 0; speed = 9; u = 0; vu = 0; steer = 0; spray = []; flash = 0; wobble = 0; lastT = 0; dragTarget = null;
+  hideOverlay(); state = 'playing';
+  [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 180));
+  requestAnimationFrame(frame);
+}
+let finalTime = 0;
+function finish() {
+  state = 'over';
+  finalTime = time + penalties;
+  [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle'), i * 100));
+  const list = times()[run] || [];
+  const qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
+  overlay(`<h2>Finish!</h2><div class="bands"></div>
+    <div class="big">${fmt(finalTime)}</div>
+    <div class="lbl">${RUNS[run].name}, KEY OF ${key}. ${hits} OF ${GATES} GATES${penalties ? `, +${penalties}s IN PENALTIES` : ''}.</div>
+    ${qualifies
+      ? `<p>A fast one. Your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveTime()">OK</button></div>`
+      : `<span class="go" onclick="startRun('${run}')">Ride Again</span><span class="go alt" onclick="showStart()">Runs</span>` + table(run, -1)}`);
+}
+function table(r, hi) {
+  const list = times()[r] || [];
+  if (!list.length) return '';
+  return `<div class="hs-h">FASTEST ON THE ${RUNS[r].name}</div><div class="hs">` + list.map((e, i) => { const c = i === hi ? ' class="me"' : ''; return `<span${c}>${i + 1}</span><span${c}>${e.i}</span><span${c}>${fmt(e.s)}</span>`; }).join('') + '</div>';
+}
+function saveTime() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalTime.toFixed(1) };
+  const all = times(); const list = all[run] || []; list.push(entry); list.sort((a, b) => a.s - b.s);
+  all[run] = list.slice(0, 10); store(HS_KEY, JSON.stringify(all));
+  overlay(`<h2>Finish!</h2><div class="bands"></div><div class="big">${fmt(finalTime)}</div><div class="lbl">ON THE BOARD.</div>
+    <span class="go" onclick="startRun('${run}')">Ride Again</span><span class="go alt" onclick="showStart()">Runs</span>${table(run, all[run].indexOf(entry))}`);
+}
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  W = Math.min(document.querySelector('.screen').clientWidth - 24, 436);
+  H = Math.round(Math.min(W * 1.35, Math.max(300, window.innerHeight - 230)));
+  HZ = Math.round(H * 0.3); NEAR_Y = Math.round(H * 0.86);
+  PXS = W / LW; LH = Math.round(H / PXS); LHZ = Math.round(LH * 0.3); LNEAR = Math.round(LH * 0.86);
+  low.width = LW; low.height = LH;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener('resize', fit);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') state = 'paused';
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+run = 'green'; key = 'D'; travel = 0; u = 0; vu = 0; spray = []; flash = 0; wobble = 0; rows = []; plantTrees(); time = 0;
+fit();
+document.fonts && document.fonts.ready.then(fit);
+showStart();
+</script>
+</body>
+</html>
