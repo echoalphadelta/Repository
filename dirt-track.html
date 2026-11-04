@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Dirt Track | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
+<style>
+/* 8-bit: a small fixed palette, a black scoreboard with a yellow rim, chunky coloured buttons */
+:root { --page: #1b2a6b; --ink: #000000; --yellow: #f8b800; --white: #fcfcfc; --grey: #9aa0b0; --red: #d82800; --blue: #2363c9; --green: #00a844; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: var(--page); }
+body { color: var(--white); font-family: 'Jersey 15', monospace; font-size: 22px; letter-spacing: 1px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 480px; margin: 0 auto; padding: 6px 10px 10px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 22px; }
+.top a { text-decoration: none; color: var(--yellow); }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: var(--yellow); }
+.stage { position: relative; margin-top: 4px; }
+.stage:has(.over:not(.hidden)) { min-height: 480px; }
+canvas { display: block; touch-action: none; border: 3px solid var(--ink); }
+/* the readout sits right on the sky, outlined in black like an old cartridge game */
+.hud { position: absolute; left: 3px; right: 3px; top: 3px; display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 10px; pointer-events: none; text-shadow: 2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000, 2px 2px 0 #000; line-height: 0.9; }
+.hud span { font-size: 16px; color: #fcfcfc; }
+.hud b { display: block; font-weight: 400; font-size: 30px; color: #fcfcfc; }
+.hud .ask { text-align: center; }
+.hud .ask b { font-size: 46px; color: var(--yellow); }
+.hud .r { text-align: right; }
+/* a hand-held pad: a cross for the lanes, two round buttons for brake and gas */
+.pad { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 10px 14px 10px 4px; background: #2b2b33; border-radius: 26px; box-shadow: inset 0 0 0 3px #45454f, inset 0 -6px 0 #1c1c22; }
+.cross { display: grid; grid-template-rows: 46px 18px 46px; width: 58px; margin: 0 22px; }
+.cross button { background: #111; border: none; color: #8a8a96; font-size: 20px; cursor: pointer; touch-action: none; padding: 0; }
+.cross #up { border-radius: 6px 6px 0 0; }
+.cross #down { border-radius: 0 0 6px 6px; }
+.cross i { background: #111; position: relative; }
+.cross i::before { content: ''; position: absolute; left: -24px; right: -24px; top: 0; bottom: 0; background: #111; border-radius: 4px; }
+.cross button.on { background: #333; color: #fcfcfc; }
+.stripe { flex: 1; margin: 0 14px; height: 8px; background: repeating-linear-gradient(90deg, #f07818 0 14px, transparent 14px 20px); border-radius: 4px; }
+.round { display: flex; gap: 16px; }
+.round div { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 16px; color: #c8c8d0; }
+.round button { width: 70px; height: 70px; border-radius: 50%; border: none; cursor: pointer; touch-action: none; padding: 0; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.35), 0 3px 0 #111; }
+.round #brake { background: #d82800; }
+.round #gas { background: #00a844; }
+.round button.on { transform: translateY(3px); box-shadow: inset 0 -2px 0 rgba(0,0,0,0.35), 0 0 0 #111; }
+.over { position: absolute; inset: 0; padding: 16px; overflow: auto; background: #111; border: 4px solid var(--yellow); }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 12px; font-weight: 400; font-size: 64px; line-height: 0.85; color: var(--yellow); text-shadow: 4px 4px 0 var(--red); }
+.over p { margin: 0 0 12px; line-height: 1.15; }
+.over p b { color: var(--yellow); font-weight: 400; }
+.cls { display: grid; gap: 6px; margin: 4px 0 6px; }
+.cl { display: flex; align-items: center; gap: 12px; padding: 6px 10px; background: #222; border: none; border-left: 8px solid var(--c); text-align: left; cursor: pointer; color: var(--white); }
+.cl:active, .cl:hover { background: #333; }
+.cl .name { font-size: 32px; line-height: 1; }
+.cl .what { font-size: 19px; color: var(--grey); }
+.cl .best { margin-left: auto; font-size: 26px; color: var(--yellow); }
+.big { font-size: 80px; line-height: 1; color: var(--yellow); text-shadow: 4px 4px 0 var(--red); }
+.lbl { font-size: 20px; color: var(--grey); margin: 6px 0 12px; }
+.go { display: inline-block; margin: 2px 8px 14px 0; padding: 6px 14px 5px; background: var(--yellow); color: var(--ink); font-size: 28px; cursor: pointer; border-bottom: 4px solid #a06800; }
+.go.alt { background: var(--white); border-color: var(--grey); }
+.hs-h { font-size: 20px; color: var(--yellow); margin: 6px 0 4px; }
+.hs { display: grid; grid-template-columns: 1.6em 3.2em auto; row-gap: 2px; font-size: 26px; }
+.hs .me { background: var(--red); }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
+.ini input { width: 110px; font: inherit; font-size: 44px; letter-spacing: 4px; text-transform: uppercase; background: none; color: var(--white); border: none; border-bottom: 4px solid var(--yellow); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--yellow); color: var(--ink); border: none; padding: 5px 12px 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SND ON</button>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="hud" id="hud">
+      <span>JUMP<b id="jump">1/12</b></span>
+      <span class="ask">RIDE THE<b id="ask">5 in D</b></span>
+      <span class="r">TIME<b id="time">0:00.0</b></span>
+    </div>
+    <div class="over" id="over"></div>
+  </div>
+  <div class="pad">
+    <div class="cross"><button id="up" aria-label="Move up a lane">&#9650;</button><i></i><button id="down" aria-label="Move down a lane">&#9660;</button></div>
+    <div class="stripe"></div>
+    <div class="round"><div><button id="brake" aria-label="Brake"></button>BRAKE</div><div><button id="gas" aria-label="Gas"></button>GAS</div></div>
+  </div>
+</div>
+
+<script>
+// ---- Music ---------------------------------------------------------------
+// conventional spelling: each note takes the letter of its scale degree, then a sharp or flat
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
+const NUM = ['1', 'b2', '2', 'b3', '3', '4', '#4', '5', 'b6', '6', 'b7', 'Maj7'];
+const STEPS = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6];
+const CLASSES = {
+  club:  { name: 'CLUB', what: '1, 4 and 5', degs: [0, 5, 7], c: '#00a844' },
+  pro:   { name: 'PRO', what: 'All seven numbers', degs: [0, 2, 4, 5, 7, 9, 11], c: '#2363c9' },
+  champ: { name: 'CHAMPION', what: 'All twelve', degs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], c: '#d82800' },
+};
+const JUMPS = 12, PENALTY = 2;
+
+// ---- State ---------------------------------------------------------------
+const HS_KEY = 'dirtTrackTimes', SOUND_KEY = 'arcadeSound';
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W = 360, H = 248, PXS = 1.5;
+let state = 'start', cls = 'club', key = 'D', time = 0, penalties = 0, hits = 0, lastT = 0, flash = 0, soundOn = true;
+let feats = [], finishX = 0, next = 0;
+// the bike: distance along the track, lane (0 is the back), height above the dirt, speeds, tilt
+let bx, lane, laneTo, hy, vx, vy, air, tilt, boostT, wobbleT, dust, launchSc = 1, climb = 0;
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function times()     { try { return JSON.parse(load(HS_KEY)) || {}; } catch (e) { return {}; } }
+const fmt = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null, engine = null;
+function tone(freq, dur, type, slide, vol) {
+  if (!soundOn) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+    o.type = type || 'square'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+function engineOn() {
+  if (!soundOn || engine) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 50; g.gain.value = 0.018;
+    o.connect(g); g.connect(audio.destination); o.start();
+    engine = { o, g };
+  } catch (e) {}
+}
+function engineOff() { if (engine) { try { engine.o.stop(); } catch (e) {} engine = null; } }
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+  if (!soundOn) engineOff(); else if (state === 'playing') engineOn();
+}
+
+// ---- The track -----------------------------------------------------------
+// Everything is in console pixels. The four lanes share one height profile; each lane further
+// back meets a hill a few pixels later, so every ramp edge runs on a slant across the track.
+const BASE = 104, SHEAR = 5, BIKE_X = 50, LANE = 22, GROUND = BASE + 4 * LANE, VIEW = GROUND + 10;
+let LW = 232, LHT = VIEW, OFF = 0;   // a tall screen gets more sky, room for the big jumps later on
+const low = document.createElement('canvas'), lc = low.getContext('2d');
+low.width = LW; low.height = LHT;
+const FIRST = 300, PAD_BEFORE = 84, PAD_W = 24;
+// the hills get bigger and busier as the race goes on
+const POOLS = [['bump', 'table', 'whoops'], ['double', 'table', 'kicker', 'step', 'whoops'], ['step', 'gap', 'triple', 'kicker', 'table', 'double']];
+const EXTENT = { bump: 40, kicker: 76, double: 106, whoops: 100, table: 110, step: 144, gap: 146, triple: 128 };
+const hump = (t, w, h, up) => (t <= 0 || t >= w) ? 0 : h * (t / w < up ? Math.sin(Math.PI / 2 * (t / w) / up) : Math.cos(Math.PI / 2 * (t / w - up) / (1 - up)));
+const rise = (t, a, b, h0, h1) => h0 + (h1 - h0) * Math.sin(Math.PI / 2 * (t - a) / (b - a));
+const fall = (t, a, b, h) => h * Math.cos(Math.PI / 2 * (t - a) / (b - a));
+function baseShape(kind, t) {
+  if (t <= 0) return 0;
+  switch (kind) {
+    case 'bump':   return hump(t, 40, 10, 0.55);
+    case 'kicker': return hump(t, 76, 18, 0.7);
+    case 'double': return Math.max(hump(t, 36, 12, 0.6), hump(t - 70, 36, 12, 0.5));
+    case 'triple': return Math.max(hump(t, 36, 12, 0.6), hump(t - 46, 36, 12, 0.55), hump(t - 92, 36, 12, 0.5));
+    case 'whoops': return Math.max(hump(t, 22, 5, 0.5), hump(t - 26, 22, 5, 0.5), hump(t - 52, 22, 5, 0.5), hump(t - 78, 22, 5, 0.5));
+    case 'table':  return t >= 110 ? 0 : t < 30 ? rise(t, 0, 30, 0, 22) : t < 72 ? 22 : fall(t, 72, 110, 22);
+    // a step-up: a low deck, then a higher one
+    case 'step':   return t >= 144 ? 0 : t < 26 ? rise(t, 0, 26, 0, 14) : t < 56 ? 14 : t < 76 ? rise(t, 56, 76, 14, 26) : t < 104 ? 26 : fall(t, 104, 144, 26);
+    // a take-off, a gap, and a landing ramp on the far side
+    case 'gap':    return t < 40 ? rise(t, 0, 40, 0, 20) : t < 46 ? fall(t, 40, 46, 20) : t < 90 ? 0 : t < 96 ? rise(t, 90, 96, 0, 20) : t < 146 ? fall(t, 96, 146, 20) : 0;
+  }
+  return 0;
+}
+const shapeHeight = (f, t) => f.sc * baseShape(f.kind, t / f.wx);
+function featureAt(x) { for (const f of feats) if (x > f.x - 10 && x < f.x + f.ext + 10) return f; return null; }
+function height(x) { const f = featureAt(x); return f ? shapeHeight(f, x - f.x) : 0; }
+const laneShift = l => (3 - l) * SHEAR;
+const ground = (x, l) => height(x - laneShift(l));
+const slope = (x, l) => (ground(x + 1, l) - ground(x - 1, l)) / 2;
+
+function makeFeature(i, prev) {
+  const degs = CLASSES[cls].degs, deg = degs[Math.floor(Math.random() * degs.length)];
+  const answer = spell(key, STEPS[deg], deg);
+  const notes = new Set([answer]);
+  for (const d of degs.filter(d => d !== deg).sort(() => Math.random() - 0.5)) { if (notes.size >= 4) break; notes.add(spell(key, STEPS[d], d)); }
+  for (let d = 0; notes.size < 4 && d < 12; d++) notes.add(spell(key, STEPS[d], d));   // a short list borrows extra notes
+  const sc = 1.5 + 1.9 * i / (JUMPS - 1), wx = 1 + 0.45 * (sc - 1);
+  const pool = POOLS[i < 3 ? 0 : i < 7 ? 1 : 2], kind = i === 0 ? 'bump' : pool[Math.floor(Math.random() * pool.length)];
+  const x = prev ? prev.x + prev.ext + 230 + 60 * sc : FIRST;
+  return { x, kind, sc, wx, ext: EXTENT[kind] * wx, deg, answer, lanes: [...notes].sort(() => Math.random() - 0.5), done: false, good: null, taken: -1 };
+}
+function makeCourse(n) { const list = []; for (let i = 0; i < n; i++) list.push(makeFeature(i, list[i - 1])); return list; }
+
+// ---- Pixel helpers -------------------------------------------------------
+const K = { sky: '#5c94fc', cloud: '#fcfcfc', hill: '#00a844', hill2: '#008838', dirt: '#c84c0c', dirt2: '#e45c10', lite: '#fca044', shade: '#a83800', dark: '#881400', face: '#6c2400', black: '#000000', white: '#fcfcfc', red: '#d82800', grey: '#7c7c7c', grass: '#00a800', yel: '#f8b800' };
+function P(x, y, w, h, c) { lc.fillStyle = c; lc.fillRect(Math.round(x), Math.round(y), w, h); }
+function disc(cx, cy, r, c) { for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r + r * 0.8 - y * y)); P(cx - w, cy + y, w * 2 + 1, 1, c); } }
+const noise = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+let labels = [];
+
+// the bike is drawn once to its own little canvas, then tilted with the ground
+const sprite = document.createElement('canvas'), sc = sprite.getContext('2d');
+sprite.width = 44; sprite.height = 40;
+function paintBike(spin) {
+  sc.clearRect(0, 0, 44, 40);
+  const S = (x, y, w, h, c) => { sc.fillStyle = c; sc.fillRect(x, y, w, h); };
+  const D = (cx, cy, r, c) => { for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r + r * 0.8 - y * y)); S(cx - w, cy + y, w * 2 + 1, 1, c); } };
+  const wheel = cx => { D(cx, 32, 6, K.black); D(cx, 32, 4, K.grey); D(cx, 32, 2, K.black); const a = spin; S(cx + Math.round(Math.cos(a) * 3), 32 + Math.round(Math.sin(a) * 3), 1, 1, K.white); S(cx - Math.round(Math.cos(a) * 3), 32 - Math.round(Math.sin(a) * 3), 1, 1, K.white); };
+  const bx = 22, by = 32;
+  wheel(bx - 12); wheel(bx + 12);
+  S(bx - 12, by - 1, 10, 2, K.grey); S(bx - 9, by - 7, 17, 4, K.red); S(bx - 6, by - 8, 10, 2, K.white);
+  for (let i = 0; i < 8; i++) S(bx + 9 + Math.floor(i / 2), by - 8 + i, 2, 1, K.grey);
+  S(bx + 7, by - 11, 6, 2, K.black);
+  S(bx - 3, by - 3, 4, 3, K.black); S(bx - 4, by - 7, 4, 4, K.white);
+  S(bx - 6, by - 17, 8, 10, K.white); S(bx - 5, by - 16, 6, 8, K.red); S(bx + 1, by - 15, 8, 3, K.red); S(bx + 8, by - 13, 2, 2, K.white);
+  D(bx - 1, by - 22, 4, K.white); S(bx, by - 23, 4, 3, K.black); S(bx - 5, by - 24, 3, 2, K.red);
+}
+
+// ---- Drawing -------------------------------------------------------------
+function draw() {
+  labels = [];
+  const cam = (bx || 0) - BIKE_X;
+  P(0, 0, LW, LHT, K.sky);
+  // any extra height on a tall screen becomes more sky above the track
+  lc.save(); lc.translate(0, OFF);
+  // clouds and hills slide by slower than the track
+  for (let k = -1; k < 5; k++) {
+    const cx = ((k * 100 - cam * 0.15) % 500 + 500) % 500 - 60, cy = 30 - Math.round((OFF + 20) * [0.85, 0.4, 0.65, 0.25, 0.75, 0.5][k + 1]);
+    disc(cx, cy, 7, K.cloud); disc(cx + 12, cy - 4, 7, K.cloud); disc(cx + 24, cy, 7, K.cloud);
+  }
+  // far mountains, tall enough to fill the sky on a tall screen
+  for (let sx = 0; sx < LW; sx++) {
+    const w = sx + cam * 0.08, tall = 40 + OFF * 0.55;
+    const m = Math.round(tall * (0.55 + 0.25 * Math.sin(w / 41) + 0.15 * Math.sin(w / 17 + 2) + 0.05 * Math.sin(w / 7)));
+    P(sx, 70 - m, 1, m, '#3c64c8');
+    const cap = m - tall * 0.72; if (cap > 0) P(sx, 70 - m, 1, Math.round(cap), K.white);
+    P(sx, 70 - m, 1, 1, '#1c3c94');
+  }
+  for (let sx = 0; sx < LW; sx++) {
+    const w1 = sx + cam * 0.3, w2 = sx + cam * 0.5;
+    const h1 = Math.round(18 + 10 * Math.sin(w1 / 22) + 5 * Math.sin(w1 / 9 + 1)), h2 = Math.round(9 + 6 * Math.sin(w2 / 15 + 2));
+    P(sx, 82 - h1, 1, h1, K.hill); P(sx, 82 - h2, 1, h2, K.hill2);
+  }
+  // fence along the back of the track
+  P(0, 76, LW, 2, K.white);
+  for (let fx = -((cam * 0.9) % 10); fx < LW; fx += 10) P(fx, 72, 2, 9, K.white);
+  P(0, 81, LW, BASE - 81, K.grass); P(0, 81, LW, 1, K.hill2);
+  // under the ramps: the earth between the lanes
+  for (let sx = 0; sx < LW; sx++) {
+    const wx = cam + sx;
+    let top = 999; for (let l = 0; l < 4; l++) top = Math.min(top, BASE + l * LANE - Math.round(ground(wx, l)));
+    P(sx, top, 1, GROUND - top, K.shade);
+  }
+  // the lanes, back first, each with its own shading on the climbs and drops
+  for (let l = 0; l < 4; l++) {
+    const y0 = BASE + l * LANE;
+    for (let sx = 0; sx < LW; sx++) {
+      const wx = cam + sx, h = Math.round(ground(wx, l)), s = slope(wx, l);
+      P(sx, y0 - h, 1, LANE, s > 0.5 ? K.lite : s < -0.5 ? K.shade : (l % 2 ? K.dirt : K.dirt2));
+      P(sx, y0 - h, 1, 1, '#fcb870');
+      const n = noise(Math.floor(wx / 3), l);
+      if (n > 0.9) P(sx, y0 - h + 4 + Math.floor(n * 50) % 7, 2, 1, K.dark);
+    }
+  }
+  // the raised front edge, down to the grass
+  for (let sx = 0; sx < LW; sx++) { const h = Math.round(ground(cam + sx, 3)); if (h > 0) { P(sx, GROUND - h, 1, h, K.face); P(sx, GROUND - h, 1, 1, K.black); } }
+  P(0, GROUND, LW, LHT - GROUND, K.grass); P(0, GROUND, LW, 1, K.black);
+  // note pads on the flat run-up before each hill
+  feats.forEach((f, i) => {
+    const px0 = f.x - PAD_BEFORE;
+    if (px0 - cam < -40 || px0 - cam > LW + 20) return;
+    for (let l = 0; l < 4; l++) {
+      const sx = px0 + laneShift(l) - cam, y = BASE + l * LANE;
+      const fill = f.done ? (f.taken === l ? (f.good ? K.grass : K.red) : '#c8c8c8') : K.white;
+      P(sx, y + 2, PAD_W, LANE - 4, K.black); P(sx + 1, y + 3, PAD_W - 2, LANE - 6, fill);
+      if (!f.done) labels.push({ x: sx + PAD_W / 2, y: y + LANE / 2, t: f.lanes[l], c: K.black });
+    }
+  });
+  // checkered finish line
+  if (finishX && finishX - cam < LW + 30) for (let l = 0; l < 4; l++) for (let r = 0; r < 3; r++) for (let q = 0; q < 2; q++)
+    P(finishX + laneShift(l) - cam + q * 4, BASE + l * LANE + r * Math.floor(LANE / 3) + 1, 4, Math.floor(LANE / 3), (r + q + l) % 2 ? K.black : K.white);
+  // the rider
+  if (bx !== undefined && state !== 'start') {
+    const lf = lane, gy = BASE + lf * LANE + LANE - 3;
+    if (dust) dust.forEach(d => disc(d.x - cam, d.y, d.r, K.lite));
+    paintBike(bx / 6);
+    lc.save(); lc.translate(BIKE_X, Math.round(gy - hy - 6) + (wobbleT > 0 ? Math.round(Math.sin(wobbleT * 40)) : 0)); lc.rotate(-Math.max(-0.6, Math.min(0.6, tilt)));
+    lc.imageSmoothingEnabled = false; lc.drawImage(sprite, -22, -32); lc.restore();
+  }
+  lc.restore();
+  if (flash > 0) { lc.fillStyle = `rgba(216,40,0,${flash * 0.3})`; lc.fillRect(0, 0, LW, LHT); }
+  // scale up crisply, then the pad lettering on top
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(low, 0, 0, W, H);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${Math.round(LANE * PXS * 0.78)}px 'Jersey 15', monospace`;
+  labels.forEach(l => { ctx.fillStyle = l.c; ctx.fillText(l.t, l.x * PXS, (l.y + OFF) * PXS + 1); });
+  if (boostT > 0 && state === 'playing') { ctx.font = `${Math.round(22 * PXS)}px 'Jersey 15', monospace`; ctx.fillStyle = K.yel; ctx.strokeStyle = K.black; ctx.lineWidth = 4; const by = (OFF * 0.45 + 50) * PXS; ctx.strokeText('BOOST', W / 2, by); ctx.fillText('BOOST', W / 2, by); }
+}
+
+// ---- Controls ------------------------------------------------------------
+let gas = false, brake = false;
+function move(d) { if (state !== 'playing') return; laneTo = Math.max(0, Math.min(3, laneTo + d)); tone(330 + laneTo * 60, 0.04, 'square', 0, 0.025); }
+function bindHold(id, on, off) {
+  const b = document.getElementById(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.classList.add('on'); on(); });
+  const up = () => { b.classList.remove('on'); off && off(); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+}
+bindHold('up', () => move(-1)); bindHold('down', () => move(1));
+bindHold('gas', () => { gas = true; }, () => { gas = false; });
+bindHold('brake', () => { brake = true; }, () => { brake = false; });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('initials')) return saveTime();
+  if (e.repeat) return;
+  if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); gas = true; }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); brake = true; }
+});
+document.addEventListener('keyup', e => { if (e.key === 'ArrowRight' || e.key === ' ') gas = false; if (e.key === 'ArrowLeft') brake = false; });
+
+// ---- Riding --------------------------------------------------------------
+const G = 480, TOP = 108, BOOST_TOP = 150, LIFT = 120, BOOST_LIFT = 160;
+function updateBoard() {
+  const f = feats[next];
+  document.getElementById('jump').textContent = Math.min(next + 1, JUMPS) + '/' + JUMPS;
+  document.getElementById('ask').textContent = f ? NUM[f.deg] + ' in ' + key : 'FINISH';
+  document.getElementById('time').textContent = fmt(time + penalties);
+}
+function judge(f) {
+  const l = Math.round(lane);
+  f.done = true; f.taken = l; f.good = f.lanes[l] === f.answer;
+  if (f.good) { hits++; boostT = 1.6; [784, 1046].forEach((n, i) => setTimeout(() => tone(n, 0.08), i * 60)); }
+  else { penalties += PENALTY; vx *= 0.45; wobbleT = 0.6; flash = 1; tone(160, 0.25, 'sawtooth', 70, 0.05); }
+  next++;
+}
+function frame(t) {
+  if (state !== 'playing') return;
+  const dt = lastT ? Math.min(0.04, (t - lastT) / 1000) : 0; lastT = t;
+  time += dt; boostT = Math.max(0, boostT - dt); wobbleT = Math.max(0, wobbleT - dt); flash = Math.max(0, flash - dt * 2);
+  // throttle and brake
+  const top = boostT > 0 ? BOOST_TOP : TOP;
+  if (brake) vx -= 160 * dt;
+  else if (gas || boostT > 0) vx += (vx < top ? 70 : -40) * dt;
+  else vx -= 26 * dt;
+  vx = Math.max(0, Math.min(boostT > 0 ? BOOST_TOP : Math.max(TOP, vx), vx));
+  // change lanes smoothly, only with wheels on the dirt
+  if (!air) lane += Math.sign(laneTo - lane) * Math.min(Math.abs(laneTo - lane), dt * 7);
+  const lr = Math.round(lane);
+  const ox = bx; bx += vx * dt;
+  const g = ground(bx, lr), s = slope(bx, lr);
+  if (air) {
+    vy -= G * dt; hy += vy * dt;
+    tilt += (Math.atan2(vy, Math.max(vx, 30)) * 0.6 - tilt) * Math.min(1, dt * 4);
+    if (hy <= g) {
+      // a landing that meets the slope is smooth; slamming into a climb or the flat costs speed
+      const hard = vy - s * vx < -200 * Math.sqrt(launchSc);
+      hy = g; air = false; vy = s * vx;
+      if (hard) { vx *= 0.65; wobbleT = 0.4; tone(110, 0.12, 'square', 60, 0.05); } else tone(220, 0.05, 'triangle', 0, 0.04);
+    }
+  } else {
+    const here = featureAt(bx), sc = here ? Math.sqrt(here.sc) : 1, cap = (boostT > 0 ? BOOST_LIFT : LIFT) * sc;
+    const lift = Math.min(s * vx, cap);
+    // climbing remembers how hard you hit the face; at the crest that throws you into the air
+    if (s > 0.2) climb = Math.max(climb, lift);
+    if (climb > 40 && s < 0.12) { air = true; launchSc = sc * sc; vy = climb * 0.9; climb = 0; hy = g; tone(440, 0.06, 'square', 660, 0.03); }
+    else { if (s <= 0) climb = 0; hy = g; vy = lift; tilt += (Math.atan(s) - tilt) * Math.min(1, dt * 12); }
+    if (vx > 20 && (gas || boostT > 0) && Math.random() < 0.5) dust.push({ x: bx - 14, y: BASE + lr * LANE + LANE - 4 - hy, r: 2, t: 0.4 });
+  }
+  if (engine) engine.o.frequency.value = 45 + vx * 0.9 + (air ? 30 : 0);
+  dust.forEach(d => { d.x -= 20 * dt; d.y -= 6 * dt; d.t -= dt; }); dust = dust.filter(d => d.t > 0);
+  // crossing the pads decides the next jump
+  const f = feats[next];
+  if (f && ox < f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2 && bx >= f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2) judge(f);
+  updateBoard(); draw();
+  if (bx >= finishX + laneShift(lr)) return finish();
+  requestAnimationFrame(frame);
+}
+
+// ---- Screens -------------------------------------------------------------
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; document.getElementById('hud').style.visibility = 'hidden'; }
+function hideOverlay() { document.getElementById('over').className = 'over hidden'; document.getElementById('hud').style.visibility = ''; }
+function bestFor(c) { const t = times()[c] || []; return t.length ? fmt(t[0].s) : ''; }
+function showStart() {
+  state = 'start'; engineOff();
+  overlay(`<h2>DIRT TRACK</h2>
+    <p>Ride over the pad whose note is the <b>number</b> shown, then hit the jump with a boost. Hold the green button for gas, red to brake, and use the cross to change lanes.</p>
+    <div class="cls">${Object.entries(CLASSES).map(([id, c]) => `<button class="cl" style="--c:${c.c}" onclick="startRace('${id}')"><span><span class="name">${c.name}</span><br><span class="what">${c.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>`);
+}
+function startRace(id) {
+  cls = id;
+  const ok = KEY_NAMES.filter(k => CLASSES[cls].degs.every(d => clean(spell(k, STEPS[d], d))));
+  key = ok[Math.floor(Math.random() * ok.length)];
+  feats = makeCourse(JUMPS);
+  finishX = feats[JUMPS - 1].x + feats[JUMPS - 1].ext + 140;
+  next = 0; time = 0; penalties = 0; hits = 0; flash = 0; lastT = 0; gas = false; brake = false;
+  bx = 20; lane = laneTo = 1; hy = 0; vx = 30; vy = 0; air = false; climb = 0; tilt = 0; boostT = 0; wobbleT = 0; dust = [];
+  hideOverlay(); state = 'playing'; engineOn();
+  [392, 523, 659].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 200));
+  updateBoard();
+  requestAnimationFrame(frame);
+}
+let finalTime = 0;
+function finish() {
+  state = 'over'; engineOff();
+  finalTime = time + penalties;
+  updateBoard();
+  [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 100));
+  const list = times()[cls] || [];
+  const qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
+  overlay(`<h2>FINISH</h2>
+    <div class="big">${fmt(finalTime)}</div>
+    <div class="lbl">${CLASSES[cls].name}, KEY OF ${key}. ${hits} OF ${JUMPS} BOOSTS${penalties ? `, +${penalties}s IN PENALTIES` : ''}.</div>
+    ${qualifies
+      ? `<p>A fast one. Your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveTime()">OK</button></div>`
+      : `<span class="go" onclick="startRace('${cls}')">Ride Again</span><span class="go alt" onclick="showStart()">Classes</span>` + table(cls, -1)}`);
+  setTimeout(() => { const i = document.getElementById('initials'); if (i) i.focus(); }, 50);
+}
+function table(c, hi) {
+  const list = times()[c] || [];
+  if (!list.length) return '';
+  return `<div class="hs-h">FASTEST IN ${CLASSES[c].name}</div><div class="hs">` + list.map((e, i) => { const k = i === hi ? ' class="me"' : ''; return `<span${k}>${i + 1}</span><span${k}>${e.i}</span><span${k}>${fmt(e.s)}</span>`; }).join('') + '</div>';
+}
+function saveTime() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalTime.toFixed(1) };
+  const all = times(); const list = all[cls] || []; list.push(entry); list.sort((a, b) => a.s - b.s);
+  all[cls] = list.slice(0, 10); store(HS_KEY, JSON.stringify(all));
+  overlay(`<h2>FINISH</h2><div class="big">${fmt(finalTime)}</div><div class="lbl">ON THE BOARD.</div>
+    <span class="go" onclick="startRace('${cls}')">Ride Again</span><span class="go alt" onclick="showStart()">Classes</span>${table(cls, all[cls].indexOf(entry))}`);
+}
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  // the track keeps a steady width of view; the canvas then takes all the height down to the pad
+  W = (document.querySelector('.screen').clientWidth - 26) | 0;
+  PXS = W / 232; LW = Math.ceil(W / PXS);
+  const room = window.innerHeight - document.querySelector('.stage').getBoundingClientRect().top - document.querySelector('.pad').offsetHeight - 26;
+  LHT = Math.max(VIEW, Math.floor(room / PXS));
+  OFF = LHT - VIEW; low.width = LW; low.height = LHT; H = Math.round(LHT * PXS);
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener('resize', fit);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'playing') { state = 'paused'; engineOff(); }
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; engineOn(); requestAnimationFrame(frame); }
+});
+
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+feats = makeCourse(3); bx = 150;
+fit();
+document.fonts && document.fonts.ready.then(fit);
+showStart();
+</script>
+</body>
+</html>
