@@ -30,6 +30,10 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
 .lane { background: currentColor; }
 .lane span { color: #0d0820; }
 .lane.on { outline: 3px solid #fff3d6; outline-offset: 3px; }
+.fire { position: absolute; left: 10px; bottom: 12px; width: 66px; height: 66px; border-radius: 50%; border: 3px solid #b8c46a; background: #4d5c32; color: #f4f1ea; font-size: 10px; line-height: 1.4; cursor: pointer; touch-action: manipulation; box-shadow: 0 4px 0 #2a3320; padding: 0; }
+.fire:active { transform: translateY(2px); box-shadow: 0 2px 0 #2a3320; }
+.fire.hidden { display: none; }
+.fire.wait { background: #2b2440; border-color: #5a5470; color: #8a84a0; font-size: 16px; }
 .over { position: absolute; inset: 0; background: rgba(13,8,32,0.92); padding: 16px 14px; font-size: 9px; line-height: 1.9; overflow: auto; }
 .over.hidden { display: none; }
 .over h2 { margin: 0 0 12px; font-size: 16px; font-weight: 400; line-height: 1.1; color: var(--sun); }
@@ -54,6 +58,7 @@ canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edge
   <div class="stage" id="stage">
     <canvas id="cv" width="180" height="260"></canvas>
     <div class="over" id="over"></div>
+    <button id="fire" class="fire hidden">FIRE</button>
   </div>
   <div class="lanes">
     <button class="lane e" data-lane="0"><span>ECHO</span></button>
@@ -82,14 +87,17 @@ function rootFrets(shape, pc) {
 
 // ---- State ---------------------------------------------------------------
 const PIT_TIME = 3.8;
-const TRUCK_AT = 10, PIT_EVERY = 20, BASE_SPEED = 6.5;   // monster truck after 10 correct, a pit stop every 20
+const PIT_EVERY = 20, BASE_SPEED = 6.5;                  // a pit stop every 20 correct
+// rides you earn as you go: [correct signs needed, name on the upgrade banner]
+const RIDES = [[0, ''], [10, 'MONSTER TRUCK'], [20, 'SUPERCAR'], [30, 'TANK']];
+const RELOAD = 6;                                         // seconds between tank rounds
 const W = 180, H = 260, HORIZON = 92, Z_NEAR = 1, Z_FAR = 40, GATE_GAP = 13;
 const HS_KEY = 'progressionRunScores', SOUND_KEY = 'arcadeSound';
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 
 let state = 'start', score, lives, passed, streak, speed, travel, gates, queue, key, lane, carX, shake, flash, lastT;
 let pitT = 0, pitFixed = false;
-let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, truck = false, upgradeT = 0;
+let curve = 0, curveTarget = 0, curveUntil = 0, skyShift = 0, ride = 0, pendingRide = 0, upgradeT = 0, reload = 0, shells = [], booms = [], muzzle = 0;
 let soundOn = true;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -270,7 +278,9 @@ function drawCar(tod) {
   const y = H - 30;
   const x = Math.round(carX) + (shake ? Math.round(Math.random() * 4 - 2) : 0);
   const px = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + dx, y + dy, w, h); };
-  if (truck) return drawTruck(x, y, px, tod);
+  if (ride === 1) return drawTruck(x, y, px, tod);
+  if (ride === 2) return drawSupercar(x, y, px);
+  if (ride === 3) return drawTank(x, y, px);
   px(-13, 6, 26, 10, '#d2364a');      // body
   px(-9, 1, 18, 6, '#a3243a');        // roof
   px(-7, 2, 14, 4, '#6ac7ff');        // rear window
@@ -303,6 +313,50 @@ function drawTruck(x, y, px, tod) {
   px(-15, by + 5, 4, 2, '#ff2a4a'); px(11, by + 5, 4, 2, '#ff2a4a');    // tail lights
   px(-6, by - 10, 12, 2, '#ffd166');                 // roof light bar
   px(-4, by + 6, 8, 2, '#f4f1ea');                   // plate
+}
+function drawSupercar(x, y, px) {
+  // a low wedge supercar from behind: wide body, rear wing, quad exhaust shooting flames and sparks
+  px(-17, 11, 6, 8, '#111'); px(11, 11, 6, 8, '#111');                  // fat rear tyres
+  px(-16, 7, 32, 9, '#ffb000');                                         // body
+  px(-13, 4, 26, 4, '#e09a00'); px(-9, 2, 18, 3, '#1a1a22');           // engine deck and slim rear window
+  px(-12, 8, 6, 2, '#1a1a22'); px(6, 8, 6, 2, '#1a1a22');              // vents
+  px(-18, 0, 36, 2, '#1a1a22'); px(-13, 2, 2, 3, '#1a1a22'); px(11, 2, 2, 3, '#1a1a22');   // wing on its posts
+  px(-15, 11, 30, 1, '#ff2a4a');                                        // tail light strip
+  px(-15, 13, 30, 3, '#1a1a22');                                        // diffuser
+  const pipes = [-7, -4, 2, 5];
+  pipes.forEach(dx => px(dx, 14, 2, 2, '#9a9aa6'));
+  // flames: blue at the root, orange and yellow beyond, flickering every frame
+  pipes.forEach(dx => {
+    const len = 3 + Math.floor(Math.random() * 6);
+    px(dx, 16, 2, 1, '#6ac7ff');
+    for (let k = 1; k < len; k++) px(dx + (Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0), 16 + k, 2, 1, k < len / 2 ? '#ffd166' : '#ff6a2a');
+  });
+  for (let i = 0; i < 3; i++) if (Math.random() < 0.5) px(-8 + Math.floor(Math.random() * 16), 19 + Math.floor(Math.random() * 6), 1, 1, '#fff3c0');
+}
+function drawTank(x, y, px) {
+  // a battle tank from behind: tracks, hull, turret and a long gun pointing up the road
+  [-23, 15].forEach(dx => { px(dx, 3, 8, 17, '#2a2a22'); for (let k = 0; k < 6; k++) px(dx, 4 + ((k * 3 + Math.floor(travel * 3)) % 17), 8, 1, '#4a4a3a'); });
+  px(-16, 6, 32, 11, '#5a6b3a'); px(-16, 6, 32, 2, '#6d7f48');          // hull
+  px(-14, 13, 4, 2, '#3d4a28'); px(10, 13, 4, 2, '#3d4a28');            // exhaust grilles
+  px(-10, -2, 20, 9, '#4d5c32'); px(-10, -2, 20, 2, '#5f7040');         // turret
+  px(-4, 0, 8, 3, '#3d4a28');                                          // hatch
+  px(-2, -16, 4, 15, '#3d4a28'); px(-3, -17, 6, 2, '#2a3320');         // gun barrel
+  px(-15, 9, 2, 2, '#ff2a4a'); px(13, 9, 2, 2, '#ff2a4a');              // rear lights
+  if (muzzle > 0) { px(-4, -22, 8, 5, '#ffd166'); px(-2, -25, 4, 3, '#fff3c0'); }
+}
+function drawShells() {
+  shells.forEach(sh => {
+    const s = Z_NEAR / sh.z, y = rowAt(sh.z), x = centreAt(sh.z) + (sh.x - W / 2) * s, r = Math.max(1, Math.round(3 * s));
+    ctx.fillStyle = '#fff3c0'; ctx.fillRect(Math.round(x - r / 2), Math.round(y - 6 * s - r), r, r * 2);
+  });
+  booms.forEach(b => {
+    const s = Math.max(0.35, Z_NEAR / b.z), y = rowAt(b.z) - 40 * (Z_NEAR / b.z), x = centreAt(b.z), r = (12 + b.t * 70) * s;
+    ctx.globalAlpha = 1 - b.t / 0.8;
+    ctx.fillStyle = '#ff6a2a'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(x, y, r * 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff3c0'; ctx.beginPath(); ctx.arc(x, y, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  });
 }
 function drawPit() {
   // a chequered pit board, two crew in overalls, a fuel hose and sparks from the wrench
@@ -343,12 +397,12 @@ function draw() {
   const tod = timeOfDay();
   drawSky(tod); drawRoad(tod);
   gates.slice().sort((a, b) => b.z - a.z).forEach(drawGate);
-  drawCar(tod); drawHud();
+  drawShells(); drawCar(tod); drawHud();
   if (pitT > 0) drawPit();
   if (upgradeT > 0 && Math.floor(upgradeT * 4) % 2 === 0) {
     ctx.fillStyle = 'rgba(20,10,38,0.85)'; ctx.fillRect(W / 2 - 74, 100, 148, 34);
     txt('UPGRADE!', W / 2, 105, 8, '#3ef0ff', 'center');
-    txt('MONSTER TRUCK', W / 2, 119, 10, '#ff3df2', 'center');
+    txt(RIDES[ride][1], W / 2, 119, 10, ride === 3 ? '#b8c46a' : ride === 2 ? '#ffb000' : '#ff3df2', 'center');
   }
   if (flash > 0) { ctx.fillStyle = `rgba(255,${flash > 0.5 ? 255 : 74},74,${Math.min(0.6, flash)})`; ctx.fillRect(0, 0, W, H); }
 }
@@ -361,13 +415,21 @@ function setLane(l) {
   if (state === 'playing') beep(330 + l * 110, 0.03);
 }
 
+function milestone() {
+  const next = RIDES.findIndex(r => r[0] === passed);
+  if (passed % PIT_EVERY === 0) { pitT = PIT_TIME; pitFixed = false; [659, 523].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 140)); }
+  if (next > ride) { if (pitT > 0) pendingRide = next; else upgrade(next); }     // during a pit stop, the new ride waits until you pull away
+}
+function upgrade(r) {
+  ride = r; upgradeT = 2.6; updateFire();
+  [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70));
+}
 function pass(g) {
   if (SHAPES[lane] === g.shape) {
     passed++; streak++;
     score += 100 + 20 * Math.min(streak, 10);
     beep(988, 0.05); setTimeout(() => beep(1319, 0.07), 60);
-    if (passed === TRUCK_AT && !truck) { truck = true; upgradeT = 2.6; [392, 523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.07, 'sawtooth'), i * 70)); }
-    if (passed % PIT_EVERY === 0) { pitT = PIT_TIME; pitFixed = false; [659, 523].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 140)); }
+    milestone();
   } else {
     lives--; streak = 0; flash = 1; shake = 0.4; speed = Math.max(5, speed * 0.85);
     beep(120, 0.18, 'sawtooth'); setTimeout(() => beep(70, 0.25, 'sawtooth'), 90);
@@ -383,6 +445,7 @@ function frame(t) {
   let mul = 1;
   if (pitT > 0) {
     pitT = Math.max(0, pitT - dt);
+    if (pitT === 0 && pendingRide) { upgrade(pendingRide); pendingRide = 0; }
     const held = PIT_TIME - 0.9;
     mul = pitT > held ? (pitT - held) / 0.9 : pitT > 0.9 ? 0 : 1 - pitT / 0.9;
     if (!pitFixed && pitT < held - 0.8) { pitFixed = true; lives = 3; [523, 659, 784].forEach((f, i) => setTimeout(() => beep(f, 0.08), i * 120)); }
@@ -391,6 +454,12 @@ function frame(t) {
   const v = speed * mul;
   travel += v * dt;
   gates.forEach(g => g.z -= v * dt);
+  // tank rounds fly up the road; the sign they hit is blown away and counts as cleared
+  reload = Math.max(0, reload - dt); muzzle = Math.max(0, muzzle - dt);
+  shells.forEach(sh => { sh.z += 55 * dt; if (!sh.done && sh.target && sh.z >= sh.target.z) { sh.done = true; blast(sh.target); } });
+  shells = shells.filter(sh => !sh.done && sh.z < Z_FAR);
+  booms.forEach(b => { b.z -= v * dt; b.t += dt; }); booms = booms.filter(b => b.t < 0.8 && b.z > Z_NEAR * 0.6);
+  updateFire();
   // pick a new bend now and then: about half the time the road runs straight
   if (travel > curveUntil) {
     curveTarget = Math.random() < 0.45 ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
@@ -409,6 +478,35 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
+// ---- The tank's gun ------------------------------------------------------
+function updateFire() {
+  const b = document.getElementById('fire');
+  b.classList.toggle('hidden', ride !== 3 || state !== 'playing');
+  b.classList.toggle('wait', reload > 0);
+  const label = reload > 0 ? String(Math.ceil(reload)) : 'FIRE';                // while reloading, a countdown
+  if (b.textContent !== label) b.textContent = label;
+}
+function fire() {
+  if (state !== 'playing' || ride !== 3 || reload > 0 || pitT > 0) return;
+  const target = gates.find(g => !g.marked && g.z > Z_NEAR);
+  if (!target) return;
+  target.marked = true; reload = RELOAD; muzzle = 0.15;
+  shells.push({ z: Z_NEAR * 1.1, x: carX, target });
+  beep(90, 0.12, 'square'); setTimeout(() => beep(60, 0.2, 'sawtooth'), 40);
+  updateFire();
+}
+function blast(g) {
+  // the sign is gone: no lane to pick, and it counts as a cleared sign
+  const i = gates.indexOf(g); if (i < 0) return;
+  gates.splice(i, 1);
+  booms.push({ z: g.z, t: 0 });
+  passed++; streak++; score += 50;
+  beep(70, 0.3, 'sawtooth'); setTimeout(() => beep(45, 0.35, 'square'), 60);
+  shake = 0.25;
+  milestone();
+}
+document.getElementById('fire').addEventListener('pointerdown', e => { e.preventDefault(); fire(); });
+
 // ---- Screens -------------------------------------------------------------
 function scoreTable(hi) {
   const list = highScores();
@@ -422,7 +520,7 @@ function showStart() {
   overlay(`<h2>PROGRESSION<br>RUN</h2>
     <p>EACH SIGN SHOWS A CHORD AND A FRET, LIKE <b style="color:#ffd166">C @8</b>.</p>
     <p>STEER INTO THE LANE OF THE SHAPE THAT PLAYS THAT CHORD THERE: <span class="e">ECHO</span> <span class="a">ALPHA</span> <span class="d">DELTA</span>.</p>
-    <p>GET 10 RIGHT AND YOUR RIDE GETS AN UPGRADE. EVERY 20 RIGHT, A PIT STOP FIXES YOUR CAR.</p>
+    <p>KEEP GETTING THEM RIGHT AND YOUR RIDE GETS UPGRADED. EVERY 20 RIGHT, A PIT STOP FIXES YOUR CAR.</p>
     ${scoreTable(-1)}
     <span class="go" onclick="startGame()">PRESS START</span>`);
 }
@@ -430,7 +528,8 @@ function showStart() {
 function startGame() {
   score = 0; lives = 3; passed = 0; streak = 0; speed = BASE_SPEED; travel = 0; pitT = 0; pitFixed = false;
   gates = []; queue = []; key = undefined; shake = 0; flash = 0; lastT = 0;
-  curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; truck = false; upgradeT = 0;
+  curve = 0; curveTarget = 0; curveUntil = GATE_GAP * 2; skyShift = 0; ride = 0; pendingRide = 0; upgradeT = 0; reload = 0; shells = []; booms = []; muzzle = 0;
+  updateFire();
   setLane(1); carX = W / 2;
   let z = 18;
   for (let i = 0; i < 2; i++, z += GATE_GAP) gates.push(Object.assign(nextGate(), { z }));
@@ -441,7 +540,7 @@ function startGame() {
 }
 
 function gameOver() {
-  state = 'over';
+  state = 'over'; updateFire();
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
@@ -465,6 +564,7 @@ function saveScore() {
 document.querySelectorAll('.lane').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); setLane(+b.dataset.lane); }));
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('initials')) { saveScore(); return; }
+  if (e.key === ' ') { e.preventDefault(); fire(); }
   if (e.key === 'ArrowLeft') setLane(lane - 1);
   if (e.key === 'ArrowRight') setLane(lane + 1);
   if (e.key === '1') setLane(0); if (e.key === '2') setLane(1); if (e.key === '3') setLane(2);
