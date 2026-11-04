@@ -26,9 +26,9 @@ a, button { font: inherit; color: inherit; }
 /* the race strip: key, the number to find, time and gates */
 .strip { display: grid; grid-template-columns: 1fr 1.3fr 1fr; margin-top: 6px; background: var(--snow); color: var(--navy); border-top: 5px solid var(--red); border-bottom: 5px solid var(--yellow); }
 .strip div { padding: 4px 8px 3px; line-height: 1.05; font-size: 13px; letter-spacing: 1px; }
-.strip b { display: block; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 24px; letter-spacing: 0; }
+.strip b { display: block; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 34px; line-height: 1.05; letter-spacing: 0; }
 .strip .find { background: var(--navy); color: var(--snow); text-align: center; }
-.strip .find b { color: var(--yellow); font-size: 30px; }
+.strip .find b { color: var(--yellow); font-size: 44px; }
 .strip .r { text-align: right; }
 .stage { position: relative; margin-top: 8px; }
 .stage:has(.over:not(.hidden)) { min-height: 470px; }
@@ -257,12 +257,12 @@ function gateRow(r) {
   if (r.z > 34 || r.z < 0.6) return;                              // only the next few rows are on the slope
   const y = lrow(r.z), s = lsc(r.z), k = depth(r.z);
   r.gates.forEach((name, i) => {
-    const cx = lsx(LANES[i], r.z), pl = Math.round(cx - GATE_HALF * s), pr = Math.round(cx + GATE_HALF * s), ph = Math.round(s * 0.62);
+    const cx = lsx(LANES[i], r.z), pl = Math.round(cx - GATE_HALF * s), pr = Math.round(cx + GATE_HALF * s), ph = Math.round(s * 1.5);           // tall poles so the gates stand out
     const hit = r.done && r.taken === i, dim = r.done && !hit;
     const pole = Math.max(1, Math.round(s * 0.025));
     px(pl - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT); px(pr - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT);
     // pennants on top of each pole
-    const fh = Math.max(2, Math.round(s * 0.13));
+    const fh = Math.max(2, Math.round(s * 0.22));
     for (let j = 0; j < fh; j++) { const fw = Math.round((fh - Math.abs(j - fh / 2) * 2) * 0.9); px(pl + pole, y - ph + j, fw, 1, r.col); px(pr - fw, y - ph + j, fw, 1, r.col); }
     // the banner between the poles
     const bx = pl + pole + 1, bw = pr - pl - pole - 2, bh = Math.max(3, Math.round(s * 0.26)), by = Math.round(y - ph + s * 0.17);
@@ -335,6 +335,25 @@ function draw() {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(low, 0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // the number and the key, big across the sky so you never have to look away from the slope
+  const next = rows.find(r => !r.done);
+  if (next && state === 'playing') {
+    const cx = W / 2, cy = HZ * 0.42, big = Math.round(H * 0.13), small = Math.round(big * 0.42);
+    ctx.lineJoin = 'round';
+    const outlined = (t, x, y, size, fill) => {
+      ctx.font = `${size}px 'Racing Sans One', sans-serif`;
+      ctx.lineWidth = Math.max(4, size * 0.16); ctx.strokeStyle = '#1c2a5a'; ctx.strokeText(t, x, y);
+      ctx.fillStyle = fill; ctx.fillText(t, x, y);
+    };
+    // laid out as: big number, a small "in", then the key nearly as big
+    const parts = [[NUM[next.deg], big, '#ffc61a', 0], ['in', Math.round(big * 0.34), '#ffffff', big * 0.14], [key, Math.round(big * 0.8), '#ffffff', big * 0.04]];
+    const gap = Math.round(big * 0.16);
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    const widths = parts.map(([t, size]) => { ctx.font = `${size}px 'Racing Sans One', sans-serif`; return ctx.measureText(t).width; });
+    let x = cx - (widths.reduce((a, b) => a + b, 0) + gap * 2) / 2;
+    parts.forEach(([t, size, fill, dy], i) => { outlined(t, x, cy + dy, size, fill); x += widths[i] + gap; });
+    ctx.textAlign = 'center';
+  }
   labels.forEach(l => {
     const size = Math.max(7, Math.round(Math.min(l.size * PXS * 0.7, (l.w - 2) * PXS * 0.9 / l.text.length)));   // fit inside the banner
     ctx.font = `${size}px 'Press Start 2P', monospace`; ctx.fillStyle = l.color;
