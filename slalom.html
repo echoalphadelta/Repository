@@ -11,56 +11,59 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Slalom | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Press+Start+2P&family=Racing+Sans+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+15&family=Tiny5&display=swap" rel="stylesheet">
 <style>
-/* An 80s ski poster: ice blue sky, white snow, red and navy, slanted sports lettering */
-:root { --navy: #1c2a5a; --red: #e0322b; --yellow: #ffc61a; --ice: #cfe8f5; --snow: #f7fbff; --green: #1f9d55; --blue: #2363c9; }
+/* A 90s console game: pixel lettering everywhere, blue menu windows with white pixel borders */
+:root { --navy: #1c2a5a; --ink: #1a1030; --red: #e0322b; --yellow: #ffd23a; --pink: #ea3a83; --snow: #f7fbff; --soft: #b8c4ff; --win1: #3a4ac0; --win2: #121a66; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; background: var(--navy); }
-body { color: var(--snow); font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-weight: 600; font-size: 17px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+html, body { margin: 0; padding: 0; background: #0c1240; }
+body { color: var(--snow); font-family: 'Jersey 15', monospace; font-size: 24px; letter-spacing: 1px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
 a, button { font: inherit; color: inherit; }
 .screen { max-width: 460px; margin: 0 auto; padding: 8px 12px 14px; }
-.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 16px; letter-spacing: 1px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 28px; font-size: 26px; }
 .top a { text-decoration: none; color: var(--yellow); }
-.top button { background: none; border: none; padding: 0; cursor: pointer; color: #9fb3d6; }
-/* the race strip: key, the number to find, time and gates */
-.strip { display: grid; grid-template-columns: 1fr 1.3fr 1fr; margin-top: 6px; background: var(--snow); color: var(--navy); border-top: 5px solid var(--red); border-bottom: 5px solid var(--yellow); }
-.strip div { padding: 4px 8px 3px; line-height: 1.05; font-size: 13px; letter-spacing: 1px; }
-.strip b { display: block; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 34px; line-height: 1.05; letter-spacing: 0; }
-.strip .find { background: var(--navy); color: var(--snow); text-align: center; }
-.strip .find b { color: var(--yellow); font-size: 44px; }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: var(--soft); }
+/* a menu window: blue gradient, a white pixel border, a dark rim */
+.win { background: linear-gradient(var(--win1), var(--win2)); border: 3px solid #eef2ff; outline: 3px solid var(--ink); border-radius: 4px; }
+/* the race readout: key, the number to find, and the clock */
+.strip { display: grid; grid-template-columns: 1fr 1.2fr 1fr; margin: 9px 3px 0; }
+.strip div { padding: 4px 8px 4px; line-height: 1; font-size: 20px; color: var(--soft); }
+.strip b { display: block; font-weight: 400; font-size: 52px; line-height: 1; color: var(--snow); margin-top: 2px; }
+.strip .find { text-align: center; border-left: 3px dotted #6a78d8; border-right: 3px dotted #6a78d8; }
+.strip .find b { color: var(--yellow); font-size: 66px; text-shadow: 3px 3px 0 var(--pink); }
 .strip .r { text-align: right; }
-.stage { position: relative; margin-top: 8px; }
+.stage { position: relative; margin-top: 12px; }
 .stage:has(.over:not(.hidden)) { min-height: 470px; }
-canvas { display: block; margin: 0 auto; touch-action: none; image-rendering: pixelated; }
-.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-.controls button { height: 56px; border: none; background: var(--red); color: var(--snow); font-family: 'Racing Sans One', sans-serif; font-size: 26px; cursor: pointer; touch-action: none; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.22); }
-.controls button.on { background: #b0221c; box-shadow: inset 0 3px 0 rgba(0,0,0,0.25); }
-.over { position: absolute; inset: 0; background: var(--ice); color: var(--navy); padding: 16px 16px; overflow: auto; }
+canvas { display: block; margin: 0 auto; touch-action: none; image-rendering: pixelated; outline: 3px solid var(--ink); }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.controls button { height: 58px; border: 3px solid var(--ink); border-radius: 4px; background: linear-gradient(#ff6a52, #c42a20); color: var(--snow); font-size: 52px; line-height: 1; cursor: pointer; touch-action: none; box-shadow: inset 0 -5px 0 #8a1a14, inset 0 3px 0 #ff9a86; text-shadow: 2px 2px 0 var(--ink); }
+.controls button.on { box-shadow: inset 0 3px 0 #8a1a14; transform: translateY(2px); }
+.over { position: absolute; inset: 6px; padding: 16px 16px; overflow: auto; }
 .over.hidden { display: none; }
-.over h2 { margin: 0; font-family: 'Racing Sans One', sans-serif; font-weight: 400; font-size: 50px; line-height: 1; color: var(--red); }
-.bands { height: 12px; margin: 6px 0 14px; background: linear-gradient(var(--red) 0 33%, var(--snow) 33% 66%, var(--yellow) 66%); }
-.over p { margin: 0 0 8px; line-height: 1.3; font-size: 17px; }
-.over p b { color: var(--red); font-weight: 700; }
-.runs { display: grid; gap: 8px; margin: 4px 0 14px; }
-.run { display: flex; align-items: center; gap: 12px; padding: 9px 12px 8px; background: var(--snow); border: none; border-left: 6px solid var(--navy); text-align: left; cursor: pointer; color: var(--navy); }
-.run:active { transform: translateX(2px); }
+.over h2 { margin: 0; font-family: 'Tiny5', monospace; font-weight: 400; font-size: 68px; line-height: 0.9; letter-spacing: 3px; color: var(--yellow); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 var(--ink); }
+.bands { height: 6px; margin: 12px 0 14px; background: repeating-linear-gradient(90deg, var(--yellow) 0 6px, transparent 6px 12px); }
+.over p { margin: 0 0 10px; line-height: 1.15; font-size: 24px; }
+.over p b { color: var(--yellow); font-weight: 400; }
+.runs { display: grid; gap: 4px; margin: 4px 0 14px; }
+.run { display: flex; align-items: center; gap: 12px; padding: 8px 8px; background: none; border: none; text-align: left; cursor: pointer; color: var(--snow); }
+.run::before { content: '\25B6'; color: var(--yellow); font-size: 14px; animation: blink 0.8s steps(1) infinite; }
+.run:active, .run:hover { background: rgba(255,255,255,0.12); }
+@keyframes blink { 50% { opacity: 0; } }
 .run .icon { width: 26px; height: 26px; flex-shrink: 0; }
-.run .name { font-family: 'Racing Sans One', sans-serif; font-size: 22px; line-height: 1; }
-.run .what { font-size: 14px; color: #4a5a86; }
-.run .best { margin-left: auto; font-family: 'Racing Sans One', sans-serif; font-size: 18px; color: var(--red); }
-.big { font-family: 'Racing Sans One', sans-serif; font-size: 52px; line-height: 1; color: var(--navy); }
-.lbl { font-size: 16px; color: #4a5a86; margin: 4px 0 12px; }
-.go { display: inline-block; margin: 2px 8px 14px 0; padding: 8px 16px 7px; background: var(--red); color: var(--snow); font-family: 'Racing Sans One', sans-serif; font-size: 20px; cursor: pointer; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.22); }
-.go.alt { background: var(--navy); }
-.hs-h { font-size: 15px; letter-spacing: 1px; color: var(--red); margin: 6px 0 4px; }
-.hs { display: grid; grid-template-columns: 1.6em 3.2em auto; row-gap: 2px; font-size: 18px; }
-.hs span:nth-child(3n) { font-family: 'Racing Sans One', sans-serif; }
-.hs .me { background: var(--yellow); }
+.run .name { font-size: 34px; line-height: 1; }
+.run .what { font-size: 21px; color: var(--soft); }
+.run .best { margin-left: auto; font-size: 28px; color: var(--yellow); }
+.big { font-size: 86px; line-height: 1; color: var(--yellow); text-shadow: 3px 3px 0 var(--pink); }
+.lbl { font-size: 22px; color: var(--soft); margin: 6px 0 12px; }
+.go { display: inline-block; margin: 2px 8px 14px 0; padding: 8px 14px 7px; background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); border-radius: 3px; font-size: 30px; cursor: pointer; box-shadow: inset 0 -4px 0 #d99a1a; }
+.go.alt { background: #eef2ff; box-shadow: inset 0 -4px 0 var(--soft); }
+.hs-h { font-size: 22px; color: var(--yellow); margin: 6px 0 4px; }
+.hs { display: grid; grid-template-columns: 1.6em 3.2em auto; row-gap: 2px; font-size: 28px; }
+.hs .me { background: var(--pink); }
 .ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
-.ini input { width: 92px; font: inherit; font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; background: none; color: var(--navy); border: none; border-bottom: 3px solid var(--red); border-radius: 0; padding: 0 0 0 4px; }
+.ini input { width: 110px; font: inherit; font-size: 46px; letter-spacing: 4px; text-transform: uppercase; background: none; color: var(--snow); border: none; border-bottom: 3px solid var(--yellow); border-radius: 0; padding: 0 0 0 4px; }
 .ini input:focus { outline: none; }
-.ini button { background: var(--red); color: var(--snow); border: none; padding: 7px 14px 6px; cursor: pointer; border-radius: 0; font-weight: 700; }
+.ini button { background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); padding: 5px 12px 4px; cursor: pointer; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -69,18 +72,18 @@ canvas { display: block; margin: 0 auto; touch-action: none; image-rendering: pi
     <a href="arcade.html">&lt; ARCADE</a>
     <button id="snd" onclick="toggleSound()">SND ON</button>
   </div>
-  <div class="strip">
+  <div class="strip win">
     <div>KEY<b id="key">C</b></div>
     <div class="find">FIND THE<b id="find">5</b></div>
     <div class="r">TIME<b id="time">0:00.0</b></div>
   </div>
   <div class="stage">
     <canvas id="cv"></canvas>
-    <div class="over" id="over"></div>
+    <div class="over win" id="over"></div>
   </div>
   <div class="controls">
-    <button id="left" aria-label="Steer left">&lt;</button>
-    <button id="right" aria-label="Steer right">&gt;</button>
+    <button id="left" aria-label="Steer left">&lt;&lt;</button>
+    <button id="right" aria-label="Steer right">&gt;&gt;</button>
   </div>
 </div>
 
@@ -341,7 +344,7 @@ function draw() {
     const cx = W / 2, cy = HZ * 0.42, big = Math.round(H * 0.13), small = Math.round(big * 0.42);
     ctx.lineJoin = 'round';
     const outlined = (t, x, y, size, fill) => {
-      ctx.font = `${size}px 'Racing Sans One', sans-serif`;
+      ctx.font = `${size}px 'Jersey 15', monospace`;
       ctx.lineWidth = Math.max(4, size * 0.16); ctx.strokeStyle = '#1c2a5a'; ctx.strokeText(t, x, y);
       ctx.fillStyle = fill; ctx.fillText(t, x, y);
     };
@@ -349,14 +352,14 @@ function draw() {
     const parts = [[NUM[next.deg], big, '#ffc61a', 0], ['in', Math.round(big * 0.34), '#ffffff', big * 0.14], [key, Math.round(big * 0.8), '#ffffff', big * 0.04]];
     const gap = Math.round(big * 0.16);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    const widths = parts.map(([t, size]) => { ctx.font = `${size}px 'Racing Sans One', sans-serif`; return ctx.measureText(t).width; });
+    const widths = parts.map(([t, size]) => { ctx.font = `${size}px 'Jersey 15', monospace`; return ctx.measureText(t).width; });
     let x = cx - (widths.reduce((a, b) => a + b, 0) + gap * 2) / 2;
     parts.forEach(([t, size, fill, dy], i) => { outlined(t, x, cy + dy, size, fill); x += widths[i] + gap; });
     ctx.textAlign = 'center';
   }
   labels.forEach(l => {
     const size = Math.max(7, Math.round(Math.min(l.size * PXS * 0.7, (l.w - 2) * PXS * 0.9 / l.text.length)));   // fit inside the banner
-    ctx.font = `${size}px 'Press Start 2P', monospace`; ctx.fillStyle = l.color;
+    ctx.font = `${size}px 'Jersey 15', monospace`; ctx.fillStyle = l.color;
     ctx.fillText(l.text, l.x * PXS, l.y * PXS + size * 0.08);
   });
 }
@@ -430,8 +433,8 @@ function frame(t) {
 }
 
 // ---- Screens -------------------------------------------------------------
-function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; }
-function hideOverlay() { document.getElementById('over').className = 'over hidden'; }
+function overlay(html) { const o = document.getElementById('over'); o.className = 'over win'; o.innerHTML = html; }
+function hideOverlay() { document.getElementById('over').className = 'over win hidden'; }
 const ICON = {
   green: '<svg class="icon" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="#1f9d55"/></svg>',
   blue: '<svg class="icon" viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20" fill="#2363c9"/></svg>',
@@ -440,7 +443,7 @@ const ICON = {
 function bestFor(r) { const t = times()[r] || []; return t.length ? fmt(t[0].s) : ''; }
 function showStart() {
   state = 'start';
-  overlay(`<h2>Slalom</h2><div class="bands"></div>
+  overlay(`<h2>SLALOM</h2><div class="bands"></div>
     <p>Snowboard down the mountain through the gates. Each gate has a note. Ride through the one that is the <b>number</b> shown, in the key shown.</p>
     <div class="runs">${Object.entries(RUNS).map(([id, r]) => `<button class="run" onclick="startRun('${id}')">${ICON[id]}<span><span class="name">${r.name}</span><br><span class="what">${r.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>
     <p>Hold the arrows or drag to carve your board. A wrong gate or a missed one adds ${PENALTY} seconds. Fastest time wins.</p>`);
@@ -463,7 +466,7 @@ function finish() {
   [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle'), i * 100));
   const list = times()[run] || [];
   const qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
-  overlay(`<h2>Finish!</h2><div class="bands"></div>
+  overlay(`<h2>FINISH!</h2><div class="bands"></div>
     <div class="big">${fmt(finalTime)}</div>
     <div class="lbl">${RUNS[run].name}, KEY OF ${key}. ${hits} OF ${GATES} GATES${penalties ? `, +${penalties}s IN PENALTIES` : ''}.</div>
     ${qualifies
@@ -480,7 +483,7 @@ function saveTime() {
   const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalTime.toFixed(1) };
   const all = times(); const list = all[run] || []; list.push(entry); list.sort((a, b) => a.s - b.s);
   all[run] = list.slice(0, 10); store(HS_KEY, JSON.stringify(all));
-  overlay(`<h2>Finish!</h2><div class="bands"></div><div class="big">${fmt(finalTime)}</div><div class="lbl">ON THE BOARD.</div>
+  overlay(`<h2>FINISH!</h2><div class="bands"></div><div class="big">${fmt(finalTime)}</div><div class="lbl">ON THE BOARD.</div>
     <span class="go" onclick="startRun('${run}')">Ride Again</span><span class="go alt" onclick="showStart()">Runs</span>${table(run, all[run].indexOf(entry))}`);
 }
 
