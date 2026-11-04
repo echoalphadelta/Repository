@@ -61,6 +61,8 @@ canvas { display: block; touch-action: none; border: 3px solid var(--ink); }
 .cl .what { font-size: 19px; color: var(--grey); }
 .cl .best { margin-left: auto; font-size: 26px; color: var(--yellow); }
 .big { font-size: 80px; line-height: 1; color: var(--yellow); text-shadow: 4px 4px 0 var(--red); }
+.medal { display: flex; align-items: center; gap: 10px; font-size: 30px; color: var(--m); margin: 4px 0; }
+.medal i { width: 26px; height: 26px; border-radius: 50%; background: var(--m); box-shadow: inset -3px -3px 0 rgba(0,0,0,0.3), 0 0 0 3px #000; }
 .lbl { font-size: 20px; color: var(--grey); margin: 6px 0 12px; }
 .go { display: inline-block; margin: 2px 8px 14px 0; padding: 6px 14px 5px; background: var(--yellow); color: var(--ink); font-size: 28px; cursor: pointer; border-bottom: 4px solid #a06800; }
 .go.alt { background: var(--white); border-color: var(--grey); }
@@ -123,7 +125,7 @@ let W = 360, H = 248, PXS = 1.5;
 let state = 'start', cls = 'club', key = 'D', time = 0, penalties = 0, hits = 0, lastT = 0, flash = 0, soundOn = true;
 let feats = [], finishX = 0, next = 0;
 // the bike: distance along the track, lane (0 is the back), height above the dirt, speeds, tilt
-let bx, lane, laneTo, hy, vx, vy, air, tilt, boostT, wobbleT, dust, launchSc = 1, climb = 0;
+let streak = 0, bx, lane, laneTo, hy, vx, vy, air, tilt, boostT, wobbleT, dust, launchSc = 1, climb = 0;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -166,7 +168,7 @@ function toggleSound() {
 // back meets a hill a few pixels later, so every ramp edge runs on a slant across the track.
 const BASE = 104, SHEAR = 5, BIKE_X = 50, LANE = 22, GROUND = BASE + 4 * LANE, VIEW = GROUND + 10;
 let LW = 232, LHT = VIEW, OFF = 0;   // a tall screen gets more sky, room for the big jumps later on
-const low = document.createElement('canvas'), lc = low.getContext('2d');
+const low = document.createElement('canvas'); let lc = low.getContext('2d');
 const FIRST = 300, PAD_BEFORE = 84, PAD_W = 24;
 // the hills get bigger and busier as the race goes on
 const POOLS = [['bump', 'table', 'whoops'], ['double', 'table', 'kicker', 'step', 'whoops'], ['step', 'gap', 'triple', 'kicker', 'table', 'double']];
@@ -312,20 +314,59 @@ function paintBike(spin, up) {
   sc.putImageData(img, 0, 0);
 }
 
+// ---- Time of day ---------------------------------------------------------
+// The race starts in the afternoon and ends at night: the sky runs through sunset and dusk,
+// the land darkens, and the floodlights come on halfway.
+const SKIES = [
+  [0,    ['#1c2c9c', '#2440b4', '#3054cc', '#3c6ce0', '#5084ec', '#68a0f4', '#88bcfc', '#acd4fc']],
+  [0.28, ['#1c2c9c', '#2440b4', '#3054cc', '#3c6ce0', '#5084ec', '#68a0f4', '#88bcfc', '#acd4fc']],
+  [0.48, ['#2c2c7c', '#4c3c94', '#7c4c9c', '#b45c8c', '#e0707c', '#f4906c', '#fcb46c', '#fcd88c']],
+  [0.64, ['#0c1040', '#18185c', '#2c2470', '#482c7c', '#6c3c80', '#94507c', '#b86c74', '#d08c74']],
+  [0.8,  ['#04061c', '#060a24', '#0a1030', '#0e163c', '#121c48', '#182454', '#1e2c60', '#26386c']],
+  [1,    ['#04061c', '#060a24', '#0a1030', '#0e163c', '#121c48', '#182454', '#1e2c60', '#26386c']],
+];
+const hexRGB = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const mix = (a, b, t) => { const A = hexRGB(a), B = hexRGB(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; };
+const clamp01 = v => Math.max(0, Math.min(1, v));
+function skyAt(p) {
+  let i = 0; while (i < SKIES.length - 2 && p > SKIES[i + 1][0]) i++;
+  const [p0, a] = SKIES[i], [p1, b] = SKIES[i + 1], t = clamp01((p - p0) / (p1 - p0));
+  return a.map((c, k) => mix(c, b[k], t));
+}
+// how dark the land gets, and its tint: warm at sunset, deep blue at night
+const darkAt = p => p < 0.3 ? 0 : p < 0.5 ? (p - 0.3) / 0.2 * 0.18 : p < 0.66 ? 0.18 + (p - 0.5) / 0.16 * 0.3 : p < 0.8 ? 0.48 + (p - 0.66) / 0.14 * 0.14 : 0.62;
+const tintAt = p => p < 0.55 ? '#5a2408' : mix('#5a2408', '#040a34', clamp01((p - 0.55) / 0.2));
+const STARS = Array.from({ length: 90 }, (_, i) => ({ x: noise(i, 1), y: noise(i, 2) * 0.85, s: noise(i, 3) > 0.85 ? 2 : 1, w: noise(i, 4) * 6 }));
+let lightsAt = -1, lamps = [], camFlash = [];
+function lightLevel() {
+  if (lightsAt < 0) return 0;
+  const t = performance.now() / 1000 - lightsAt;
+  return t > 0.8 ? 1 : Math.random() < 0.55 ? 1 : 0.1;        // they stutter on, then hold
+}
+
 // ---- Drawing -------------------------------------------------------------
-let shakeT = 0;
+let shakeT = 0, pops = [], fw = [], countT = 0;
+const scene = document.createElement('canvas'), gc = scene.getContext('2d');
 function draw() {
-  labels = [];
+  labels = []; lamps = []; camFlash = [];
   const cam = (bx || 0) - BIKE_X, now = performance.now() / 1000;
+  const p = state === 'start' || !finishX ? 0 : clamp01(bx / finishX), night = clamp01((p - 0.6) / 0.2);
+  // 1. the sky, sun, moon and stars straight onto the main buffer
   lc.setTransform(R, 0, 0, R, 0, 0); lc.imageSmoothingEnabled = false;
   if (shakeT > 0) lc.translate(Math.round((Math.random() - 0.5) * 3), Math.round((Math.random() - 0.5) * 3));
-  // sky in bands, dithered where they meet, and a low sun
-  const hz = OFF + 70, band = hz / SKY.length;
+  const SKY = skyAt(p), hz = OFF + 70, band = hz / SKY.length;
   SKY.forEach((c, i) => P(0, i * band, LW, band + 1, c));
   for (let i = 1; i < SKY.length; i++) { const y = Math.round(i * band) - 1; for (let x = (i & 1); x < LW; x += 2) P(x, y, 1, 1, SKY[i]); for (let x = (i & 1) + 1; x < LW; x += 2) P(x, y + 1, 1, 1, SKY[i - 1]); }
   P(0, hz, LW, LHT - hz, SKY[SKY.length - 1]);
-  const sx0 = LW * 0.8, sy0 = OFF * 0.3 + 18;
-  disc(sx0, sy0, 15, '#9ccafc'); disc(sx0, sy0, 12, '#cce4fc'); disc(sx0, sy0, 9, '#fcf4cc'); disc(sx0, sy0, 7, '#fcfcf0');
+  if (night > 0) STARS.forEach(s => { const a = night * (0.55 + 0.45 * Math.sin(now * 3 + s.w)); lc.fillStyle = `rgba(252,252,240,${a})`; lc.fillRect(Math.round(s.x * LW), Math.round(s.y * hz * 0.9), s.s, s.s); });
+  // the sun slides down and reddens; the moon climbs once it is gone
+  const sunT = clamp01((p - 0.15) / 0.45), sx0 = LW * 0.8, sy0 = OFF * 0.3 + 18 + sunT * (hz - OFF * 0.3 - 6);
+  if (sunT < 1) { disc(sx0, sy0, 15, mix('#9ccafc', '#fca46c', sunT)); disc(sx0, sy0, 12, mix('#cce4fc', '#fcc07c', sunT)); disc(sx0, sy0, 9, mix('#fcf4cc', '#fc8c3c', sunT)); disc(sx0, sy0, 7, mix('#fcfcf0', '#fc6c24', sunT)); }
+  if (p > 0.6) { const mt = clamp01((p - 0.6) / 0.35), mx = LW * 0.24, my = hz - 10 - mt * (hz * 0.7); disc(mx, my, 13, 'rgba(200,210,255,0.12)'); disc(mx, my, 9, '#f0ecd4'); disc(mx - 3, my - 2, 2, '#d4d0b8'); disc(mx + 3, my + 3, 1, '#d4d0b8'); disc(mx + 2, my - 4, 1, '#d4d0b8'); }
+
+  // 2. everything on the ground goes to a second buffer, so it can be darkened as night falls
+  const L = lightLevel();
+  const g0 = lc; lcSwap(gc); lc.setTransform(R, 0, 0, R, 0, 0); lc.clearRect(0, 0, LW, LHT); lc.imageSmoothingEnabled = false;
   for (let k = 0; k < 6; k++) {
     const cx = ((k * 97 - cam * (0.06 + k * 0.012)) % 560 + 560) % 560 - 60;
     cloud(cx, 16 + OFF * [0.08, 0.5, 0.25, 0.7, 0.4, 0.15][k], [1, 0.8, 1.2, 0.7, 0.9, 1.1][k]);
@@ -333,7 +374,15 @@ function draw() {
   lc.save(); lc.translate(0, OFF);
   if (mtn) tile(mtn, MT, MH, 0.06, cam, 70 - MH);
   if (woods) tile(woods, WT, 40, 0.3, cam, 44);
-  // grandstands now and then, crowd bobbing in the seats
+  // floodlight towers between the stands
+  for (let n = Math.floor((cam * 0.95 - 100) / 300); n < Math.floor((cam * 0.95 + LW) / 300) + 1; n++) {
+    const tx = n * 300 + 230 - cam * 0.95, top = 14 - OFF * 0.4;
+    for (let y = top + 8; y < 90; y++) { P(tx, y, 1, 1, '#9c9cac'); P(tx + 6, y, 1, 1, '#6c6c7c'); if (((y - top) | 0) % 8 === 0) for (let i = 0; i < 7; i++) P(tx + i, y + Math.round(i * 0.9), 1, 1, '#84849a'); }
+    P(tx - 9, top - 4, 25, 13, '#26262e'); P(tx - 9, top - 4, 25, 1, '#4c4c58');
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const lx = tx - 7 + c * 6, ly = top - 2 + r * 6; P(lx, ly, 4, 4, '#5c5c66'); lamps.push([lx + 2, ly + 2]); }
+    lamps.push(['head', tx + 3, top + 9]);
+  }
+  // grandstands, crowd bobbing in the seats, cameras flashing once it is dark
   for (let n = Math.floor((cam * 0.9 - 200) / 380); n < Math.floor((cam * 0.9 + LW) / 380) + 1; n++) {
     const gx = n * 380 + 40 - cam * 0.9, w = 150;
     P(gx - 2, 50, w + 4, 3, '#e8e8f0');
@@ -344,13 +393,12 @@ function draw() {
       for (let a = 1; a < w; a += 2) {
         const v = noise(n * 1000 + a, r), bob = Math.sin(now * 6 + a * 0.4 + r) > 0.85 ? -1 : 0;
         if (v > 0.18) P(gx + a, 58 + r * 4 + bob, 1, 2, ['#f8b800', '#fcfcfc', '#d82800', '#58a0fc', '#fc8cc8', '#7ce07c', '#fca044'][Math.floor(v * 7) % 7]);
+        if (night > 0.3 && v > 0.18 && Math.random() < 0.0016) camFlash.push([gx + a, 58 + r * 4]);
       }
     }
     for (let a = 0; a <= w; a += 50) P(gx + a, 50, 2, 32, '#9c9cac');
-    // two flags on top
     [0.25, 0.75].forEach((q, i) => { const fx = gx + w * q; P(fx, 40, 1, 10, '#c8c8d0'); for (let r = 0; r < 4; r++) P(fx + 1, 40 + r, 6 - r + Math.round(Math.sin(now * 8 + r + i)), 1, i ? '#f8b800' : '#2050d8'); });
   }
-  // advertising boards along the barrier, then mown grass up to the track
   for (let a = -((cam % 40) + 40) % 40 - 40; a < LW; a += 40) {
     const n = Math.floor((a + cam) / 40), c = ['#d82800', '#fcfcfc', '#2050d8', '#f8b800'][((n % 4) + 4) % 4];
     P(a, 81, 40, 9, c); P(a, 81, 40, 1, '#fcfcfc'); P(a + 39, 81, 1, 9, '#202028');
@@ -358,41 +406,30 @@ function draw() {
   }
   P(0, 90, LW, 1, '#1c6c2c');
   for (let a = -((cam % 24) + 24) % 24 - 24; a < LW; a += 24) { P(a, 91, 12, BASE - 91, K.grass2); P(a + 12, 91, 12, BASE - 91, K.grass); }
-  // under the ramps: the earth between the lanes
   for (let sx = 0; sx < LW; sx++) {
     const wx = cam + sx;
     let top = 999; for (let l = 0; l < 4; l++) top = Math.min(top, BASE + l * LANE - Math.round(ground(wx, l)));
     P(sx, top, 1, GROUND - top, K.shade);
   }
-  // the lanes, back first: shaded by slope, a bright lip, tyre ruts and stones
   for (let l = 0; l < 4; l++) {
     const y0 = BASE + l * LANE;
     for (let sx = 0; sx < LW; sx++) {
       const wx = cam + sx, h = Math.round(ground(wx, l)), s = slope(wx, l);
       const col = s > 1.1 ? K.lite2 : s > 0.35 ? K.lite : s < -1.1 ? K.dark2 : s < -0.35 ? K.shade : (l % 2 ? K.dirtB : K.dirtA);
       const ty = y0 - h;
-      P(sx, ty, 1, LANE, col);
-      P(sx, ty, 1, 1, K.top);
-      P(sx, ty + LANE - 1, 1, 1, K.dark2);
-      if (Math.abs(s) < 0.35) {
-        const rn = noise(Math.floor(wx / 5), l * 7);
-        if (rn > 0.25) { P(sx, ty + Math.round(LANE * 0.42), 1, 1, K.rut); P(sx, ty + Math.round(LANE * 0.68), 1, 1, K.rut); }
-      }
+      P(sx, ty, 1, LANE, col); P(sx, ty, 1, 1, K.top); P(sx, ty + LANE - 1, 1, 1, K.dark2);
+      if (Math.abs(s) < 0.35) { const rn = noise(Math.floor(wx / 5), l * 7); if (rn > 0.25) { P(sx, ty + Math.round(LANE * 0.42), 1, 1, K.rut); P(sx, ty + Math.round(LANE * 0.68), 1, 1, K.rut); } }
       const n = noise(Math.floor(wx / 2), l);
       if (n > 0.93) { const yy = ty + 3 + Math.floor(n * 97) % (LANE - 6); P(sx, yy, 1, 1, '#fce0b8'); P(sx, yy + 1, 1, 1, K.dark2); }
-      // chalk line between lanes
       if (l > 0 && ((wx >> 2) & 3) === 0) P(sx, ty, 1, 1, '#fcfcfc');
     }
   }
-  // the raised front face shows layers of packed dirt
   for (let sx = 0; sx < LW; sx++) {
     const h = Math.round(ground(cam + sx, 3));
     if (h > 0) { for (let y = 0; y < h; y++) P(sx, GROUND - h + y, 1, 1, ((y + Math.floor((cam + sx) / 9)) >> 2) & 1 ? K.face1 : K.face2); P(sx, GROUND - h, 1, 1, K.black); }
   }
-  // foreground grass with tufts
   P(0, GROUND, LW, LHT - GROUND, K.grass); P(0, GROUND, LW, 1, '#14501c');
   for (let a = -((cam % 6) + 6) % 6; a < LW; a += 6) { const n = noise(Math.floor((a + cam) / 6), 9); if (n > 0.4) { P(a, GROUND + 2 + Math.floor(n * 5), 1, 2, K.blade); P(a + 1, GROUND + 1 + Math.floor(n * 5), 1, 3, K.grass2); } if (n > 0.95) P(a + 2, GROUND + 4, 2, 2, '#fcf06c'); }
-  // note pads on the flat run-up before each hill
   feats.forEach(f => {
     const px0 = f.x - PAD_BEFORE;
     if (px0 - cam < -40 || px0 - cam > LW + 20) return;
@@ -404,15 +441,14 @@ function draw() {
       if (!f.done) { P(sx + 1, y + LANE - 4, PAD_W - 2, 1, '#c8c8d0'); labels.push({ x: sx + PAD_W / 2, y: y + LANE / 2, t: f.lanes[l], c: K.black }); }
     }
   });
-  // the finish: a checkered banner on two posts
   if (finishX && finishX - cam < LW + 40) {
     const fx = finishX - cam;
     for (let l = 0; l < 4; l++) for (let r = 0; r < 4; r++) for (let q = 0; q < 2; q++)
       P(fx + laneShift(l) + q * 3, BASE + l * LANE + r * (LANE / 4), 3, LANE / 4, (r + q + l) % 2 ? K.black : K.white);
     P(fx + laneShift(0) - 2, BASE - 40, 2, 42, '#c8c8d0'); P(fx + laneShift(3) + 6, BASE - 40 + 3 * LANE, 2, 42 + LANE, '#c8c8d0');
-    for (let q = 0; q < 24; q++) P(fx + laneShift(0) + q, BASE - 40 + q * 3 * LANE / 24 / 1.0, 1, 8, ((q >> 1) + 0) % 2 ? K.black : K.white);
+    for (let q = 0; q < 24; q++) P(fx + laneShift(0) + q, BASE - 40 + q * 3 * LANE / 24, 1, 8, (q >> 1) % 2 ? K.black : K.white);
   }
-  // the rider, with a shadow on the dirt when flying, roost and dust, and flame on a boost
+  let bikeAt = null;
   if (bx !== undefined && state !== 'start') {
     const lr = Math.round(lane), gy = BASE + lane * LANE + LANE - 3;
     if (air) { const w = Math.max(10, 30 - hy * 0.12), gy2 = gy - ground(bx, lr); lc.fillStyle = 'rgba(60,16,0,0.35)'; lc.fillRect(BIKE_X - w / 2, gy2 - 1, w, 2); }
@@ -422,25 +458,61 @@ function draw() {
       else F(x, d.y, d.s, d.s, d.c);
     });
     paintBike(bx / 5, air);
-    lc.save();
-    lc.translate(BIKE_X, Math.round(gy - hy - 6) + (wobbleT > 0 ? Math.round(Math.sin(wobbleT * 40)) : 0));
-    lc.rotate(-Math.max(-0.6, Math.min(0.6, tilt)));
-    if (boostT > 0) { const fl = 6 + Math.random() * 6; lc.fillStyle = '#f8b800'; lc.fillRect(-18 - fl, -12, fl, 2); lc.fillStyle = '#fc6c24'; lc.fillRect(-18 - fl * 0.6, -13, fl * 0.6, 4); lc.fillStyle = '#fcfcf0'; lc.fillRect(-20, -12, 2, 2); }
+    const by = Math.round(gy - hy - 6) + (wobbleT > 0 ? Math.round(Math.sin(wobbleT * 40)) : 0), rot = -Math.max(-0.6, Math.min(0.6, tilt));
+    lc.save(); lc.translate(BIKE_X, by); lc.rotate(rot);
     lc.drawImage(sprite, -22, -32, 44, 40);
+    lc.restore();
+    bikeAt = [BIKE_X, by, rot];
+  }
+  lc.restore();
+  // darken the land for the time of day, keeping only what is drawn
+  const dk = darkAt(p);
+  if (dk > 0) { lc.save(); lc.setTransform(1, 0, 0, 1, 0, 0); lc.globalCompositeOperation = 'source-atop'; lc.globalAlpha = dk; lc.fillStyle = tintAt(p); lc.fillRect(0, 0, scene.width, scene.height); lc.restore(); }
+  lcSwap(g0);
+  lc.save(); lc.setTransform(1, 0, 0, 1, 0, 0); lc.drawImage(scene, 0, 0); lc.restore();
+
+  // 3. light on top: floodlight beams and pools, the bike's lamp and boost flame, flashes, fireworks
+  lc.save(); lc.translate(0, OFF);
+  if (L > 0) {
+    lc.globalCompositeOperation = 'lighter';
+    lamps.forEach(l => {
+      if (l[0] !== 'head') return;
+      const [, hx, hy0] = l;
+      const g = lc.createLinearGradient(0, hy0, 0, GROUND);
+      g.addColorStop(0, `rgba(255,246,200,${0.3 * L})`); g.addColorStop(1, `rgba(255,236,180,${0.05 * L})`);
+      lc.fillStyle = g; lc.beginPath(); lc.moveTo(hx - 10, hy0 - 6); lc.lineTo(hx + 14, hy0 - 6); lc.lineTo(hx + 90, GROUND); lc.lineTo(hx - 60, GROUND); lc.closePath(); lc.fill();
+      const rg = lc.createRadialGradient(hx + 2, hy0 - 8, 2, hx + 2, hy0 - 8, 34);
+      rg.addColorStop(0, `rgba(255,252,220,${0.7 * L})`); rg.addColorStop(1, 'rgba(255,252,220,0)');
+      lc.fillStyle = rg; lc.fillRect(hx - 34, hy0 - 42, 72, 68);
+    });
+    lc.globalCompositeOperation = 'source-over';
+    lamps.forEach(l => { if (l[0] === 'head') return; P(l[0] - 2, l[1] - 2, 4, 4, L > 0.5 ? '#fcfce8' : '#8c8c84'); if (L > 0.5) P(l[0] - 1, l[1] - 1, 2, 2, '#ffffff'); });
+  }
+  camFlash.forEach(([x, y]) => { P(x - 1, y, 3, 1, '#fcfcfc'); P(x, y - 1, 1, 3, '#fcfcfc'); });
+  if (bikeAt) {
+    const [bx0, by0, rot] = bikeAt;
+    lc.save(); lc.translate(bx0, by0); lc.rotate(rot);
+    if (dk > 0.25) { lc.globalCompositeOperation = 'lighter'; const g = lc.createLinearGradient(20, 0, 90, 0); g.addColorStop(0, `rgba(255,250,210,${0.35 * dk})`); g.addColorStop(1, 'rgba(255,250,210,0)'); lc.fillStyle = g; lc.beginPath(); lc.moveTo(20, -14); lc.lineTo(90, -24); lc.lineTo(90, 4); lc.lineTo(20, -10); lc.fill(); lc.globalCompositeOperation = 'source-over'; P(19, -14, 2, 3, '#fcfce0'); }
+    if (boostT > 0) { const fl = 6 + Math.random() * 6; lc.fillStyle = '#f8b800'; lc.fillRect(-18 - fl, -12, fl, 2); lc.fillStyle = '#fc6c24'; lc.fillRect(-18 - fl * 0.6, -13, fl * 0.6, 4); lc.fillStyle = '#fcfcf0'; lc.fillRect(-20, -12, 2, 2); }
     lc.restore();
     if (boostT > 0) for (let k = 0; k < 5; k++) { const y = BASE - 30 - Math.random() * (30 + OFF * 0.3), x = Math.random() * LW; P(x, y, 8 + Math.random() * 14, 1, 'rgba(252,252,252,0.6)'); }
   }
   lc.restore();
+  if (fw.length) { lc.globalCompositeOperation = 'lighter'; fw.forEach(f => { lc.fillStyle = f.c; lc.globalAlpha = clamp01(f.t / f.life * 1.5); lc.fillRect(Math.round(f.x), Math.round(f.y), 2, 2); lc.fillRect(Math.round(f.x - f.vx * 0.03), Math.round(f.y - f.vy * 0.03), 1, 1); lc.fillRect(Math.round(f.x - f.vx * 0.06), Math.round(f.y - f.vy * 0.06), 1, 1); }); lc.globalAlpha = 1; lc.globalCompositeOperation = 'source-over'; }
   if (flash > 0) { lc.fillStyle = `rgba(216,40,0,${flash * 0.3})`; lc.fillRect(0, 0, LW, LHT); }
   lc.setTransform(1, 0, 0, 1, 0, 0);
-  // scale up crisply, then the pad lettering on top
+  // 4. scale up crisply, then the lettering
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(low, 0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.font = `${Math.round(LANE * PXS * 0.72)}px 'Jersey 15', monospace`;
   labels.forEach(l => { ctx.fillStyle = l.c; ctx.fillText(l.t, l.x * PXS, (l.y + OFF) * PXS + 1); });
-  if (boostT > 0 && state === 'playing') { ctx.font = `${Math.round(22 * PXS)}px 'Jersey 15', monospace`; ctx.fillStyle = K.yel; ctx.strokeStyle = K.black; ctx.lineWidth = 4; const by = (OFF * 0.45 + 50) * PXS; ctx.strokeText('BOOST', W / 2, by); ctx.fillText('BOOST', W / 2, by); }
+  const say = (txt, x, y, size, col) => { ctx.font = `${Math.round(size)}px 'Jersey 15', monospace`; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(4, size * 0.14); ctx.strokeStyle = '#000'; ctx.strokeText(txt, x, y); ctx.fillStyle = col; ctx.fillText(txt, x, y); };
+  if (boostT > 0 && state === 'playing') say(streak > 1 ? `BOOST x${streak}` : 'BOOST', W / 2, (OFF * 0.45 + 50) * PXS, 22 * PXS, K.yel);
+  pops.forEach(q => say(q.text, (BIKE_X + 6) * PXS, (OFF + BASE - 26 - (1 - q.t / q.life) * 16) * PXS - (hy || 0) * PXS, 13 * PXS, q.c));
+  if (countT > 0) { const n = Math.ceil(countT - 0.6); say(n > 0 ? String(n) : 'GO!', W / 2, H * 0.32, (n > 0 ? 60 : 52) * PXS, n > 0 ? '#fcfcfc' : '#38e048'); }
 }
+function lcSwap(c) { lc = c; }
 
 // ---- Controls ------------------------------------------------------------
 let gas = false, brake = false;
@@ -475,14 +547,23 @@ function updateBoard() {
 function judge(f) {
   const l = Math.round(lane);
   f.done = true; f.taken = l; f.good = f.lanes[l] === f.answer;
-  if (f.good) { hits++; boostT = 1.6; [784, 1046].forEach((n, i) => setTimeout(() => tone(n, 0.08), i * 60)); }
-  else { penalties += PENALTY; vx *= 0.45; wobbleT = 0.6; flash = 1; tone(160, 0.25, 'sawtooth', 70, 0.05); }
+  if (f.good) { hits++; streak++; boostT = 1.5 + 0.3 * Math.min(streak - 1, 4); [784, 1046, 1318].slice(0, Math.min(3, streak + 1)).forEach((n, i) => setTimeout(() => tone(n, 0.08), i * 60)); }
+  else { streak = 0; penalties += PENALTY; vx *= 0.45; wobbleT = 0.6; flash = 1; tone(160, 0.25, 'sawtooth', 70, 0.05); }
   next++;
 }
 function frame(t) {
-  if (state !== 'playing') return;
+  if (state !== 'playing' && state !== 'finishing') return;
   const dt = lastT ? Math.min(0.04, (t - lastT) / 1000) : 0; lastT = t;
-  time += dt; boostT = Math.max(0, boostT - dt); wobbleT = Math.max(0, wobbleT - dt); flash = Math.max(0, flash - dt * 2);
+  pops.forEach(q => q.t -= dt); pops = pops.filter(q => q.t > 0);
+  fw.forEach(f => { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 40 * dt; f.vx *= 0.985; f.t -= dt; }); fw = fw.filter(f => f.t > 0);
+  if (countT > 0) { countT -= dt; const n = Math.ceil(countT - 0.6); if (n !== lastCount) { lastCount = n; tone(n > 0 ? 440 : 880, n > 0 ? 0.12 : 0.3, 'square', 0, 0.05); } draw(); requestAnimationFrame(frame); return; }
+  // the lights come on halfway round
+  if (lightsAt < 0 && bx / finishX > 0.52) { lightsAt = performance.now() / 1000; tone(70, 0.3, 'square', 50, 0.06); setTimeout(() => tone(90, 0.2, 'square', 60, 0.05), 250); }
+  if (state === 'finishing') {
+    finT -= dt; gas = true;
+    if (Math.random() < dt * 4) firework();
+    if (finT <= 0) return finish();
+  } else time += dt; boostT = Math.max(0, boostT - dt); wobbleT = Math.max(0, wobbleT - dt); flash = Math.max(0, flash - dt * 2);
   // throttle and brake
   const top = boostT > 0 ? BOOST_TOP : TOP;
   if (brake) vx -= 160 * dt;
@@ -500,8 +581,11 @@ function frame(t) {
     if (hy <= g) {
       // a landing that meets the slope is smooth; slamming into a climb or the flat costs speed
       const hard = vy - s * vx < -200 * Math.sqrt(launchSc);
+      const miss = Math.abs(vy - s * vx);
       hy = g; air = false; vy = s * vx;
-      if (hard) { vx *= 0.65; wobbleT = 0.4; shakeT = 0.25; tone(110, 0.12, 'square', 60, 0.05); } else tone(220, 0.05, 'triangle', 0, 0.04);
+      if (hard) { vx *= 0.65; wobbleT = 0.4; shakeT = 0.25; tone(110, 0.12, 'square', 60, 0.05); pops.push({ text: 'OUCH', c: '#fc6c44', t: 0.8, life: 0.8 }); }
+      else if (miss < 90 && launchSc > 1.2) { vx = Math.min(BOOST_TOP, vx + 14); tone(660, 0.06, 'triangle'); setTimeout(() => tone(990, 0.08, 'triangle'), 60); pops.push({ text: 'PERFECT', c: '#7cf07c', t: 0.9, life: 0.9 }); }
+      else tone(220, 0.05, 'triangle', 0, 0.04);
       const yb = BASE + lr * LANE + LANE - 4 - hy;
       for (let k = 0; k < (hard ? 14 : 8); k++) dust.push({ k: 'puff', x: bx + (Math.random() - 0.5) * 30, y: yb - Math.random() * 3, vx: (Math.random() - 0.5) * 40, vy: -8 - Math.random() * 10, g: 0, r: 2 + Math.round(Math.random() * 3), t: 0.6, life: 0.6 });
     }
@@ -524,7 +608,7 @@ function frame(t) {
   const f = feats[next];
   if (f && ox < f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2 && bx >= f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2) judge(f);
   updateBoard(); draw();
-  if (bx >= finishX + laneShift(lr)) return finish();
+  if (state === 'playing' && bx >= finishX + laneShift(lr)) { state = 'finishing'; finT = 2.8; finalTime = time + penalties; firework(); firework(); [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 100)); }
   requestAnimationFrame(frame);
 }
 
@@ -544,23 +628,28 @@ function startRace(id) {
   key = ok[Math.floor(Math.random() * ok.length)];
   feats = makeCourse(JUMPS);
   finishX = feats[JUMPS - 1].x + feats[JUMPS - 1].ext + 140;
-  next = 0; time = 0; penalties = 0; hits = 0; flash = 0; lastT = 0; gas = false; brake = false;
+  next = 0; time = 0; penalties = 0; hits = 0; streak = 0; flash = 0; lastT = 0; gas = false; brake = false; lightsAt = -1; pops = []; fw = []; countT = 2.6; lastCount = 0;
   bx = 20; lane = laneTo = 1; hy = 0; vx = 30; vy = 0; air = false; climb = 0; tilt = 0; boostT = 0; wobbleT = 0; dust = [];
   hideOverlay(); state = 'playing'; engineOn();
-  [392, 523, 659].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 200));
   updateBoard();
   requestAnimationFrame(frame);
 }
-let finalTime = 0;
+let finalTime = 0, finT = 0, lastCount = 0;
+function firework() {
+  const x = 20 + Math.random() * (LW - 40), y = 10 + Math.random() * (OFF + 40), c = ['#fc5c5c', '#fcd84c', '#7cf07c', '#7cc8fc', '#fc8cfc', '#fcfcfc'][Math.floor(Math.random() * 6)];
+  for (let i = 0; i < 64; i++) { const a = i / 64 * Math.PI * 2 + Math.random() * 0.1, v = 55 + Math.random() * 40; fw.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, c, t: 1.3, life: 1.3 }); }
+  tone(180 + Math.random() * 120, 0.25, 'sawtooth', 60, 0.03);
+}
+function medal(t) { const par = finishX / 118; return t <= par ? ['GOLD', '#f8c800'] : t <= par * 1.15 ? ['SILVER', '#d0d4e0'] : t <= par * 1.32 ? ['BRONZE', '#d0844c'] : null; }
 function finish() {
   state = 'over'; engineOff();
-  finalTime = time + penalties;
   updateBoard();
-  [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 100));
+  const md = medal(finalTime);
   const list = times()[cls] || [];
   const qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
   overlay(`<h2>FINISH</h2>
     <div class="big">${fmt(finalTime)}</div>
+    ${md ? `<div class="medal" style="--m:${md[1]}"><i></i>${md[0]}</div>` : ''}
     <div class="lbl">${CLASSES[cls].name}, KEY OF ${key}. ${hits} OF ${JUMPS} BOOSTS${penalties ? `, +${penalties}s IN PENALTIES` : ''}.</div>
     ${qualifies
       ? `<p>A fast one. Your initials:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveTime()">OK</button></div>`
@@ -588,7 +677,7 @@ function fit() {
   PXS = W / 232; LW = Math.ceil(W / PXS);
   const room = window.innerHeight - document.querySelector('.stage').getBoundingClientRect().top - document.querySelector('.pad').offsetHeight - 26;
   LHT = Math.max(VIEW, Math.floor(room / PXS));
-  OFF = LHT - VIEW; low.width = LW * R; low.height = LHT * R; H = Math.round(LHT * PXS);
+  OFF = LHT - VIEW; low.width = scene.width = LW * R; low.height = scene.height = LHT * R; H = Math.round(LHT * PXS);
   buildLayers();
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -596,7 +685,7 @@ function fit() {
 }
 window.addEventListener('resize', fit);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && state === 'playing') { state = 'paused'; engineOff(); }
+  if (document.hidden && (state === 'playing' || state === 'finishing')) { state = 'paused'; engineOff(); }
   else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; engineOn(); requestAnimationFrame(frame); }
 });
 
