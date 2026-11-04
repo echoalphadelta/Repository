@@ -113,7 +113,9 @@ const GATES = 20, PENALTY = 2;
 const HS_KEY = 'slalomTimes', SOUND_KEY = 'arcadeSound';
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 let W = 360, H = 480;
-let state = 'start', run, key, rows, passedRows, time, penalties, hits, travel, speed, u, vu, steer, spray, lastT, flash, wobble, soundOn = true;
+let state = 'start', run, key, rows, passedRows, time, penalties, hits, lastT, flash, soundOn = true;
+// the rider, seen from above: position on the mountain, direction, speed, a crash timer and the tracks left behind
+let rx, ry, dir, spd, crashT, holdT, trail, spray, obstacles, finishY;
 
 function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -139,107 +141,64 @@ function toggleSound() {
   document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
 }
 
-// ---- The course: rows of three gates, one of them the number asked for ----
-const FALLOFF = 0.15;                                          // gentle perspective, so the next gates are readable early
-const ROW_GAP = 12, Z_NEAR = 1, Z_FAR = 46, LANES = [-1, 0, 1], GATE_HALF = 0.3;
+// ---- The mountain, seen from straight above ------------------------------
+// everything is in console pixels: the slope is 192 wide and runs down the screen
+const LW = 192, low = document.createElement('canvas'), lc = low.getContext('2d');
+let LH = 256, PXS = 2;
+const RIDER_Y = () => Math.round(LH * 0.32);          // where the rider sits on screen; the mountain scrolls up past them
+const ROW_GAP = 150, FIRST_ROW = 190, GATE_HALF = 18;
+const COLS = [0.2, 0.5, 0.8];
+// seven headings, from hard left across the hill to hard right
+const ANGLES = [-80, -55, -28, 0, 28, 55, 80].map(a => a * Math.PI / 180);
+const TOP_SPEED = { green: 62, blue: 72, black: 82 };
+
 function makeRow(i) {
   const degs = RUNS[run].degs, deg = degs[Math.floor(Math.random() * degs.length)];
   const answer = spell(key, STEPS[deg], deg);
   const notes = new Set([answer]);
   const others = degs.filter(d => d !== deg).sort(() => Math.random() - 0.5);
   for (const d of others) { if (notes.size >= 3) break; notes.add(spell(key, STEPS[d], d)); }
-  // if the run has only three numbers, borrow a neighbouring note so there are always three gates
-  for (let d = 0; notes.size < 3 && d < 12; d++) notes.add(spell(key, STEPS[d], d));
+  for (let d = 0; notes.size < 3 && d < 12; d++) notes.add(spell(key, STEPS[d], d));     // a run with only three numbers borrows a note
   const list = [...notes].sort(() => Math.random() - 0.5);
-  return { z: Z_FAR * 0.55 + i * ROW_GAP, deg, answer, gates: list, col: i % 2 ? '#2363c9' : '#e0322b', n: i + 1, done: false };
+  return { y: FIRST_ROW + i * ROW_GAP, deg, answer, gates: list, xs: COLS.map(c => Math.round(LW * c + (Math.random() - 0.5) * 14)),
+           col: i % 2 ? '#2363c9' : '#e0322b', n: i + 1, done: false };
 }
-// trees line the run on both sides
-let trees = [];
-function plantTrees() { trees = Array.from({ length: 26 }, (_, i) => ({ z: 2 + i * 1.8, u: (i % 2 ? 1 : -1) * (2.2 + Math.random() * 1.6), s: 0.8 + Math.random() * 0.5 })); }
-
-// ---- Projection ----------------------------------------------------------
-// the world is painted at console resolution into a small canvas, then scaled up with crisp pixels
-const LW = 192, low = document.createElement('canvas'), lc = low.getContext('2d');
-let LH = 256, LHZ = 76, LNEAR = 220, PXS = 2;
-let HZ = 0, NEAR_Y = 0;                                         // the same lines in page pixels
-const depth = z => 1 / (1 + (z - Z_NEAR) * FALLOFF);                // how big things look at distance z (1 right in front of you)
-const sc = z => (W * 0.3) * depth(z);                            // page pixels per lane, used for steering
-const lrow = z => Math.round(LHZ + (LNEAR - LHZ) * depth(z));
-const lsc = z => (LW * 0.3) * depth(z);
-const lsx = (uu, z) => LW / 2 + (uu - u * 0.55) * lsc(z);
-const riderX = () => Math.round(LW / 2 + u * 0.45 * lsc(Z_NEAR));
+function scatter() {
+  // trees, rocks and bumps between the rows of gates, and a thicker wood along both edges
+  obstacles = [];
+  const end = finishY + 120;
+  const clearOfGates = y => rows.every(r => Math.abs(y - r.y) > 34);
+  for (let tries = 0; obstacles.length < 70 && tries < 4000; tries++) {
+    const o = { x: 14 + Math.random() * (LW - 28), y: 120 + Math.random() * (end - 120), kind: Math.random() < 0.62 ? 'tree' : Math.random() < 0.6 ? 'rock' : 'bump' };
+    if (clearOfGates(o.y) && obstacles.every(p => Math.hypot(p.x - o.x, p.y - o.y) > 22)) obstacles.push(o);
+  }
+  for (let y = -40; y < end; y += 14 + Math.random() * 10) {
+    obstacles.push({ x: 2 + Math.random() * 7, y, kind: 'tree', edge: true });
+    obstacles.push({ x: LW - 2 - Math.random() * 7, y: y + 7, kind: 'tree', edge: true });
+  }
+}
 
 // ---- Pixel helpers -------------------------------------------------------
 const OUT = '#1a1030';
 function px(x, y, w, h, c) { lc.fillStyle = c; lc.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
-let labels = [];                                                // note names, drawn sharp on top afterwards
+const hash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+let labels = [];
 
-// ---- Scenery -------------------------------------------------------------
-const SKY = ['#2d4fb8', '#3a66d0', '#5288e2', '#74a8ee', '#9ac6f4', '#c4e2f9', '#e6f4fd'];
-function sky() {
-  const bh = LHZ / SKY.length;
-  for (let i = 0; i < SKY.length; i++) {
-    const y0 = Math.floor(i * bh), y1 = Math.floor((i + 1) * bh);
-    px(0, y0, LW, y1 - y0, SKY[i]);
-    // dither the seam between bands, like a 16-bit sky
-    if (i < SKY.length - 1) for (let x = 0; x < LW; x += 2) { px(x + (y1 % 2), y1 - 1, 1, 1, SKY[i + 1]); px(x + ((y1 + 1) % 2), y1, 1, 1, SKY[i]); }
+// ---- Drawing -------------------------------------------------------------
+function snow(cam) {
+  px(0, 0, LW, LH, '#f8fbff');
+  // faint texture fixed to the mountain, so you can feel it moving
+  const y0 = Math.floor(cam / 8) * 8;
+  for (let y = y0; y < cam + LH + 8; y += 8) for (let x = 0; x < LW; x += 8) {
+    const h = hash(x, y);
+    if (h > 0.86) px(x + h * 6, y - cam + (h * 37) % 6, 2, 1, '#dbe8f6');
+    else if (h < 0.04) px(x + 3, y - cam + 2, 1, 1, '#ffffff');
   }
-  // sun with a soft ring
-  const sx0 = 150, sy0 = 22;
-  for (let y = -9; y <= 9; y++) { const w = Math.round(Math.sqrt(81 - y * y)); px(sx0 - w, sy0 + y, w * 2, 1, y > 3 && y % 2 ? '#ffe680' : '#fff4b0'); }
-  // drifting clouds
-  const t = performance.now() / 1000;
-  [[20, 14, 1], [96, 26, 0.7], [170, 40, 0.9]].forEach(([cx, cy, k], i) => {
-    const x = ((cx + t * (3 + i) - u * 4) % (LW + 60)) - 30;
-    [[0, 0, 14, 5], [-8, 3, 12, 4], [8, 2, 12, 5], [-2, -3, 10, 4]].forEach(([dx, dy, w, h]) => px(x + dx * k, cy + dy, w * k, h, '#ffffff'));
-    px(x - 12 * k, cy + 6, 30 * k, 1, '#c4e2f9');
-  });
-}
-function ridge(base, peaks, lit, shade, snowLine, shift) {
-  // a mountain range drawn column by column: a lit face and a shaded face, snow caps, a dark outline on top
-  for (let x = 0; x < LW; x++) {
-    const wx = x + shift;
-    let h = 0, side = 1;
-    for (const [px0, ph, pw] of peaks) { const d = ((wx - px0) % 400 + 600) % 400 - 200, hh = ph - Math.abs(d) * ph / pw; if (hh > h) { h = hh; side = d; } }   // peaks repeat every 400 pixels
-    h = Math.max(0, Math.round(h));
-    if (!h) continue;
-    const top = base - h, litSide = side < 0;
-    px(x, top, 1, h, litSide ? lit : shade);
-    if (h > snowLine) px(x, top, 1, Math.round((h - snowLine) * 0.85) + 1, litSide ? '#ffffff' : '#c9d6f0');
-    px(x, top, 1, 1, OUT);
-  }
-}
-function scenery() {
-  sky();
-  ridge(LHZ, [[30, 40, 46], [120, 52, 60], [210, 36, 40], [300, 46, 52]], '#7a8ed6', '#4f5fa8', 26, -u * 3);
-  ridge(LHZ, [[70, 28, 40], [170, 34, 44], [260, 26, 36], [350, 30, 40]], '#5868b4', '#3a4688', 18, -u * 6);
-  // a band of dark forest along the horizon
-  for (let x = 0; x < LW; x++) { const h = 3 + ((x * 7 + Math.floor(-u * 9)) % 5 === 0 ? 3 : (x % 3 === 0 ? 2 : 1)); px(x, LHZ - h, 1, h, '#1d4a3a'); }
-}
-function slope() {
-  // snow in rows toward the camera: soft stripes, mogul shadows, sparkles, and the fenced edges of the run
-  for (let y = LHZ; y < LH; y++) {
-    const f = Math.max(0.02, (y - LHZ) / (LNEAR - LHZ)), z = Z_NEAR + (1 / f - 1) / FALLOFF, s = lsc(z), wz = z + travel;
-    px(0, y, LW, 1, Math.floor(wz / 2.6) % 2 ? '#eef5fd' : '#f8fbff');
-    const step = Math.max(1, Math.round(4 / Math.max(0.5, s / 20)));
-    for (let x = 0; x < LW; x += step) {
-      const wx = (x - LW / 2) / s + u * 0.55;
-      const m = Math.sin(wx * 7.3 + wz * 0.4) * Math.sin(wz * 2.1 - wx * 1.7);
-      if (m > 0.86) px(x, y, step, 1, '#d6e6f6');
-      else if (m > 0.8) px(x, y, step, 1, '#e4eefa');
-    }
-    // orange fencing either side
-    if (Math.floor(wz / 0.9) % 2 === 0) [-1.85, 1.85].forEach(e => px(lsx(e, z), y, Math.max(1, s * 0.03), 1, '#ff6a1a'));
-  }
-  // sparkles that glint as you move
-  const t = Math.floor(performance.now() / 120);
-  for (let i = 0; i < 14; i++) { const x = (i * 53 + t * 7) % LW, y = LHZ + 8 + ((i * 37 + t * 3) % (LH - LHZ - 10)); px(x, y, 1, 1, '#ffffff'); }
 }
 function pine(x, yb, h) {
-  // a pixel pine: three tiers with a dark outline and snow on each tier
-  h = Math.round(h); if (h < 4) { px(x, yb - h, 1, h, '#1d4a3a'); return; }
   const w = Math.max(2, Math.round(h * 0.42));
-  px(x - Math.max(1, w * 0.12), yb - h * 0.18, Math.max(2, w * 0.24), h * 0.18, '#5a3518');
+  px(x - 6, yb - 1, 13, 2, '#cddcee');                              // shadow on the snow
+  px(x - 1, yb - h * 0.18, 2, h * 0.18, '#5a3518');
   for (let k = 0; k < 3; k++) {
     const by = Math.round(yb - h * (0.14 + k * 0.26)), th = Math.round(h * 0.38), tw = Math.round(w * (1 - k * 0.24));
     for (let r = 0; r < th; r++) {
@@ -250,184 +209,159 @@ function pine(x, yb, h) {
     px(x - tw - 1, by, tw * 2 + 3, 1, OUT);
   }
   px(x, yb - h - 1, 1, 1, OUT);
-  px(x - w * 0.5, yb, w * 1.6, 1, '#b8cce8');                   // shadow on the snow
 }
-function tree(t) {
-  if (t.z < 0.6 || t.z > Z_FAR) return;
-  pine(Math.round(lsx(t.u, t.z)), lrow(t.z), lsc(t.z) * 0.9 * t.s);
+function rock(x, y) {
+  px(x - 5, y - 3, 11, 5, OUT); px(x - 4, y - 4, 9, 7, OUT);
+  px(x - 4, y - 3, 9, 4, '#8a90a6'); px(x - 3, y - 4, 7, 2, '#b8bdd0'); px(x - 2, y - 4, 3, 1, '#f8fbff');
+  px(x - 5, y + 2, 11, 1, '#cddcee');
 }
-function gateRow(r) {
-  if (r.z > 34 || r.z < 0.6) return;                              // only the next few rows are on the slope
-  const y = lrow(r.z), s = lsc(r.z), k = depth(r.z);
-  r.gates.forEach((name, i) => {
-    const cx = lsx(LANES[i], r.z), pl = Math.round(cx - GATE_HALF * s), pr = Math.round(cx + GATE_HALF * s), ph = Math.round(s * 1.5);           // tall poles so the gates stand out
-    const hit = r.done && r.taken === i, dim = r.done && !hit;
-    const pole = Math.max(1, Math.round(s * 0.025));
-    px(pl - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT); px(pr - 1, y - ph, pole + 1, ph, dim ? '#8a90b0' : OUT);
-    // pennants on top of each pole
-    const fh = Math.max(2, Math.round(s * 0.22));
-    for (let j = 0; j < fh; j++) { const fw = Math.round((fh - Math.abs(j - fh / 2) * 2) * 0.9); px(pl + pole, y - ph + j, fw, 1, r.col); px(pr - fw, y - ph + j, fw, 1, r.col); }
-    // the banner between the poles
-    const bx = pl + pole + 1, bw = pr - pl - pole - 2, bh = Math.max(3, Math.round(s * 0.26)), by = Math.round(y - ph + s * 0.17);
-    if (bw > 2) {
-      px(bx, by, bw, bh, OUT);
-      px(bx + 1, by + 1, bw - 2, bh - 2, hit ? (r.good ? '#22b05a' : '#e0322b') : dim ? '#dfe5f2' : '#ffffff');
-      if (bh > 5) px(bx + 1, by + bh - 2, bw - 2, 1, hit ? 'rgba(0,0,0,0.25)' : '#c8d4ec');
-      if (k > 0.24) labels.push({ x: cx, y: by + bh / 2, size: bh * 0.62, w: bw, text: name, color: hit ? '#ffffff' : dim ? '#8a90b0' : '#1c2a5a' });
-    }
-    px(pl - 2, y, pr - pl + 4, 1, '#b8cce8');
+function bump(x, y) {
+  px(x - 6, y, 13, 2, '#d6e4f4'); px(x - 4, y - 1, 9, 1, '#ffffff'); px(x - 5, y + 2, 11, 1, '#e6eefa');
+}
+function gate(r, i, cam) {
+  const gx = r.xs[i], y = r.y - cam;
+  const hit = r.done && r.taken === i, dim = r.done && !hit;
+  [gx - GATE_HALF, gx + GATE_HALF].forEach((x, side) => {
+    px(x - 1, y - 18, 2, 19, dim ? '#9aa0b8' : OUT);                 // pole
+    for (let j = 0; j < 5; j++) px(side ? x - 1 - (5 - j) : x + 1, y - 18 + j, 5 - j, 1, r.col);   // pennant
+    px(x - 2, y, 4, 1, '#cddcee');
   });
-  if (r.n === GATES && r.z > 0.9) {                             // the finish line after the last row
-    const zf = r.z + ROW_GAP * 0.5, fy = lrow(zf), fs = lsc(zf), sq = Math.max(1, Math.round(fs * 0.1));
-    for (let i = -10; i < 10; i++) for (let j = 0; j < 2; j++) px(lsx(i * 0.2, zf), fy - sq * (j + 1), fs * 0.2 + 1, sq, (i + j) % 2 ? OUT : '#ffffff');
-  }
+  // the banner strung between the poles carries the note
+  const bx = gx - GATE_HALF + 2, bw = GATE_HALF * 2 - 4, by = y - 14;
+  px(bx, by, bw, 13, OUT);
+  px(bx + 1, by + 1, bw - 2, 11, hit ? (r.good ? '#22b05a' : '#e0322b') : dim ? '#e4e8f2' : '#ffffff');
+  labels.push({ x: gx, y: by + 6.5, text: r.gates[i], color: hit ? '#ffffff' : dim ? '#9aa0b8' : '#1c2a5a' });
 }
-
-// ---- The rider: a pixel sprite seen from behind, board across the snow ----
-const SPRITE = [
-  '.....kkkkk.....',
-  '....kyyyyyk....',
-  '...kyyywyyyk...',
-  '...kyYYYYYyk...',
-  '...kkkkkkkkk...',
-  '....ktttttk....',
-  '..kkttmmmttkk..',
-  '.kttttmmmttttk.',
-  'kgkttttmttttkgk',
-  'kgkTttttttttkgk',
-  '.k.kTTTTTTTk.k.',
-  '...kpppppppk...',
-  '...kppPkPppk...',
-  '...kppk.kppk...',
-  '..kpppk.kpppk..',
-  '..kPPPk.kPPPk..',
-];
-const PAL = { k: OUT, y: '#ffd23a', Y: '#d99a1a', w: '#ffffff', t: '#18b5a6', T: '#0e7a72', m: '#ea3a83', g: '#2a2a3a', p: '#6a46b0', P: '#43287a' };
-function rider() {
-  const x0 = riderX(), yb = LNEAR + 10 + Math.round(wobble * Math.sin(performance.now() / 40) * 2);
-  const lean = Math.max(-1, Math.min(1, vu / 3.4)), Z = 2;     // each sprite pixel is two screen pixels
-  // the board lies flat on the snow at a diagonal, like a real stance;
-  // seen from behind and above it is squashed short, and it swings a little as you carve
-  const ang = -0.42 + lean * 0.3, ca = Math.cos(ang), sa = Math.sin(ang), L = 24, FLAT = 0.35;
-  const at = t => [x0 + t * ca, yb + 2 + t * sa * FLAT];
-  for (let t = -L; t <= L; t += 0.5) { const [x, y] = at(t); px(x - 4, y + 2, 9, 2, '#b8cce8'); }          // shadow on the snow
-  for (let t = -L; t <= L; t += 0.5) { const [x, y] = at(t), w = Math.abs(t) > L - 2 ? 3 : 4; px(x - w - 1, y - 3, w * 2 + 3, 7, OUT); }
-  for (let t = -L + 1; t <= L - 1; t += 0.5) {
-    const [x, y] = at(t), w = Math.abs(t) > L - 3 ? 2 : 3;
-    px(x - w, y - 2, w * 2 + 1, 5, Math.abs(t) > L - 4 ? '#c4501a' : '#ff7b24');
-    if (Math.abs(t) < L - 5 && Math.abs(t % 6) < 1) px(x - 1, y - 2, 3, 5, '#ffd23a');                  // stripes on the top sheet
+function rider(cam) {
+  const x = rx, y = ry - cam, a = ANGLES[dir];
+  if (crashT > 0) {
+    // tumbled: board one way, rider sprawled in the snow, little stars overhead
+    for (let t = -10; t <= 10; t++) px(x + t + 6, y + 4 + t * 0.3, 2, 3, t === -10 || t === 10 ? OUT : '#ff7b24');
+    px(x - 6, y - 2, 9, 5, '#18b5a6'); px(x - 9, y - 2, 4, 4, '#ffd23a'); px(x + 3, y - 1, 5, 3, '#6a46b0');
+    const t = performance.now() / 120;
+    for (let k = 0; k < 3; k++) px(x - 8 + Math.cos(t + k * 2.1) * 7, y - 10 + Math.sin(t + k * 2.1) * 2, 2, 2, '#ffd23a');
+    return;
   }
-  // body, rows shifted for a lean into the turn
-  const h = SPRITE.length;
-  SPRITE.forEach((row, j) => {
-    const shift = Math.round((h - j) * lean * 0.35);
-    [...row].forEach((ch, i) => { if (ch !== '.') px(x0 + (i - 7.5) * Z + shift, yb - 2 - (h - j) * Z, Z, Z, PAL[ch]); });
-  });
+  // the board lies across the direction of travel, like a real stance, and turns with you
+  const b = a + Math.PI / 2 - 0.35, bx = Math.cos(b), by = Math.sin(b);
+  for (let t = -11; t <= 11; t++) px(x + bx * t - 2, y + by * t * 0.9 + 2, 5, 4, OUT);
+  for (let t = -10; t <= 10; t++) px(x + bx * t - 1, y + by * t * 0.9 + 3, 3, 2, Math.abs(t) > 8 ? '#c4501a' : (t % 5 === 0 ? '#ffd23a' : '#ff7b24'));
+  // the rider from above: shoulders, arms out for balance, beanie with a bobble
+  const lean = Math.sin(a) * 2;
+  px(x - 6 + lean, y - 4, 13, 7, OUT); px(x - 5 + lean, y - 3, 11, 5, '#18b5a6'); px(x - 1 + lean, y - 3, 3, 5, '#ea3a83');
+  px(x - 9 + lean, y - 2, 4, 2, '#2a2a3a'); px(x + 6 + lean, y - 2, 4, 2, '#2a2a3a');
+  px(x - 3 + lean * 1.4, y - 6, 7, 6, OUT); px(x - 2 + lean * 1.4, y - 5, 5, 4, '#ffd23a'); px(x + lean * 1.4, y - 7, 2, 2, '#ffffff');
 }
-
-// ---- Putting a frame together ---------------------------------------------
 function draw() {
   labels = [];
-  scenery(); slope();
-  const items = trees.map(t => ({ z: t.z, f: () => tree(t) })).concat(rows.map(r => ({ z: r.z, f: () => gateRow(r) })));
-  items.sort((a, b) => b.z - a.z).forEach(it => it.f());
-  spray.forEach(p => px(p.x, p.y, p.r, p.r, p.t > 0.25 ? '#ffffff' : '#d8e8f8'));
-  rider();
+  const cam = (ry || 0) - RIDER_Y();
+  snow(cam);
+  // tracks carved by the board
+  trail && trail.forEach(p => { const y = p.y - cam; if (y > -2 && y < LH) { px(p.x - 3, y, 2, 1, '#cfe0f2'); px(p.x + 2, y, 2, 1, '#cfe0f2'); } });
+  // things below the rider are drawn later, so they overlap properly
+  const items = [];
+  (obstacles || []).forEach(o => { if (o.y - cam > -24 && o.y - cam < LH + 24) items.push({ y: o.y, f: () => o.kind === 'tree' ? pine(o.x, o.y - cam, o.edge ? 18 : 22) : o.kind === 'rock' ? rock(o.x, o.y - cam) : bump(o.x, o.y - cam) }); });
+  (rows || []).forEach(r => { if (r.y - cam > -20 && r.y - cam < LH + 20) r.xs.forEach((_, i) => items.push({ y: r.y, f: () => gate(r, i, cam) })); });
+  if (finishY && finishY - cam < LH + 10) items.push({ y: finishY, f: () => { for (let x = 0; x < LW; x += 6) for (let j = 0; j < 2; j++) px(x, finishY - cam + j * 6, 6, 6, ((x / 6) + j) % 2 ? OUT : '#ffffff'); } });
+  if (state !== 'start') items.push({ y: ry, f: () => rider(cam) });
+  items.sort((a, b) => a.y - b.y).forEach(it => it.f());
+  spray && spray.forEach(p => px(p.x, p.y - cam, 2, 2, p.t > 0.2 ? '#ffffff' : '#d8e8f8'));
   if (flash > 0) { lc.fillStyle = `rgba(224,50,43,${flash * 0.25})`; lc.fillRect(0, 0, LW, LH); }
-  // scale the little picture up, then letter the banners crisply
+  // scale up crisply, then the lettering on top
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(low, 0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  // the number and the key, big across the sky so you never have to look away from the slope
-  const next = rows.find(r => !r.done);
+  labels.forEach(l => { const size = Math.round(Math.min(14 * PXS, (GATE_HALF * 2 - 8) * PXS / Math.max(1, l.text.length * 0.5))); ctx.font = `${size}px 'Jersey 15', monospace`; ctx.fillStyle = l.color; ctx.fillText(l.text, l.x * PXS, l.y * PXS + 1); });
+  // the number to find and the key, big across the top
+  const next = rows && rows.find(r => !r.done);
   if (next && state === 'playing') {
-    const cx = W / 2, cy = HZ * 0.42, big = Math.round(H * 0.13), small = Math.round(big * 0.42);
-    ctx.lineJoin = 'round';
-    const outlined = (t, x, y, size, fill) => {
-      ctx.font = `${size}px 'Jersey 15', monospace`;
-      ctx.lineWidth = Math.max(4, size * 0.16); ctx.strokeStyle = '#1c2a5a'; ctx.strokeText(t, x, y);
-      ctx.fillStyle = fill; ctx.fillText(t, x, y);
-    };
-    // laid out as: big number, a small "in", then the key nearly as big
-    const parts = [[NUM[next.deg], big, '#ffc61a', 0], ['in', Math.round(big * 0.34), '#ffffff', big * 0.14], [key, Math.round(big * 0.8), '#ffffff', big * 0.04]];
-    const gap = Math.round(big * 0.16);
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    const widths = parts.map(([t, size]) => { ctx.font = `${size}px 'Jersey 15', monospace`; return ctx.measureText(t).width; });
-    let x = cx - (widths.reduce((a, b) => a + b, 0) + gap * 2) / 2;
-    parts.forEach(([t, size, fill, dy], i) => { outlined(t, x, cy + dy, size, fill); x += widths[i] + gap; });
-    ctx.textAlign = 'center';
+    const big = Math.round(H * 0.1), parts = [[NUM[next.deg], big, '#ffd23a'], ['in', Math.round(big * 0.4), '#ffffff'], [key, Math.round(big * 0.8), '#ffffff']];
+    ctx.textAlign = 'left'; ctx.lineJoin = 'round';
+    const widths = parts.map(([t, s]) => { ctx.font = `${s}px 'Jersey 15', monospace`; return ctx.measureText(t).width; });
+    const gap = big * 0.18, total = widths.reduce((a, b) => a + b, 0) + gap * 2, y = big * 0.75;
+    ctx.fillStyle = 'rgba(18,26,102,0.82)'; ctx.fillRect(W / 2 - total / 2 - 14, 8, total + 28, big * 1.05);
+    let x = W / 2 - total / 2;
+    parts.forEach(([t, s, c], i) => { ctx.font = `${s}px 'Jersey 15', monospace`; ctx.lineWidth = Math.max(3, s * 0.12); ctx.strokeStyle = '#1a1030'; ctx.strokeText(t, x, y + (i ? big * 0.06 : 0)); ctx.fillStyle = c; ctx.fillText(t, x, y + (i ? big * 0.06 : 0)); x += widths[i] + gap; });
   }
-  labels.forEach(l => {
-    const size = Math.max(7, Math.round(Math.min(l.size * PXS * 0.7, (l.w - 2) * PXS * 0.9 / l.text.length)));   // fit inside the banner
-    ctx.font = `${size}px 'Jersey 15', monospace`; ctx.fillStyle = l.color;
-    ctx.fillText(l.text, l.x * PXS, l.y * PXS + size * 0.08);
-  });
 }
 
-// ---- Steering: hold the buttons or drag on the slope ----------------------
-let dragX = null;
-function bindHold(id, dir) {
+// ---- Steering: tap or hold the arrows to turn, or drag on the snow -------
+let steer = 0, dragX = null;
+function turn(d) { if (state !== 'playing' || crashT > 0) return; dir = Math.max(0, Math.min(ANGLES.length - 1, dir + d)); tone(500 + dir * 40, 0.03, 'square', 0, 0.02); }
+function bindHold(id, d) {
   const b = document.getElementById(id);
-  const on = e => { e.preventDefault(); steer = dir; b.classList.add('on'); };
-  const off = () => { if (steer === dir) steer = 0; b.classList.remove('on'); };
+  const on = e => { e.preventDefault(); steer = d; holdT = 0.22; turn(d); b.classList.add('on'); };
+  const off = () => { if (steer === d) steer = 0; b.classList.remove('on'); };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
 }
 bindHold('left', -1); bindHold('right', 1);
-cv.addEventListener('pointerdown', e => { dragX = e.clientX; cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointermove', e => { if (dragX === null || state !== 'playing') return; const r = cv.getBoundingClientRect(); dragTarget = ((e.clientX - r.left) - W / 2) / (0.45 * sc(Z_NEAR)); });
-cv.addEventListener('pointerup', () => { dragX = null; dragTarget = null; });
-let dragTarget = null;
+cv.addEventListener('pointerdown', e => { dragX = e.clientX; cv.setPointerCapture(e.pointerId); aimAt(e); });
+cv.addEventListener('pointermove', e => { if (dragX !== null) aimAt(e); });
+cv.addEventListener('pointerup', () => { dragX = null; });
+function aimAt(e) {
+  // point the board toward your finger: the further across, the harder the turn
+  if (state !== 'playing' || crashT > 0) return;
+  const r = cv.getBoundingClientRect(), fx = (e.clientX - r.left) / PXS, d = Math.max(-3, Math.min(3, Math.round((fx - rx) / 14)));
+  dir = 3 + d;
+}
 const keys = {};
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('initials')) return saveTime();
-  if (e.key === 'ArrowLeft') keys.l = true; if (e.key === 'ArrowRight') keys.r = true;
+  if (e.key === 'ArrowLeft' && !keys.l) { keys.l = true; turn(-1); }
+  if (e.key === 'ArrowRight' && !keys.r) { keys.r = true; turn(1); }
 });
 document.addEventListener('keyup', e => { if (e.key === 'ArrowLeft') keys.l = false; if (e.key === 'ArrowRight') keys.r = false; });
 
-// ---- Racing --------------------------------------------------------------
+// ---- Riding --------------------------------------------------------------
 function updateStrip() {
   document.getElementById('key').textContent = key;
   const next = rows.find(r => !r.done);
   document.getElementById('find').textContent = next ? NUM[next.deg] : 'GO!';
-  document.getElementById('time').textContent = fmt(time);
+  document.getElementById('time').textContent = fmt(time + penalties);
 }
 function passRow(r) {
   r.done = true;
-  const i = LANES.findIndex(l => Math.abs(u - l) <= GATE_HALF + 0.08);
+  const i = r.xs.findIndex(gx => Math.abs(rx - gx) <= GATE_HALF);
   r.taken = i;
   if (i >= 0 && r.gates[i] === r.answer) {
-    r.good = true; hits++; speed = Math.min(speed + 0.3, maxSpeed());
+    r.good = true; hits++;
     tone(880, 0.06, 'triangle'); setTimeout(() => tone(1320, 0.08, 'triangle'), 50);
   } else {
-    r.good = false; penalties += PENALTY; flash = 1; wobble = 0.6; speed = Math.max(5, speed * 0.75);
+    r.good = false; penalties += PENALTY; flash = 1;
     tone(200, 0.25, 'sawtooth', 90, 0.05);
   }
   passedRows++;
-  if (passedRows === GATES) setTimeout(finish, 450);
 }
-const maxSpeed = () => 8.5 + passedRows * 0.12;
 function frame(t) {
   if (state !== 'playing') return;
   const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0; lastT = t;
   time += dt;
-  // the slope gets steeper the further down you go
-  speed = Math.min(maxSpeed(), speed + dt * 0.4);
-  travel += speed * dt;
-  rows.forEach(r => r.z -= speed * dt);
-  trees.forEach(tr => { tr.z -= speed * dt; if (tr.z < 0.5) { tr.z += 26 * 1.8; tr.u = (Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 1.6); } });
-  rows.forEach(r => { if (!r.done && r.z <= Z_NEAR) passRow(r); });
-  // carving: buttons and keys push sideways, a drag pulls you toward your finger
-  const dir = steer || (keys.l ? -1 : keys.r ? 1 : 0);
-  const pull = dragTarget !== null ? Math.max(-1, Math.min(1, (dragTarget - u) * 2)) : 0;
-  vu += ((dir || pull) * 3.4 - vu) * Math.min(1, dt * 7);
-  u = Math.max(-1.55, Math.min(1.55, u + vu * dt));
-  // powder sprays out from the skis when you turn hard
-  if (Math.abs(vu) > 0.8 && Math.random() < 0.8) {
-    const x = riderX() - Math.sign(vu) * 20;
-    spray.push({ x, y: LNEAR + 8, vx: -Math.sign(vu) * (20 + Math.random() * 30), vy: -14 - Math.random() * 24, r: 1 + Math.round(Math.random()), t: 0.5 });
+  if (crashT > 0) {
+    crashT -= dt;
+    if (crashT <= 0) { dir = 3; spd = 10; }
+  } else {
+    // holding an arrow keeps turning, one notch at a time
+    if (steer) { holdT -= dt; if (holdT <= 0) { holdT = 0.16; turn(steer); } }
+    const a = ANGLES[dir], target = TOP_SPEED[run] * (0.25 + 0.75 * Math.pow(Math.cos(a), 1.5));
+    spd += (target - spd) * Math.min(1, dt * (target > spd ? 0.9 : 2.5));
+    const oldY = ry;
+    rx = Math.max(5, Math.min(LW - 5, rx + Math.sin(a) * spd * dt));
+    ry += Math.cos(a) * spd * dt;
+    rows.forEach(r => { if (!r.done && oldY < r.y && ry >= r.y) passRow(r); });
+    // hitting a tree or a rock sends you tumbling; bumps just slow you down
+    for (const o of obstacles) {
+      const dx = rx - o.x, dy = ry - o.y;
+      if (o.kind === 'bump') { if (Math.abs(dx) < 6 && Math.abs(dy) < 3) spd *= 0.97; continue; }
+      if (Math.abs(dx) < (o.kind === 'tree' ? 5 : 6) && dy > -4 && dy < 2) { crashT = 0.9; spd = 0; flash = 0.6; ry = o.y + 3; tone(140, 0.3, 'sawtooth', 60, 0.06); break; }
+    }
+    // tracks and powder
+    if (!trail.length || Math.hypot(trail[trail.length - 1].x - rx, trail[trail.length - 1].y - ry) > 2) trail.push({ x: rx, y: ry + 2 });
+    if (trail.length > 400) trail.shift();
+    if (Math.abs(dir - 3) >= 2 && Math.random() < 0.6) spray.push({ x: rx - Math.sign(ANGLES[dir]) * 8, y: ry + 2, vx: -Math.sign(ANGLES[dir]) * (10 + Math.random() * 20), vy: -5 - Math.random() * 10, t: 0.4 });
+    if (ry >= finishY) { draw(); return finish(); }
   }
-  spray.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 70 * dt; p.t -= dt; }); spray = spray.filter(p => p.t > 0);
-  flash = Math.max(0, flash - dt * 2); wobble = Math.max(0, wobble - dt);
+  spray.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.t -= dt; }); spray = spray.filter(p => p.t > 0);
+  flash = Math.max(0, flash - dt * 2);
   updateStrip(); draw();
   requestAnimationFrame(frame);
 }
@@ -444,7 +378,7 @@ function bestFor(r) { const t = times()[r] || []; return t.length ? fmt(t[0].s) 
 function showStart() {
   state = 'start';
   overlay(`<h2>SLALOM</h2>
-    <p>Ride through the gate whose note is the <b>number</b> shown.</p>
+    <p>Steer down the mountain through the gate whose note is the <b>number</b> shown. Miss the trees.</p>
     <div class="runs">${Object.entries(RUNS).map(([id, r]) => `<button class="run" onclick="startRun('${id}')">${ICON[id]}<span><span class="name">${r.name}</span><br><span class="what">${r.what}</span></span><span class="best">${bestFor(id)}</span></button>`).join('')}</div>`);
 }
 function startRun(id) {
@@ -452,8 +386,10 @@ function startRun(id) {
   const ok = KEY_NAMES.filter(k => RUNS[run].degs.every(d => clean(spell(k, STEPS[d], d))));
   key = ok[Math.floor(Math.random() * ok.length)];
   rows = Array.from({ length: GATES }, (_, i) => makeRow(i));
-  plantTrees();
-  passedRows = 0; time = 0; penalties = 0; hits = 0; travel = 0; speed = 6; u = 0; vu = 0; steer = 0; spray = []; flash = 0; wobble = 0; lastT = 0; dragTarget = null;
+  finishY = rows[rows.length - 1].y + 110;
+  scatter();
+  passedRows = 0; time = 0; penalties = 0; hits = 0; flash = 0; lastT = 0; steer = 0;
+  rx = LW / 2; ry = 40; dir = 3; spd = 20; crashT = 0; trail = []; spray = [];
   hideOverlay(); state = 'playing';
   [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 180));
   requestAnimationFrame(frame);
@@ -462,6 +398,7 @@ let finalTime = 0;
 function finish() {
   state = 'over';
   finalTime = time + penalties;
+  updateStrip();
   [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle'), i * 100));
   const list = times()[run] || [];
   const qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
@@ -489,9 +426,8 @@ function saveTime() {
 // ---- Setup ---------------------------------------------------------------
 function fit() {
   W = Math.min(document.querySelector('.screen').clientWidth - 24, 436);
-  H = Math.round(Math.min(W * 1.35, Math.max(300, window.innerHeight - 230)));
-  HZ = Math.round(H * 0.24); NEAR_Y = Math.round(H * 0.86);
-  PXS = W / LW; LH = Math.round(H / PXS); LHZ = Math.round(LH * 0.24); LNEAR = Math.round(LH * 0.86);
+  H = Math.round(Math.min(W * 1.4, Math.max(300, window.innerHeight - 250)));
+  PXS = W / LW; LH = Math.round(H / PXS);
   low.width = LW; low.height = LH;
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -505,7 +441,7 @@ document.addEventListener('visibilitychange', () => {
 
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
-run = 'green'; key = 'D'; travel = 0; u = 0; vu = 0; spray = []; flash = 0; wobble = 0; rows = []; plantTrees(); time = 0;
+run = 'green'; key = 'D'; flash = 0; time = 0; penalties = 0; rows = Array.from({ length: 4 }, (_, i) => makeRow(i)); finishY = 0; scatter(); ry = 40; rx = LW / 2; trail = []; spray = [];
 fit();
 document.fonts && document.fonts.ready.then(fit);
 showStart();
