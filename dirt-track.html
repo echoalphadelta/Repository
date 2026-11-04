@@ -167,7 +167,6 @@ function toggleSound() {
 const BASE = 104, SHEAR = 5, BIKE_X = 50, LANE = 22, GROUND = BASE + 4 * LANE, VIEW = GROUND + 10;
 let LW = 232, LHT = VIEW, OFF = 0;   // a tall screen gets more sky, room for the big jumps later on
 const low = document.createElement('canvas'), lc = low.getContext('2d');
-low.width = LW; low.height = LHT;
 const FIRST = 300, PAD_BEFORE = 84, PAD_W = 24;
 // the hills get bigger and busier as the race goes on
 const POOLS = [['bump', 'table', 'whoops'], ['double', 'table', 'kicker', 'step', 'whoops'], ['step', 'gap', 'triple', 'kicker', 'table', 'double']];
@@ -212,108 +211,233 @@ function makeFeature(i, prev) {
 function makeCourse(n) { const list = []; for (let i = 0; i < n; i++) list.push(makeFeature(i, list[i - 1])); return list; }
 
 // ---- Pixel helpers -------------------------------------------------------
-const K = { sky: '#5c94fc', cloud: '#fcfcfc', hill: '#00a844', hill2: '#008838', dirt: '#c84c0c', dirt2: '#e45c10', lite: '#fca044', shade: '#a83800', dark: '#881400', face: '#6c2400', black: '#000000', white: '#fcfcfc', red: '#d82800', grey: '#7c7c7c', grass: '#00a800', yel: '#f8b800' };
+// The scene is drawn at twice the old resolution: world pixels are 2x2 blocks, details can go to half a pixel
+const R = 2;
+const K = { black: '#101018', white: '#fcfcfc', red: '#d82800', grey: '#7c7c84', yel: '#f8b800',
+  dirtA: '#d8702c', dirtB: '#c8601e', lite2: '#fcc07c', lite: '#f49a4c', shade: '#a84a18', dark2: '#7c3010', rut: '#9c4414', top: '#fcd8a8',
+  face1: '#6c2808', face2: '#84340c', grass: '#2c9c3c', grass2: '#40b44c', blade: '#7cdc64' };
 function P(x, y, w, h, c) { lc.fillStyle = c; lc.fillRect(Math.round(x), Math.round(y), w, h); }
+function F(x, y, w, h, c) { lc.fillStyle = c; lc.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, w, h); }
 function disc(cx, cy, r, c) { for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r + r * 0.8 - y * y)); P(cx - w, cy + y, w * 2 + 1, 1, c); } }
 const noise = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
 let labels = [];
 
-// the bike is drawn once to its own little canvas, then tilted with the ground
+// ---- Scenery layers, painted once per screen size and slid past -----------
+const SKY = ['#1c2c9c', '#2440b4', '#3054cc', '#3c6ce0', '#5084ec', '#68a0f4', '#88bcfc', '#acd4fc'];
+let mtn = null, woods = null, MT = 480, WT = 360, MH = 60;
+function layer(w, h) { const c = document.createElement('canvas'); c.width = w * R; c.height = h * R; const g = c.getContext('2d'); g.scale(R, R); return [c, g]; }
+function buildLayers() {
+  // far mountains with a lit side, a shaded side and snow
+  MH = Math.round(44 + OFF * 0.6);
+  const [mc, mg] = layer(MT, MH); mtn = mc;
+  const tall = MH - 2, mh = w => tall * (0.56 + 0.2 * Math.sin(2 * Math.PI * w / MT * 2) + 0.14 * Math.sin(2 * Math.PI * w / MT * 5 + 2) + 0.06 * Math.sin(2 * Math.PI * w / MT * 11 + 1));
+  for (let x = 0; x < MT; x++) {
+    const m = Math.round(mh(x)), lit = mh(x + 5) > mh(x - 5) + 0.5;
+    mg.fillStyle = lit ? '#6a8ee0' : '#3e5cb8'; mg.fillRect(x, MH - m, 1, m);
+    const cap = Math.round(m - tall * 0.66 + 3 * Math.sin(x * 0.7));
+    if (cap > 0) { mg.fillStyle = lit ? '#fcfcfc' : '#bccbec'; mg.fillRect(x, MH - m, 1, cap); }
+    mg.fillStyle = '#2c4498'; mg.fillRect(x, MH - m, 1, 1);
+  }
+  // a haze band at the foot of the mountains
+  for (let y = 0; y < 8; y++) for (let x = (y & 1); x < MT; x += 2) { mg.fillStyle = '#88b4ec'; mg.fillRect(x, MH - 8 + y, 1, 1); }
+  // rolling green hills and a line of pines in front of them
+  const [wc, wg] = layer(WT, 40); woods = wc;
+  for (let x = 0; x < WT; x++) {
+    const h = Math.round(16 + 7 * Math.sin(2 * Math.PI * x / WT * 3) + 4 * Math.sin(2 * Math.PI * x / WT * 7 + 1));
+    const lit = Math.cos(2 * Math.PI * x / WT * 3) > 0;
+    wg.fillStyle = lit ? '#48b450' : '#2c9440'; wg.fillRect(x, 40 - h, 1, h);
+  }
+  for (let t = 0; t < WT; t += 7) {
+    const th = 10 + Math.round(noise(t, 3) * 9), cx = t + 3;
+    for (let r = 0; r < th; r++) { const half = Math.floor(r * 0.36) + 1;
+      wg.fillStyle = '#0c5c30'; wg.fillRect(cx - half, 40 - th + r, half * 2 + 1, 1);
+      wg.fillStyle = '#1c7c40'; wg.fillRect(cx - half, 40 - th + r, half, 1); }
+    wg.fillStyle = '#4c2c14'; wg.fillRect(cx, 38, 1, 2);
+  }
+}
+function tile(img, w, h, par, cam, y) {
+  let x = -Math.round((((cam * par) % w) + w) % w);
+  for (; x < LW; x += w) lc.drawImage(img, x, Math.round(y), w, h);
+}
+function cloud(x, y, s) {
+  const parts = [[0, 0, 6], [8, -3, 7], [17, 0, 6], [24, 2, 4], [-6, 2, 4]];
+  parts.forEach(([dx, dy, r]) => disc(x + dx * s, y + dy * s + 3, Math.round(r * s), '#98b0e0'));
+  parts.forEach(([dx, dy, r]) => disc(x + dx * s, y + dy * s + 1, Math.round(r * s), '#d4e2f8'));
+  parts.forEach(([dx, dy, r]) => disc(x + dx * s, y + dy * s - 1, Math.round(r * s) - 1, '#fcfcfc'));
+}
+
+// ---- The bike, drawn at fine resolution with spoked wheels and a rider ----
 const sprite = document.createElement('canvas'), sc = sprite.getContext('2d');
-sprite.width = 44; sprite.height = 40;
-function paintBike(spin) {
-  sc.clearRect(0, 0, 44, 40);
-  const S = (x, y, w, h, c) => { sc.fillStyle = c; sc.fillRect(x, y, w, h); };
+sprite.width = 88; sprite.height = 80;
+function paintBike(spin, up) {
+  sc.clearRect(0, 0, 88, 80);
+  const S = (x, y, w, h, c) => { sc.fillStyle = c; sc.fillRect(Math.round(x), Math.round(y), w, h); };
   const D = (cx, cy, r, c) => { for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r * r + r * 0.8 - y * y)); S(cx - w, cy + y, w * 2 + 1, 1, c); } };
-  const wheel = cx => { D(cx, 32, 6, K.black); D(cx, 32, 4, K.grey); D(cx, 32, 2, K.black); const a = spin; S(cx + Math.round(Math.cos(a) * 3), 32 + Math.round(Math.sin(a) * 3), 1, 1, K.white); S(cx - Math.round(Math.cos(a) * 3), 32 - Math.round(Math.sin(a) * 3), 1, 1, K.white); };
-  const bx = 22, by = 32;
-  wheel(bx - 12); wheel(bx + 12);
-  S(bx - 12, by - 1, 10, 2, K.grey); S(bx - 9, by - 7, 17, 4, K.red); S(bx - 6, by - 8, 10, 2, K.white);
-  for (let i = 0; i < 8; i++) S(bx + 9 + Math.floor(i / 2), by - 8 + i, 2, 1, K.grey);
-  S(bx + 7, by - 11, 6, 2, K.black);
-  S(bx - 3, by - 3, 4, 3, K.black); S(bx - 4, by - 7, 4, 4, K.white);
-  S(bx - 6, by - 17, 8, 10, K.white); S(bx - 5, by - 16, 6, 8, K.red); S(bx + 1, by - 15, 8, 3, K.red); S(bx + 8, by - 13, 2, 2, K.white);
-  D(bx - 1, by - 22, 4, K.white); S(bx, by - 23, 4, 3, K.black); S(bx - 5, by - 24, 3, 2, K.red);
+  const L = (x0, y0, x1, y1, t, c) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) S(x0 + (x1 - x0) * i / n - t / 2, y0 + (y1 - y0) * i / n - t / 2, t, t, c); };
+  const wheel = (cx, cy) => {
+    D(cx, cy, 12, '#18181c');
+    for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2 + spin; S(cx + Math.cos(a) * 11.5 - 1, cy + Math.sin(a) * 11.5 - 1, 2, 2, '#3a3a40'); }
+    D(cx, cy, 8, '#b4b4bc'); D(cx, cy, 7, '#26262c');
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + spin; L(cx, cy, cx + Math.cos(a) * 6.5, cy + Math.sin(a) * 6.5, 1, '#9090a0'); }
+    D(cx, cy, 2, '#dcdce4');
+  };
+  wheel(20, 64); wheel(68, 64);
+  L(20, 64, 42, 56, 3, '#50505a');                                   // swingarm
+  L(28, 58, 40, 46, 2, '#e8c040');                                   // shock spring
+  S(34, 49, 15, 11, '#34343c'); for (let i = 0; i < 4; i++) S(36, 51 + i * 2, 11, 1, '#5c5c68'); S(34, 49, 15, 1, '#70707c');   // engine
+  L(46, 58, 30, 50, 3, '#a8a8b4'); S(10, 41, 24, 4, '#c8c8d4'); S(10, 44, 24, 1, '#6c6c78'); S(7, 40, 5, 6, '#808090');            // exhaust
+  L(32, 42, 4, 38, 3, '#f4f4f4'); S(4, 39, 4, 2, '#d0d0d8');         // rear fender
+  S(22, 37, 24, 4, '#24242c'); S(22, 37, 24, 1, '#4c4c58');          // seat
+  S(40, 39, 18, 10, '#d82800'); S(40, 39, 18, 2, '#fc6c44'); S(54, 41, 4, 8, '#a81c00');              // tank
+  S(26, 41, 12, 9, '#f4f4f4'); S(29, 43, 6, 1, K.black); S(33, 44, 1, 5, K.black);                  // side plate with a 7
+  L(60, 34, 68, 64, 4, '#c8c8d0'); L(61, 34, 69, 64, 1, '#70707a');  // forks
+  L(60, 48, 78, 46, 3, '#f4f4f4');                                   // front fender
+  S(54, 30, 10, 2, K.black); S(62, 32, 7, 9, '#f8b800'); S(62, 32, 7, 1, '#fce890');              // bars, number plate
+  // the rider: boots, legs, jersey, arms and helmet; standing a little taller in the air
+  const u = up ? -3 : 0;
+  S(40, 53, 9, 5, '#202024'); S(40, 53, 9, 1, '#e0e0e8');
+  L(46 + u * 0.2, 44 + u, 44, 53, 4, '#1c2c84');
+  L(34, 36 + u, 46, 44 + u, 5, '#24349c');
+  L(33, 36 + u, 42, 20 + u, 9, '#d82800'); L(36, 34 + u, 43, 22 + u, 2, '#fcfcfc');
+  L(43, 22 + u, 57, 31, 4, '#c02000'); S(55, 29, 4, 4, K.black);
+  D(46, 13 + u, 7, '#fcfcfc'); S(41, 9 + u, 11, 2, '#d82800'); S(50, 7 + u, 9, 3, '#d82800');
+  S(48, 12 + u, 7, 4, '#f8b800'); S(48, 12 + u, 7, 1, '#fce890'); S(53, 16 + u, 4, 4, '#3c3c44');
+  // a dark outline round everything, the way cartridge sprites read against busy backgrounds
+  const img = sc.getImageData(0, 0, 88, 80), d = img.data, out = new Uint8Array(88 * 80);
+  for (let y = 0; y < 80; y++) for (let x = 0; x < 88; x++) {
+    if (d[(y * 88 + x) * 4 + 3]) continue;
+    if ((x > 0 && d[(y * 88 + x - 1) * 4 + 3]) || (x < 87 && d[(y * 88 + x + 1) * 4 + 3]) || (y > 0 && d[((y - 1) * 88 + x) * 4 + 3]) || (y < 79 && d[((y + 1) * 88 + x) * 4 + 3])) out[y * 88 + x] = 1;
+  }
+  for (let i = 0; i < out.length; i++) if (out[i]) { d[i * 4] = 16; d[i * 4 + 1] = 16; d[i * 4 + 2] = 24; d[i * 4 + 3] = 255; }
+  sc.putImageData(img, 0, 0);
 }
 
 // ---- Drawing -------------------------------------------------------------
+let shakeT = 0;
 function draw() {
   labels = [];
-  const cam = (bx || 0) - BIKE_X;
-  P(0, 0, LW, LHT, K.sky);
-  // any extra height on a tall screen becomes more sky above the track
+  const cam = (bx || 0) - BIKE_X, now = performance.now() / 1000;
+  lc.setTransform(R, 0, 0, R, 0, 0); lc.imageSmoothingEnabled = false;
+  if (shakeT > 0) lc.translate(Math.round((Math.random() - 0.5) * 3), Math.round((Math.random() - 0.5) * 3));
+  // sky in bands, dithered where they meet, and a low sun
+  const hz = OFF + 70, band = hz / SKY.length;
+  SKY.forEach((c, i) => P(0, i * band, LW, band + 1, c));
+  for (let i = 1; i < SKY.length; i++) { const y = Math.round(i * band) - 1; for (let x = (i & 1); x < LW; x += 2) P(x, y, 1, 1, SKY[i]); for (let x = (i & 1) + 1; x < LW; x += 2) P(x, y + 1, 1, 1, SKY[i - 1]); }
+  P(0, hz, LW, LHT - hz, SKY[SKY.length - 1]);
+  const sx0 = LW * 0.8, sy0 = OFF * 0.3 + 18;
+  disc(sx0, sy0, 15, '#9ccafc'); disc(sx0, sy0, 12, '#cce4fc'); disc(sx0, sy0, 9, '#fcf4cc'); disc(sx0, sy0, 7, '#fcfcf0');
+  for (let k = 0; k < 6; k++) {
+    const cx = ((k * 97 - cam * (0.06 + k * 0.012)) % 560 + 560) % 560 - 60;
+    cloud(cx, 16 + OFF * [0.08, 0.5, 0.25, 0.7, 0.4, 0.15][k], [1, 0.8, 1.2, 0.7, 0.9, 1.1][k]);
+  }
   lc.save(); lc.translate(0, OFF);
-  // clouds and hills slide by slower than the track
-  for (let k = -1; k < 5; k++) {
-    const cx = ((k * 100 - cam * 0.15) % 500 + 500) % 500 - 60, cy = 30 - Math.round((OFF + 20) * [0.85, 0.4, 0.65, 0.25, 0.75, 0.5][k + 1]);
-    disc(cx, cy, 7, K.cloud); disc(cx + 12, cy - 4, 7, K.cloud); disc(cx + 24, cy, 7, K.cloud);
+  if (mtn) tile(mtn, MT, MH, 0.06, cam, 70 - MH);
+  if (woods) tile(woods, WT, 40, 0.3, cam, 44);
+  // grandstands now and then, crowd bobbing in the seats
+  for (let n = Math.floor((cam * 0.9 - 200) / 380); n < Math.floor((cam * 0.9 + LW) / 380) + 1; n++) {
+    const gx = n * 380 + 40 - cam * 0.9, w = 150;
+    P(gx - 2, 50, w + 4, 3, '#e8e8f0');
+    for (let a = 0; a < w; a += 6) P(gx + a, 52, 3, 3, (a / 6) % 2 ? '#d82800' : '#fcfcfc');
+    P(gx, 55, w, 27, '#3c3c4c');
+    for (let r = 0; r < 6; r++) {
+      P(gx, 57 + r * 4, w, 1, '#56566a');
+      for (let a = 1; a < w; a += 2) {
+        const v = noise(n * 1000 + a, r), bob = Math.sin(now * 6 + a * 0.4 + r) > 0.85 ? -1 : 0;
+        if (v > 0.18) P(gx + a, 58 + r * 4 + bob, 1, 2, ['#f8b800', '#fcfcfc', '#d82800', '#58a0fc', '#fc8cc8', '#7ce07c', '#fca044'][Math.floor(v * 7) % 7]);
+      }
+    }
+    for (let a = 0; a <= w; a += 50) P(gx + a, 50, 2, 32, '#9c9cac');
+    // two flags on top
+    [0.25, 0.75].forEach((q, i) => { const fx = gx + w * q; P(fx, 40, 1, 10, '#c8c8d0'); for (let r = 0; r < 4; r++) P(fx + 1, 40 + r, 6 - r + Math.round(Math.sin(now * 8 + r + i)), 1, i ? '#f8b800' : '#2050d8'); });
   }
-  // far mountains, tall enough to fill the sky on a tall screen
-  for (let sx = 0; sx < LW; sx++) {
-    const w = sx + cam * 0.08, tall = 40 + OFF * 0.55;
-    const m = Math.round(tall * (0.55 + 0.25 * Math.sin(w / 41) + 0.15 * Math.sin(w / 17 + 2) + 0.05 * Math.sin(w / 7)));
-    P(sx, 70 - m, 1, m, '#3c64c8');
-    const cap = m - tall * 0.72; if (cap > 0) P(sx, 70 - m, 1, Math.round(cap), K.white);
-    P(sx, 70 - m, 1, 1, '#1c3c94');
+  // advertising boards along the barrier, then mown grass up to the track
+  for (let a = -((cam % 40) + 40) % 40 - 40; a < LW; a += 40) {
+    const n = Math.floor((a + cam) / 40), c = ['#d82800', '#fcfcfc', '#2050d8', '#f8b800'][((n % 4) + 4) % 4];
+    P(a, 81, 40, 9, c); P(a, 81, 40, 1, '#fcfcfc'); P(a + 39, 81, 1, 9, '#202028');
+    P(a + 8, 84, 24, 3, c === '#fcfcfc' ? '#d82800' : '#fcfcfc');
   }
-  for (let sx = 0; sx < LW; sx++) {
-    const w1 = sx + cam * 0.3, w2 = sx + cam * 0.5;
-    const h1 = Math.round(18 + 10 * Math.sin(w1 / 22) + 5 * Math.sin(w1 / 9 + 1)), h2 = Math.round(9 + 6 * Math.sin(w2 / 15 + 2));
-    P(sx, 82 - h1, 1, h1, K.hill); P(sx, 82 - h2, 1, h2, K.hill2);
-  }
-  // fence along the back of the track
-  P(0, 76, LW, 2, K.white);
-  for (let fx = -((cam * 0.9) % 10); fx < LW; fx += 10) P(fx, 72, 2, 9, K.white);
-  P(0, 81, LW, BASE - 81, K.grass); P(0, 81, LW, 1, K.hill2);
+  P(0, 90, LW, 1, '#1c6c2c');
+  for (let a = -((cam % 24) + 24) % 24 - 24; a < LW; a += 24) { P(a, 91, 12, BASE - 91, K.grass2); P(a + 12, 91, 12, BASE - 91, K.grass); }
   // under the ramps: the earth between the lanes
   for (let sx = 0; sx < LW; sx++) {
     const wx = cam + sx;
     let top = 999; for (let l = 0; l < 4; l++) top = Math.min(top, BASE + l * LANE - Math.round(ground(wx, l)));
     P(sx, top, 1, GROUND - top, K.shade);
   }
-  // the lanes, back first, each with its own shading on the climbs and drops
+  // the lanes, back first: shaded by slope, a bright lip, tyre ruts and stones
   for (let l = 0; l < 4; l++) {
     const y0 = BASE + l * LANE;
     for (let sx = 0; sx < LW; sx++) {
       const wx = cam + sx, h = Math.round(ground(wx, l)), s = slope(wx, l);
-      P(sx, y0 - h, 1, LANE, s > 0.5 ? K.lite : s < -0.5 ? K.shade : (l % 2 ? K.dirt : K.dirt2));
-      P(sx, y0 - h, 1, 1, '#fcb870');
-      const n = noise(Math.floor(wx / 3), l);
-      if (n > 0.9) P(sx, y0 - h + 4 + Math.floor(n * 50) % 7, 2, 1, K.dark);
+      const col = s > 1.1 ? K.lite2 : s > 0.35 ? K.lite : s < -1.1 ? K.dark2 : s < -0.35 ? K.shade : (l % 2 ? K.dirtB : K.dirtA);
+      const ty = y0 - h;
+      P(sx, ty, 1, LANE, col);
+      P(sx, ty, 1, 1, K.top);
+      P(sx, ty + LANE - 1, 1, 1, K.dark2);
+      if (Math.abs(s) < 0.35) {
+        const rn = noise(Math.floor(wx / 5), l * 7);
+        if (rn > 0.25) { P(sx, ty + Math.round(LANE * 0.42), 1, 1, K.rut); P(sx, ty + Math.round(LANE * 0.68), 1, 1, K.rut); }
+      }
+      const n = noise(Math.floor(wx / 2), l);
+      if (n > 0.93) { const yy = ty + 3 + Math.floor(n * 97) % (LANE - 6); P(sx, yy, 1, 1, '#fce0b8'); P(sx, yy + 1, 1, 1, K.dark2); }
+      // chalk line between lanes
+      if (l > 0 && ((wx >> 2) & 3) === 0) P(sx, ty, 1, 1, '#fcfcfc');
     }
   }
-  // the raised front edge, down to the grass
-  for (let sx = 0; sx < LW; sx++) { const h = Math.round(ground(cam + sx, 3)); if (h > 0) { P(sx, GROUND - h, 1, h, K.face); P(sx, GROUND - h, 1, 1, K.black); } }
-  P(0, GROUND, LW, LHT - GROUND, K.grass); P(0, GROUND, LW, 1, K.black);
+  // the raised front face shows layers of packed dirt
+  for (let sx = 0; sx < LW; sx++) {
+    const h = Math.round(ground(cam + sx, 3));
+    if (h > 0) { for (let y = 0; y < h; y++) P(sx, GROUND - h + y, 1, 1, ((y + Math.floor((cam + sx) / 9)) >> 2) & 1 ? K.face1 : K.face2); P(sx, GROUND - h, 1, 1, K.black); }
+  }
+  // foreground grass with tufts
+  P(0, GROUND, LW, LHT - GROUND, K.grass); P(0, GROUND, LW, 1, '#14501c');
+  for (let a = -((cam % 6) + 6) % 6; a < LW; a += 6) { const n = noise(Math.floor((a + cam) / 6), 9); if (n > 0.4) { P(a, GROUND + 2 + Math.floor(n * 5), 1, 2, K.blade); P(a + 1, GROUND + 1 + Math.floor(n * 5), 1, 3, K.grass2); } if (n > 0.95) P(a + 2, GROUND + 4, 2, 2, '#fcf06c'); }
   // note pads on the flat run-up before each hill
-  feats.forEach((f, i) => {
+  feats.forEach(f => {
     const px0 = f.x - PAD_BEFORE;
     if (px0 - cam < -40 || px0 - cam > LW + 20) return;
     for (let l = 0; l < 4; l++) {
       const sx = px0 + laneShift(l) - cam, y = BASE + l * LANE;
-      const fill = f.done ? (f.taken === l ? (f.good ? K.grass : K.red) : '#c8c8c8') : K.white;
-      P(sx, y + 2, PAD_W, LANE - 4, K.black); P(sx + 1, y + 3, PAD_W - 2, LANE - 6, fill);
-      if (!f.done) labels.push({ x: sx + PAD_W / 2, y: y + LANE / 2, t: f.lanes[l], c: K.black });
+      const fill = f.done ? (f.taken === l ? (f.good ? '#38c048' : K.red) : '#bcbcc4') : K.white;
+      P(sx + 1, y + 4, PAD_W, LANE - 5, 'rgba(60,20,0,0.45)');
+      P(sx, y + 2, PAD_W, LANE - 4, K.black); P(sx + 1, y + 3, PAD_W - 2, LANE - 6, fill); P(sx + 1, y + 3, PAD_W - 2, 1, f.done ? fill : '#fcfcfc');
+      if (!f.done) { P(sx + 1, y + LANE - 4, PAD_W - 2, 1, '#c8c8d0'); labels.push({ x: sx + PAD_W / 2, y: y + LANE / 2, t: f.lanes[l], c: K.black }); }
     }
   });
-  // checkered finish line
-  if (finishX && finishX - cam < LW + 30) for (let l = 0; l < 4; l++) for (let r = 0; r < 3; r++) for (let q = 0; q < 2; q++)
-    P(finishX + laneShift(l) - cam + q * 4, BASE + l * LANE + r * Math.floor(LANE / 3) + 1, 4, Math.floor(LANE / 3), (r + q + l) % 2 ? K.black : K.white);
-  // the rider
+  // the finish: a checkered banner on two posts
+  if (finishX && finishX - cam < LW + 40) {
+    const fx = finishX - cam;
+    for (let l = 0; l < 4; l++) for (let r = 0; r < 4; r++) for (let q = 0; q < 2; q++)
+      P(fx + laneShift(l) + q * 3, BASE + l * LANE + r * (LANE / 4), 3, LANE / 4, (r + q + l) % 2 ? K.black : K.white);
+    P(fx + laneShift(0) - 2, BASE - 40, 2, 42, '#c8c8d0'); P(fx + laneShift(3) + 6, BASE - 40 + 3 * LANE, 2, 42 + LANE, '#c8c8d0');
+    for (let q = 0; q < 24; q++) P(fx + laneShift(0) + q, BASE - 40 + q * 3 * LANE / 24 / 1.0, 1, 8, ((q >> 1) + 0) % 2 ? K.black : K.white);
+  }
+  // the rider, with a shadow on the dirt when flying, roost and dust, and flame on a boost
   if (bx !== undefined && state !== 'start') {
-    const lf = lane, gy = BASE + lf * LANE + LANE - 3;
-    if (dust) dust.forEach(d => disc(d.x - cam, d.y, d.r, K.lite));
-    paintBike(bx / 6);
-    lc.save(); lc.translate(BIKE_X, Math.round(gy - hy - 6) + (wobbleT > 0 ? Math.round(Math.sin(wobbleT * 40)) : 0)); lc.rotate(-Math.max(-0.6, Math.min(0.6, tilt)));
-    lc.imageSmoothingEnabled = false; lc.drawImage(sprite, -22, -32); lc.restore();
+    const lr = Math.round(lane), gy = BASE + lane * LANE + LANE - 3;
+    if (air) { const w = Math.max(10, 30 - hy * 0.12), gy2 = gy - ground(bx, lr); lc.fillStyle = 'rgba(60,16,0,0.35)'; lc.fillRect(BIKE_X - w / 2, gy2 - 1, w, 2); }
+    dust.forEach(d => {
+      const x = d.x - cam;
+      if (d.k === 'puff') disc(x, d.y, Math.max(1, Math.round(d.r * (1.2 - d.t / d.life))), d.t / d.life > 0.5 ? '#f4d4a8' : '#dcb488');
+      else F(x, d.y, d.s, d.s, d.c);
+    });
+    paintBike(bx / 5, air);
+    lc.save();
+    lc.translate(BIKE_X, Math.round(gy - hy - 6) + (wobbleT > 0 ? Math.round(Math.sin(wobbleT * 40)) : 0));
+    lc.rotate(-Math.max(-0.6, Math.min(0.6, tilt)));
+    if (boostT > 0) { const fl = 6 + Math.random() * 6; lc.fillStyle = '#f8b800'; lc.fillRect(-18 - fl, -12, fl, 2); lc.fillStyle = '#fc6c24'; lc.fillRect(-18 - fl * 0.6, -13, fl * 0.6, 4); lc.fillStyle = '#fcfcf0'; lc.fillRect(-20, -12, 2, 2); }
+    lc.drawImage(sprite, -22, -32, 44, 40);
+    lc.restore();
+    if (boostT > 0) for (let k = 0; k < 5; k++) { const y = BASE - 30 - Math.random() * (30 + OFF * 0.3), x = Math.random() * LW; P(x, y, 8 + Math.random() * 14, 1, 'rgba(252,252,252,0.6)'); }
   }
   lc.restore();
   if (flash > 0) { lc.fillStyle = `rgba(216,40,0,${flash * 0.3})`; lc.fillRect(0, 0, LW, LHT); }
+  lc.setTransform(1, 0, 0, 1, 0, 0);
   // scale up crisply, then the pad lettering on top
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(low, 0, 0, W, H);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(LANE * PXS * 0.78)}px 'Jersey 15', monospace`;
+  ctx.font = `${Math.round(LANE * PXS * 0.72)}px 'Jersey 15', monospace`;
   labels.forEach(l => { ctx.fillStyle = l.c; ctx.fillText(l.t, l.x * PXS, (l.y + OFF) * PXS + 1); });
   if (boostT > 0 && state === 'playing') { ctx.font = `${Math.round(22 * PXS)}px 'Jersey 15', monospace`; ctx.fillStyle = K.yel; ctx.strokeStyle = K.black; ctx.lineWidth = 4; const by = (OFF * 0.45 + 50) * PXS; ctx.strokeText('BOOST', W / 2, by); ctx.fillText('BOOST', W / 2, by); }
 }
@@ -377,7 +501,9 @@ function frame(t) {
       // a landing that meets the slope is smooth; slamming into a climb or the flat costs speed
       const hard = vy - s * vx < -200 * Math.sqrt(launchSc);
       hy = g; air = false; vy = s * vx;
-      if (hard) { vx *= 0.65; wobbleT = 0.4; tone(110, 0.12, 'square', 60, 0.05); } else tone(220, 0.05, 'triangle', 0, 0.04);
+      if (hard) { vx *= 0.65; wobbleT = 0.4; shakeT = 0.25; tone(110, 0.12, 'square', 60, 0.05); } else tone(220, 0.05, 'triangle', 0, 0.04);
+      const yb = BASE + lr * LANE + LANE - 4 - hy;
+      for (let k = 0; k < (hard ? 14 : 8); k++) dust.push({ k: 'puff', x: bx + (Math.random() - 0.5) * 30, y: yb - Math.random() * 3, vx: (Math.random() - 0.5) * 40, vy: -8 - Math.random() * 10, g: 0, r: 2 + Math.round(Math.random() * 3), t: 0.6, life: 0.6 });
     }
   } else {
     const here = featureAt(bx), sc = here ? Math.sqrt(here.sc) : 1, cap = (boostT > 0 ? BOOST_LIFT : LIFT) * sc;
@@ -386,10 +512,14 @@ function frame(t) {
     if (s > 0.2) climb = Math.max(climb, lift);
     if (climb > 40 && s < 0.12) { air = true; launchSc = sc * sc; vy = climb * 0.9; climb = 0; hy = g; tone(440, 0.06, 'square', 660, 0.03); }
     else { if (s <= 0) climb = 0; hy = g; vy = lift; tilt += (Math.atan(s) - tilt) * Math.min(1, dt * 12); }
-    if (vx > 20 && (gas || boostT > 0) && Math.random() < 0.5) dust.push({ x: bx - 14, y: BASE + lr * LANE + LANE - 4 - hy, r: 2, t: 0.4 });
+    if (vx > 20 && (gas || boostT > 0)) for (let k = 0; k < 2; k++) {
+      const c = ['#a84a18', '#7c3010', '#d8702c', '#fcc07c'][Math.floor(Math.random() * 4)];
+      dust.push({ k: 'bit', x: bx - 17, y: BASE + lr * LANE + LANE - 4 - hy, vx: -30 - Math.random() * 50, vy: -25 - Math.random() * 45, g: 220, s: Math.random() < 0.3 ? 1.5 : 1, c, t: 0.6, life: 0.6 });
+    }
   }
   if (engine) engine.o.frequency.value = 45 + vx * 0.9 + (air ? 30 : 0);
-  dust.forEach(d => { d.x -= 20 * dt; d.y -= 6 * dt; d.t -= dt; }); dust = dust.filter(d => d.t > 0);
+  dust.forEach(d => { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += d.g * dt; d.t -= dt; }); dust = dust.filter(d => d.t > 0);
+  shakeT = Math.max(0, shakeT - dt);
   // crossing the pads decides the next jump
   const f = feats[next];
   if (f && ox < f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2 && bx >= f.x - PAD_BEFORE + laneShift(lr) + PAD_W / 2) judge(f);
@@ -458,7 +588,8 @@ function fit() {
   PXS = W / 232; LW = Math.ceil(W / PXS);
   const room = window.innerHeight - document.querySelector('.stage').getBoundingClientRect().top - document.querySelector('.pad').offsetHeight - 26;
   LHT = Math.max(VIEW, Math.floor(room / PXS));
-  OFF = LHT - VIEW; low.width = LW; low.height = LHT; H = Math.round(LHT * PXS);
+  OFF = LHT - VIEW; low.width = LW * R; low.height = LHT * R; H = Math.round(LHT * PXS);
+  buildLayers();
   const dpr = window.devicePixelRatio || 1;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   draw();
