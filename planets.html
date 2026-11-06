@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Planets | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Dots&family=Share+Tech+Mono&family=Jersey+10&family=Big+Shoulders+Display:wght@800&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+/* a space-age instrument panel: Zen Dots for the big words, Share Tech Mono for the readouts */
+:root { --echo: #4aa8ff; --alpha: #ff5a4a; --delta: #4ad88a; --earth: #f8d24a; --ink: #05060c; --panel: #12141e; --dim: #8a90a8; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: #05060c; }
+body { color: #e8ecf8; font-family: 'Share Tech Mono', monospace; font-size: 16px; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+.screen { max-width: 520px; margin: 0 auto; padding: 6px 8px 8px; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 26px; font-size: 15px; letter-spacing: 1px; }
+.top a { text-decoration: none; color: var(--dim); }
+.top button { background: none; border: none; padding: 0; cursor: pointer; color: var(--dim); }
+.stage { position: relative; margin-top: 4px; }
+canvas { display: block; touch-action: none; border-radius: 6px; }
+/* the readout along the top of the view */
+.hud { position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 10px; pointer-events: none; }
+.hud .cell { font-size: 11px; letter-spacing: 2px; color: rgba(232,236,248,0.75); text-shadow: 0 1px 2px #000; }
+.hud .cell b { display: block; font-family: 'Zen Dots', sans-serif; font-weight: 400; font-size: 18px; letter-spacing: 0; color: #fff; }
+.hud .r { text-align: right; }
+.prog { position: absolute; left: 8px; right: 8px; display: flex; gap: 6px; justify-content: center; pointer-events: none; }
+.prog.w-echo .chip { font-family: 'Jersey 10', monospace; font-size: 26px; border-radius: 0; border: 3px solid #3a7ad8; background: #06102c; color: #3a7ad8; padding: 2px 8px 0; }
+.prog.w-echo .chip.now { border-color: #e8f6ff; color: #e8f6ff; box-shadow: none; } .prog.w-echo .chip.done { background: #3a7ad8; color: #06102c; }
+.prog.w-echo .chip small { font-family: 'Jersey 10', monospace; font-size: 14px; }
+.prog.w-alpha .chip { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 26px; border-radius: 0; border: none; background: #16100c; color: #ece0c4; transform: rotate(-4deg); padding: 3px 9px 2px; }
+.prog.w-alpha .chip.now { background: #d42a1a; box-shadow: 3px 3px 0 #16100c; } .prog.w-alpha .chip.done { background: #ece0c4; color: #16100c; outline: 3px solid #16100c; }
+.prog.w-alpha .chip small { font-family: 'Big Shoulders Display', sans-serif; font-size: 13px; }
+.prog.w-delta .chip { font-family: 'Share Tech Mono', monospace; font-size: 18px; border-radius: 0; background: #000; border: 1px solid #2a8a4a; color: #2a8a4a; text-shadow: 0 0 6px #3aff6a; }
+.prog.w-delta .chip.now { border-color: #5aff8a; color: #8affaa; box-shadow: 0 0 10px #3aff6a; } .prog.w-delta .chip.done { background: #0c2a14; color: #8affaa; }
+.prog.w-delta .chip small { font-family: 'Share Tech Mono', monospace; font-size: 10px; }
+.prog.w-earth { gap: 4px; left: 2px; right: 2px; }
+.prog.w-earth .chip { min-width: 0; flex: 1; padding: 4px 2px 3px; font-family: 'Young Serif', serif; font-size: 18px; border-radius: 3px 10px 4px 12px; background: #fbf2dc; border: 2px solid #2a1a10; color: #8a6a4a; }
+.prog.w-earth .chip.now { color: #2a1a10; box-shadow: 3px 3px 0 #2a1a10; } .prog.w-earth .chip.done { background: #f0c04a; color: #2a1a10; }
+.prog.w-earth .chip small { font-family: 'Young Serif', serif; font-size: 11px; }
+.prog.w-echo .rnd { font-family: 'Jersey 10', monospace; font-size: 18px; color: #8ac4f8; } .prog.w-alpha .rnd { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 18px; color: #16100c; } .prog.w-delta .rnd { font-family: 'Share Tech Mono', monospace; color: #5aff8a; } .prog.w-earth .rnd { font-size: 11px; margin-right: 0;} .prog.w-earth .rnd { font-family: 'Young Serif', serif; color: #2a1a10; }
+.over.t-echo { background: #06102c; border-radius: 0; box-shadow: inset 0 0 0 4px #3a7ad8, inset 0 0 0 8px #06102c, inset 0 0 0 10px #3a7ad8; font-family: 'Jersey 10', monospace; font-size: 22px; color: #8ac4f8; }
+.over.t-echo h2 { font-family: 'Jersey 10', monospace; font-size: 54px; color: #e8f6ff; } .over.t-echo h2 span, .over.t-echo p b { color: #8ac4f8; } .over.t-echo .kick { font-family: 'Jersey 10', monospace; font-size: 18px; color: #3a7ad8; } .over.t-echo .go { border-radius: 0; background: #e8f6ff; color: #06102c; font-family: 'Jersey 10', monospace; font-size: 26px; }
+.over.t-alpha { background: #ece0c4; border-radius: 0; color: #16100c; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 20px; }
+.over.t-alpha h2 { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 64px; line-height: 0.85; text-transform: uppercase; color: #16100c; transform: rotate(-3deg); transform-origin: left; } .over.t-alpha h2 span, .over.t-alpha p b { color: #d42a1a; } .over.t-alpha .kick { color: #d42a1a; letter-spacing: 6px; } .over.t-alpha .go { border-radius: 0; background: #d42a1a; color: #ece0c4; font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 24px; box-shadow: 4px 4px 0 #16100c; text-transform: uppercase; }
+.over.t-delta { background: #000; border-radius: 0; border: 1px solid #2a8a4a; color: #5aff8a; font-family: 'Share Tech Mono', monospace; text-shadow: 0 0 6px #3aff6a; }
+.over.t-delta h2 { font-family: 'Share Tech Mono', monospace; font-size: 36px; color: #8affaa; } .over.t-delta h2 span, .over.t-delta p b { color: #8affaa; } .over.t-delta .kick { color: #2a8a4a; } .over.t-delta .go { border-radius: 0; background: none; border: 1px solid #5aff8a; color: #8affaa; font-family: 'Share Tech Mono', monospace; box-shadow: 0 0 10px #3aff6a; }
+.over.t-earth { background: #fbf2dc; border-radius: 4px; color: #2a1a10; font-family: 'Young Serif', serif; box-shadow: inset 0 0 0 2px #2a1a10; }
+.over.t-earth h2 { font-family: 'Young Serif', serif; font-size: 40px; color: #2a1a10; } .over.t-earth h2 span, .over.t-earth p b { color: #b8862a; } .over.t-earth .kick { color: #8a6a4a; } .over.t-earth .go { border-radius: 3px 10px 4px 12px; background: #f0c04a; color: #2a1a10; border: 2px solid #2a1a10; font-family: 'Young Serif', serif; }
+.hud.w-echo .cell { font-family: 'Jersey 10', monospace; font-size: 16px; color: #8ac4f8; letter-spacing: 1px; } .hud.w-echo .cell b { font-family: 'Jersey 10', monospace; font-size: 28px; color: #e8f6ff; }
+.hud.w-alpha .cell { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 15px; color: #16100c; text-shadow: none; letter-spacing: 3px; } .hud.w-alpha .cell b { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; color: #16100c; }
+.hud.w-delta .cell { color: #2a8a4a; text-shadow: 0 0 6px #3aff6a; } .hud.w-delta .cell b { font-family: 'Share Tech Mono', monospace; font-size: 22px; color: #8affaa; }
+.hud.w-earth .cell { font-family: 'Young Serif', serif; color: #4a3a2a; text-shadow: none; letter-spacing: 1px; } .hud.w-earth .cell b { font-family: 'Young Serif', serif; font-size: 20px; color: #2a1a10; }
+.rnd { align-self: center; font-size: 12px; letter-spacing: 1px; color: var(--c); margin-right: 2px; }
+.chip { min-width: 54px; padding: 5px 8px 4px; text-align: center; font-family: 'Zen Dots', sans-serif; font-size: 18px; border-radius: 4px; background: rgba(5,6,12,0.72); border: 2px solid rgba(255,255,255,0.18); color: rgba(232,236,248,0.6); }
+.chip.now { border-color: var(--c); color: #fff; box-shadow: 0 0 12px var(--c); }
+.chip.done { background: var(--c); border-color: var(--c); color: #05060c; }
+.chip small { display: block; font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 1px; opacity: 0.8; }
+.flybar { display: none; margin-top: 8px; }
+.flybar.on { display: block; }
+.flybar button { width: 100%; height: 52px; border: 2px solid var(--earth); background: transparent; color: var(--earth); border-radius: 6px; font-family: 'Zen Dots', sans-serif; font-size: 18px; letter-spacing: 3px; cursor: pointer; touch-action: none; }
+.flybar button.on { background: var(--earth); color: #05060c; }
+.shapes { display: none; gap: 8px; margin-top: 8px; }
+.shapes.on { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.shapes button { height: 46px; border: 2px solid var(--c); background: transparent; color: var(--c); border-radius: 6px; font-family: 'Zen Dots', sans-serif; font-size: 15px; cursor: pointer; }
+.shapes button.sel { background: var(--c); color: #05060c; }
+.hint { text-align: center; font-size: 13px; color: var(--dim); margin-top: 6px; min-height: 18px; }
+.over { position: absolute; inset: 0; padding: 22px 20px; overflow: auto; background: rgba(5,6,12,0.82); border-radius: 6px; }
+.over.hidden { display: none; }
+.over h2 { margin: 0 0 6px; font-family: 'Zen Dots', sans-serif; font-weight: 400; font-size: 40px; line-height: 1; color: #fff; }
+.over h2 span { color: var(--c, var(--earth)); }
+.over .kick { font-size: 12px; letter-spacing: 4px; color: var(--dim); margin-bottom: 8px; }
+.over p { margin: 0 0 12px; line-height: 1.4; }
+.over p b { color: var(--c, var(--earth)); font-weight: 400; }
+.big { font-family: 'Zen Dots', sans-serif; font-size: 54px; line-height: 1; color: var(--earth); margin: 6px 0; }
+.lbl { font-size: 14px; color: var(--dim); margin: 4px 0 14px; }
+.go { display: inline-block; margin: 2px 8px 14px 0; padding: 9px 16px 8px; background: var(--c, var(--earth)); color: #05060c; font-family: 'Zen Dots', sans-serif; font-size: 16px; border-radius: 5px; cursor: pointer; }
+.go.alt { background: none; color: #e8ecf8; border: 2px solid rgba(232,236,248,0.4); }
+.hs-h { font-size: 12px; letter-spacing: 2px; color: var(--dim); margin: 6px 0 4px; }
+.hs { display: grid; grid-template-columns: 2em 4em auto; row-gap: 2px; font-size: 18px; }
+.hs .me { color: var(--earth); }
+.ini { display: flex; gap: 10px; align-items: center; margin: 6px 0 12px; }
+.ini input { width: 110px; font-family: 'Zen Dots', sans-serif; font-size: 30px; letter-spacing: 4px; text-transform: uppercase; background: none; color: #fff; border: none; border-bottom: 3px solid var(--earth); border-radius: 0; padding: 0 0 0 4px; }
+.ini input:focus { outline: none; }
+.ini button { background: var(--earth); color: #05060c; border: none; padding: 7px 12px; font-family: 'Zen Dots', sans-serif; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd" onclick="toggleSound()">SOUND ON</button>
+  </div>
+  <div class="stage">
+    <canvas id="cv"></canvas>
+    <div class="hud" id="hud">
+      <div class="cell">WORLD<b id="world">ECHO</b></div>
+      <div class="cell r">MISSION TIME<b id="time">0:00.0</b></div>
+    </div>
+    <div class="prog" id="prog"></div>
+    <div class="over hidden" id="over"></div>
+  </div>
+  <div class="flybar" id="flybar"><button id="boost">BOOST</button></div>
+  <div class="shapes" id="shapes">
+    <button style="--c:var(--echo)" data-s="echo">ECHO</button>
+    <button style="--c:var(--alpha)" data-s="alpha">ALPHA</button>
+    <button style="--c:var(--delta)" data-s="delta">DELTA</button>
+  </div>
+  <div class="hint" id="hint"></div>
+</div>
+
+<script>
+// ---- Music: the grip engine from the Daily Game ---------------------------
+const STR_OPEN = [4, 9, 2, 7, 11, 4];
+const QUAL_MAP = { '':'major','m':'minor','7':'7','maj7':'Maj7','m7':'m7','sus4':'sus4' };
+const QUALITY_INTERVALS_MAIN = {
+  major:[0,4,7], minor:[0,3,7], '7':[0,4,7,10], Maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,4,7],
+};
+const TONE_NAMES_MAIN = {
+  0:'root',2:'ninth',3:'minor-third',4:'third',5:'fourth',7:'fifth',9:'sixth',10:'seventh',11:'maj7',
+};
+const GRIP_CONFIG = {
+  echo:  { anchor:0, strings:[0,1,2,3,4,5], win:2, upper:[3,4,5] },
+  alpha: { anchor:1, strings:[1,2,3,4,5],   win:2, upper:[3,4,5] },
+  delta: { anchor:2, strings:[2,3,4,5],      win:3, upper:[5]     },
+};
+
+function findFrets(si, pc) {
+  const out = [];
+  for (let f = 0; f <= 12; f++) if ((STR_OPEN[si] + f) % 12 === pc) out.push(f);
+  return out;
+}
+function computeGripTones(shapeName, qualStr, rootPc) {
+  const quality   = QUAL_MAP[qualStr] || 'major';
+  const r         = rootPc % 12;
+  const intervals = QUALITY_INTERVALS_MAIN[quality];
+  const { anchor, strings, win, upper } = GRIP_CONFIG[shapeName];
+  const anchorFret = findFrets(anchor, r)[0];
+  if (anchorFret === undefined) return new Set();
+  const isSus = quality === 'sus4', suppressUpperRoot = quality === '7';
+  const echoSlideback = shapeName === 'echo' && quality === 'Maj7';
+  const dots = [];
+  strings.forEach(s => {
+    for (let fo = 0; fo <= win; fo++) {
+      let f = anchorFret + fo;
+      if (f > 12) f -= 12;
+      if (f > 12) continue;
+      const noteAtFret = (STR_OPEN[s] + f) % 12;
+      intervals.forEach(interval => {
+        if (noteAtFret !== (r + interval) % 12) return;
+        if (shapeName === 'delta' && (interval === 4 || interval === 3) && s !== 5) return;
+        const isThird = interval === 4 || interval === 3;
+        const isUpperStr = upper.includes(s);
+        const isUpperRoot = interval === 0 && isUpperStr && s !== anchor;
+        if (suppressUpperRoot && isUpperRoot && fo > 0) return;
+        if (echoSlideback && interval === 11) return;
+        if (isSus && isThird && isUpperStr) {
+          const sf = f + 1 > 12 ? f - 11 : f + 1;
+          dots.push({ s, fret:sf, t:'fourth', isRoot:false });
+        } else {
+          const t = TONE_NAMES_MAIN[interval] || 'tone';
+          dots.push({ s, fret:f, t, isRoot:interval === 0 });
+          if (f === 12) dots.push({ s, fret:0,  t, isRoot:interval === 0 });
+          if (f === 0)  dots.push({ s, fret:12, t, isRoot:interval === 0 });
+        }
+      });
+    }
+  });
+  if (echoSlideback) {
+    const target = (r + 11) % 12;
+    for (let f2 = 0; f2 <= 12; f2++) {
+      if ((STR_OPEN[5] + f2) % 12 === target) { dots.push({ s:5, fret:f2, t:'maj7', isRoot:false }); break; }
+    }
+  }
+  const byStr = {};
+  dots.forEach(d => { (byStr[d.s] = byStr[d.s] || []).push(d); });
+  const priority = ['sixth','ninth','seventh','maj7','fourth','fifth','minor-third','third','root'];
+  const result = new Set();
+  Object.entries(byStr).forEach(([sStr, group]) => {
+    const s = parseInt(sStr);
+    let pick;
+    if (group.length === 1) { pick = group[0]; }
+    else if (s === anchor) { pick = group.find(d => d.isRoot) || group[0]; }
+    else {
+      group.sort((a,b) => {
+        const ai = priority.indexOf(a.t), bi = priority.indexOf(b.t);
+        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+      });
+      pick = group[0];
+    }
+    result.add(`${pick.fret}-${s}`);
+  });
+  return result;
+}
+const LETTERS = 'CDEFGAB', LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+function spell(keyName, steps, semis) {
+  const kl = LETTERS.indexOf(keyName[0]);
+  const kpc = (LETTER_PC[kl] + (keyName[1] === '#' ? 1 : keyName[1] === 'b' ? 11 : 0)) % 12;
+  const l = (kl + steps) % 7, off = ((kpc + semis - LETTER_PC[l]) % 12 + 18) % 12 - 6;
+  return LETTERS[l] + (off > 0 ? '#'.repeat(off) : 'b'.repeat(-off));
+}
+const clean = n => n.length <= 2 && !['Cb', 'Fb', 'E#', 'B#'].includes(n);
+const KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'Bb', 'Eb', 'Ab'];
+// the diatonic chords of a major key, by degree
+const DEG = { I: [0, 0, ''], ii: [1, 2, 'm'], iii: [2, 4, 'm'], IV: [3, 5, ''], V: [4, 7, ''], vi: [5, 9, 'm'] };
+const PATTERNS = [['I', 'IV', 'V', 'I'], ['I', 'vi', 'IV', 'V'], ['ii', 'V', 'I', 'I'], ['I', 'V', 'vi', 'IV'], ['vi', 'IV', 'I', 'V'], ['I', 'iii', 'IV', 'V'], ['IV', 'I', 'V', 'vi']];
+const OPEN_MIDI = [40, 45, 50, 55, 59, 64];   // low E up to high e
+const ANCHOR = { echo: 0, alpha: 1, delta: 2 };
+
+// ---- Worlds --------------------------------------------------------------
+const WORLDS = {
+  echo:  { name: 'ECHO', c: '#4aa8ff', shape: 'echo', blurb: 'An ice world of glass spires. Its people only play the Echo shape, root on the low E string.' },
+  alpha: { name: 'ALPHA', c: '#ff5a4a', shape: 'alpha', blurb: 'A red dust world of domes and arches. Here every chord is the Alpha shape, root on the A string.' },
+  delta: { name: 'DELTA', c: '#4ad88a', shape: 'delta', blurb: 'A green world of stepped temples. Only the Delta shape is spoken, root on the D string.' },
+  earth: { name: 'EARTH', c: '#f8d24a', shape: null, blurb: 'Home. Every shape works here, but your hand has to stay in the lit frets, so pick the shape that fits.' },
+};
+
+// ---- State ---------------------------------------------------------------
+const HS_KEY = 'planetsTimes', SOUND_KEY = 'arcadeSound';
+const cv = document.getElementById('cv'); let ctx = cv.getContext('2d');
+const low = document.createElement('canvas'), lowctx = low.getContext('2d');   // the flight renders small, then is blown up soft
+let W = 360, H = 600, dpr = 1;
+let state = 'map', world = null, cleared = {}, prog = [], step = 0, key = 'C', time = 0, misses = 0, lastT = 0, soundOn = true;
+let voyaging = false, pick = 'echo', win0 = 0, grip = null, gripT = 0, buzzT = 0, travel = null, stars = [], parts = [];
+
+function store(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function load(k)     { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function times()     { try { return JSON.parse(load(HS_KEY)) || []; } catch (e) { return []; } }
+const fmt = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
+const rand = (a, b) => a + Math.random() * (b - a);
+const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+
+// ---- Sound ---------------------------------------------------------------
+let audio = null;
+function ac() { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); return audio; }
+function tone(freq, dur, type, slide, vol, delay) {
+  if (!soundOn) return;
+  try {
+    const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (delay || 0);
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+// a strummed chord: each string plucked a moment after the last, bright then fading
+function strum(cells) {
+  if (!soundOn) return;
+  try {
+    const a = ac();
+    [...cells].map(c => c.split('-').map(Number)).sort((x, y) => x[1] - y[1]).forEach(([f, s], i) => {
+      const t = a.currentTime + i * 0.035, freq = 440 * Math.pow(2, (OPEN_MIDI[s] + f - 69) / 12);
+      const o = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter(), g = a.createGain();
+      o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.value = freq; o2.frequency.value = freq * 2.003;
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(freq * 8, t); lp.frequency.exponentialRampToValueAtTime(freq * 1.5, t + 0.6);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+      o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(a.destination);
+      o.start(t); o2.start(t); o.stop(t + 1.7); o2.stop(t + 1.7);
+    });
+  } catch (e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  store(SOUND_KEY, soundOn ? '1' : '0');
+  document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+}
+
+// ---- Missions ------------------------------------------------------------
+function chordOf(deg) { const [steps, semis, q] = DEG[deg]; const root = spell(key, steps, semis); return { deg, root, q, pc: (ROOT_PC_OF(root)), name: root + q }; }
+function ROOT_PC_OF(n) { const b = LETTER_PC[LETTERS.indexOf(n[0])]; return (b + (n[1] === '#' ? 1 : n[1] === 'b' ? 11 : 0) + 12) % 12; }
+// where a grip sits on the neck, and whether it fits inside a five-fret hand position
+function gripFor(shape, ch) { return computeGripTones(shape, ch.q, ch.pc); }
+function spanOf(cells) { const fr = [...cells].map(c => +c.split('-')[0]).filter(f => f > 0); return fr.length ? [Math.min(...fr), Math.max(...fr)] : [0, 0]; }
+const fits = (cells, w) => { const [a, b] = spanOf(cells); return a >= w && b <= w + 4; };
+function plan(id) {
+  key = KEYS[Math.floor(Math.random() * KEYS.length)];
+  if (id !== 'earth') {
+    prog = PATTERNS[Math.floor(Math.random() * PATTERNS.length)].map(chordOf);
+    return;
+  }
+  // home: six chords, and a hand position where every one of them has at least one shape that fits
+  for (let tries = 0; tries < 400; tries++) {
+    key = KEYS[Math.floor(Math.random() * KEYS.length)];
+    const p = [...PATTERNS[Math.floor(Math.random() * PATTERNS.length)], ...PATTERNS[Math.floor(Math.random() * PATTERNS.length)].slice(0, 2)].map(chordOf);
+    const w = 1 + Math.floor(Math.random() * 6);
+    if (p.every(ch => ['echo', 'alpha', 'delta'].some(sh => fits(gripFor(sh, ch), w)))) { prog = p; win0 = w; return; }
+  }
+  win0 = 3; prog = ['I', 'IV', 'V', 'I', 'vi', 'IV'].map(chordOf);
+}
+
+// ---- Drawing: space ------------------------------------------------------
+function starfield(now, dim) {
+  ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W * 0.3, H * 0.35, 10, W * 0.3, H * 0.35, H * 0.6);
+  g.addColorStop(0, 'rgba(90,40,140,0.35)'); g.addColorStop(0.5, 'rgba(30,40,110,0.18)'); g.addColorStop(1, 'rgba(5,6,12,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  stars.forEach(s => { ctx.fillStyle = `rgba(255,255,255,${(0.4 + 0.6 * Math.abs(Math.sin(now * s.tw + s.ph))) * s.b * (dim || 1)})`; ctx.fillRect(s.x * W, s.y * H, s.r, s.r); });
+}
+function sphere(x, y, r, base, dark, lite, bands, ring) {
+  ctx.save();
+  if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = r * 0.08; ctx.beginPath(); ctx.ellipse(x, y, r * 1.7, r * 0.42, -0.35, Math.PI, Math.PI * 2); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+  let g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r * 1.05);
+  g.addColorStop(0, lite); g.addColorStop(0.5, base); g.addColorStop(1, dark);
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  if (bands) for (let i = 0; i < bands.length; i++) { ctx.fillStyle = bands[i]; ctx.fillRect(x - r, y - r + r * 2 * (0.2 + i * 0.22), r * 2, r * 0.12); }
+  g = ctx.createRadialGradient(x + r * 0.5, y + r * 0.5, r * 0.2, x + r * 0.3, y + r * 0.3, r * 1.3);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.65)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+  if (ring) { ctx.strokeStyle = ring; ctx.lineWidth = r * 0.08; ctx.beginPath(); ctx.ellipse(x, y, r * 1.7, r * 0.42, -0.35, 0, Math.PI); ctx.stroke(); }
+}
+function drawPlanetIcon(id, x, y, r) {
+  if (id === 'echo') sphere(x, y, r, '#3a7cd8', '#0a1a48', '#c8e8ff', ['rgba(220,240,255,0.25)', 'rgba(120,180,255,0.2)'], 'rgba(170,210,255,0.55)');
+  if (id === 'alpha') sphere(x, y, r, '#d8402c', '#3a0806', '#ffb08a', ['rgba(120,20,10,0.35)', 'rgba(255,140,90,0.25)', 'rgba(120,20,10,0.3)']);
+  if (id === 'delta') sphere(x, y, r, '#2ca866', '#06301a', '#b8ffd4', ['rgba(10,80,40,0.35)', 'rgba(180,255,200,0.2)']);
+  if (id === 'earth') {
+    sphere(x, y, r, '#2a72d8', '#061838', '#9cd4ff');
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#3aa848'; [[-0.3, -0.2, 0.45, 0.3], [0.35, 0.25, 0.35, 0.28], [-0.1, 0.45, 0.3, 0.16]].forEach(([a, b, c, d]) => { ctx.beginPath(); ctx.ellipse(x + a * r, y + b * r, c * r, d * r, 0.4, 0, Math.PI * 2); ctx.fill(); });
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.9, r * 0.6, r * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+// ---- Flight: real 3D space, the fighter seen from behind ----------------
+// world units; +z is ahead at the start, +y is up
+const PLANETS = {
+  echo:  { p: [-4300, 500, 21000],  r: 1300, spin: 0.05 },
+  alpha: { p: [4800, -300, 22500],  r: 1500, spin: -0.04 },
+  delta: { p: [-1300, -700, 27000], r: 1200, spin: 0.06 },
+  earth: { p: [900, 700, 33000],    r: 1250, spin: 0.03 },
+};
+const SEE = 17000;   // nothing shows beyond this; you set off in the dark
+let seen = {};
+let shipS = null, stick = { x: 0, y: 0, on: false, ox: 0, oy: 0 }, boost = false, flash = 0, keys = {};
+let dust3 = [];
+function resetShip() {
+  shipS = { p: [0, 0, 0], yaw: 0, pitch: 0, roll: 0, vyaw: 0, vpitch: 0, speed: 900 };
+  dust3 = Array.from({ length: 260 }, () => [rand(-1500, 1500), rand(-1500, 1500), rand(0, 3000)]);
+}
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = a => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+function basis() {
+  const { yaw, pitch } = shipS;
+  const f = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
+  const r = norm(cross([0, 1, 0], f)), u = cross(f, r);
+  return { f, r, u };
+}
+// the camera rides a little behind and above the ship
+function camera() { const b = basis(); return { ...b, c: add(add(shipS.p, mul(b.f, -70)), mul(b.u, 16)) }; }
+function project(cam, p, fl) {
+  const d = sub(p, cam.c), z = dot(d, cam.f); if (z < 1) return null;
+  let x = dot(d, cam.r), y = dot(d, cam.u);
+  const cr = Math.cos(-shipS.roll), sr = Math.sin(-shipS.roll), rx = x * cr - y * sr, ry = x * sr + y * cr;
+  return { x: W / 2 + rx * fl / z, y: H * 0.44 - ry * fl / z, z, s: fl / z };
+}
+// an original four-winged fighter: a long nose, a canopy, two wings above and two below in an X, an engine at each wing root
+const SHIP = (() => {
+  const V = [], F = [];
+  const box = (cx, cy, cz, sx, sy, sz, col) => { const i = V.length; [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]].forEach(([a, b, c]) => V.push([cx + a * sx, cy + b * sy, cz + c * sz])); [[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]].forEach(q => F.push({ v: q.map(k => i + k), c: col })); };
+  // fuselage and a tapering nose
+  box(0, 0, 0, 4.5, 3.6, 16, '#c8ccd4');
+  const n = V.length; V.push([-4.5, -3.6, 16], [4.5, -3.6, 16], [4.5, 3.6, 16], [-4.5, 3.6, 16], [0, -1, 40]);
+  F.push({ v: [n, n + 1, n + 4], c: '#b8bcc8' }, { v: [n + 1, n + 2, n + 4], c: '#a8acb8' }, { v: [n + 2, n + 3, n + 4], c: '#d8dce4' }, { v: [n + 3, n, n + 4], c: '#a8acb8' });
+  // canopy
+  box(0, 4.6, 4, 2.6, 1.4, 5, '#f8b800');
+  // four wings in an X, each with an engine pod at the root and a gun at the tip
+  [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
+    const w = V.length;
+    V.push([sx * 4, sy * 1.5, -12], [sx * 4, sy * 1.5, 4], [sx * 30, sy * 11, -4], [sx * 30, sy * 11, -13]);
+    F.push({ v: [w, w + 1, w + 2, w + 3], c: sy > 0 ? '#9ca0ac' : '#7c808c' }, { v: [w + 3, w + 2, w + 1, w], c: sy > 0 ? '#9ca0ac' : '#7c808c' });
+    box(sx * 30.5, sy * 11.2, -2, 0.9, 0.9, 11, '#3a3e48');
+    box(sx * 7.5, sy * 3.8, -11, 2.8, 2.8, 7, '#5a5e6a');
+    // a yellow stripe along each wing
+    const st = V.length; V.push([sx * 14, sy * 4.8, -7.2], [sx * 14, sy * 4.8, -4.5], [sx * 22, sy * 7.8, -4.4], [sx * 22, sy * 7.8, -7.0]);
+    F.push({ v: [st, st + 1, st + 2, st + 3], c: '#f8b800' }, { v: [st + 3, st + 2, st + 1, st], c: '#f8b800' });
+  });
+  return { V, F };
+})();
+function drawShip(fl) {
+  // the fighter stays put in front of the camera and leans with the stick
+  const pitchV = -shipS.vpitch * 0.35, rollV = shipS.roll, yawV = shipS.vyaw * 0.15;
+  const cp = Math.cos(pitchV), sp = Math.sin(pitchV), cr = Math.cos(rollV), sr = Math.sin(rollV), cy = Math.cos(yawV), sy = Math.sin(yawV);
+  const place = ([x, y, z]) => {
+    let X = x * cy + z * sy, Z = -x * sy + z * cy, Y = y;
+    let Y2 = Y * cp - Z * sp, Z2 = Y * sp + Z * cp; Y = Y2; Z = Z2;
+    const X2 = X * cr - Y * sr, Y3 = X * sr + Y * cr;
+    return [X2, Y3 - 40, Z + 125];
+  };
+  const P = SHIP.V.map(place);
+  const L = norm([-0.4, 0.8, -0.5]);
+  const faces = SHIP.F.map(f => {
+    const a = P[f.v[0]], b = P[f.v[1]], c = P[f.v[2]], nrm = norm(cross(sub(b, a), sub(c, a)));
+    const z = f.v.reduce((s, k) => s + P[k][2], 0) / f.v.length;
+    return { f, nrm, z };
+  }).filter(o => dot(o.nrm, mul(norm(P[o.f.v[0]]), -1)) > 0 || o.f.v.length === 4).sort((a, b) => b.z - a.z);
+  faces.forEach(({ f, nrm }) => {
+    const lit = 0.45 + 0.55 * Math.max(0, dot(nrm, L) * (dot(nrm, [0, 0, -1]) < 0 ? -1 : 1));
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(f.c.slice(i, i + 2), 16));
+    ctx.fillStyle = `rgb(${Math.round(r * lit)},${Math.round(g * lit)},${Math.round(b * lit)})`;
+    ctx.strokeStyle = 'rgba(10,12,20,0.55)'; ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    f.v.forEach((k, i) => { const [x, y, z] = P[k]; const sx = W / 2 + x * fl / z, sy = H * 0.44 - y * fl / z; i ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  });
+  // engine glow at each root
+  [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([sx, sy]) => {
+    const [x, y, z] = place([sx * 7.5, sy * 3.8, -18.5]), px = W / 2 + x * fl / z, py = H * 0.44 - y * fl / z, rr = (boost ? 4.2 : 3) * fl / z;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, rr * 1.6);
+    g.addColorStop(0, '#fff8e0'); g.addColorStop(0.35, boost ? '#ff8a3a' : '#ff5a8a'); g.addColorStop(1, 'rgba(255,90,60,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, rr * 1.6, 0, Math.PI * 2); ctx.fill();
+  });
+}
+function planetLocked(id) { return id === 'earth' && !(cleared.echo && cleared.alpha && cleared.delta); }
+// ---- Low-poly worlds, the way a cartridge console drew them -------------
+// an icosphere, split twice, each face coloured from the world's palette
+const ICO = (() => {
+  const t = (1 + Math.sqrt(5)) / 2;
+  let V = [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(norm);
+  let F = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
+  for (let k = 0; k < 2; k++) {
+    const cache = {}, mid = (a, b) => { const key = a < b ? a + '_' + b : b + '_' + a; if (cache[key] === undefined) { V.push(norm(mul(add(V[a], V[b]), 0.5))); cache[key] = V.length - 1; } return cache[key]; };
+    F = F.flatMap(([a, b, c]) => { const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a); return [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]]; });
+  }
+  return { V, F };
+})();
+const PAL = {
+  echo:  ['#e8f4ff', '#b4d8f8', '#7ab0ec', '#4a82d0', '#2a56a0', '#1a3a78'],
+  alpha: ['#ffc8a0', '#f08a5c', '#d8563a', '#b03822', '#842414', '#58140a'],
+  delta: ['#d8f8b0', '#8ae08a', '#4ab868', '#2a8a4a', '#1a6434', '#0e4022'],
+  earth: ['#ffffff', '#3aa848', '#2c8a3a', '#2a72d8', '#1c58b8', '#123e88'],
+};
+function faceColour(id, c) {
+  const [x, y, z] = c, n = Math.sin(x * 5.1 + y * 3.7) + Math.sin(y * 6.3 - z * 4.1) * 0.7 + Math.sin(z * 7.7 + x * 2.3) * 0.5 + hash(Math.round(x * 40), Math.round(z * 40 + y * 17)) * 0.6;
+  const p = PAL[id];
+  if (id === 'earth') { if (Math.abs(y) > 0.86) return p[0]; return n > 0.55 ? (n > 1.1 ? p[2] : p[1]) : (n < -0.6 ? p[5] : n < 0 ? p[4] : p[3]); }
+  if (id === 'echo' && Math.abs(y) > 0.78) return p[0];
+  const k = Math.max(0, Math.min(5, Math.floor((n + 1.6) / 3.6 * 6)));
+  return p[k];
+}
+const MESH = {};
+['echo', 'alpha', 'delta', 'earth'].forEach(id => { MESH[id] = ICO.F.map(f => { const c = norm(f.reduce((s, k) => add(s, ICO.V[k]), [0, 0, 0])); return { v: f, c: faceColour(id, c), n: c }; }); });
+const RGB = {}; const rgb = h => RGB[h] || (RGB[h] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+// the light comes from a far sun, up and to the left
+const SUN = norm([-0.6, 0.45, -0.65]);
+function drawWorld(cam, id, P, fl, spin, fade) {
+  const ca = Math.cos(spin), sa = Math.sin(spin);
+  const rot = v => [v[0] * ca + v[2] * sa, v[1], -v[0] * sa + v[2] * ca];
+  const pts = ICO.V.map(v => project(cam, add(P.p, mul(rot(v), P.r)), fl));
+  const faces = [];
+  MESH[id].forEach(f => {
+    const n = rot(f.n), wc = add(P.p, mul(n, P.r));
+    if (dot(n, sub(cam.c, wc)) <= 0) return;                          // facing away
+    const q = f.v.map(k => pts[k]); if (q.some(p => !p)) return;
+    faces.push({ q, n, c: f.c, z: q[0].z + q[1].z + q[2].z });
+  });
+  faces.sort((a, b) => b.z - a.z).forEach(({ q, n, c }) => {
+    const lit = 0.18 + 0.82 * Math.max(0, dot(n, SUN)), [r, g, b] = rgb(c);
+    // distant worlds sink into the dark
+    const col = `rgb(${Math.round(r * lit * fade)},${Math.round(g * lit * fade)},${Math.round(b * lit * fade)})`;
+    ctx.fillStyle = col; ctx.strokeStyle = col; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.lineTo(q[2].x, q[2].y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  });
+  // Echo wears a flat ring of ice
+  if (id === 'echo') {
+    const seg = 40, R0 = P.r * 1.45, R1 = P.r * 1.9, tilt = 0.35;
+    const at = (a, R) => project(cam, add(P.p, [Math.cos(a) * R, Math.sin(a) * R * Math.sin(tilt), Math.sin(a) * R * Math.cos(tilt)]), fl);
+    for (let i = 0; i < seg; i++) {
+      const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2;
+      const q = [at(a0, R0), at(a1, R0), at(a1, R1), at(a0, R1)]; if (q.some(p => !p)) continue;
+      const mid = add(P.p, [Math.cos((a0 + a1) / 2) * R0, 0, Math.sin((a0 + a1) / 2) * R0]);
+      if (dot(sub(mid, P.p), cam.f) < 0 && Math.hypot(...sub(cam.c, P.p)) > P.r * 1.2) continue;   // the near half only; the far half hides behind
+      const l = (i % 2 ? 0.75 : 0.9) * fade;
+      ctx.fillStyle = `rgba(${Math.round(190 * l)},${Math.round(215 * l)},${Math.round(250 * l)},0.75)`;
+      ctx.beginPath(); q.forEach((p, k) => k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fill();
+    }
+  }
+}
+function drawFlight(now) {
+  // pass one, small: space, the worlds, the dust and the fighter
+  const sw = W, sh = H, sc = ctx;
+  W = low.width; H = low.height; ctx = lowctx; ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const fl = W * 0.9, cam = camera(), tags = [];
+  ctx.fillStyle = '#020309'; ctx.fillRect(0, 0, W, H);
+  FAR.forEach(st => { const q = project({ ...cam, c: [0, 0, 0] }, st.d, fl); if (!q || q.x < 0 || q.x > W || q.y < 0 || q.y > H) return; const a = (0.35 + 0.4 * Math.abs(Math.sin(now * st.tw + st.ph))) * st.b; ctx.fillStyle = `rgba(220,226,255,${a})`; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); });
+  Object.entries(PLANETS).map(([id, P]) => ({ id, P, d: Math.hypot(...sub(P.p, shipS.p)) })).sort((a, b) => b.d - a.d).forEach(({ id, P, d }) => {
+    if (planetHidden(id) || d > SEE) return;
+    const fade = Math.min(1, (SEE - d) / 5000), q = project(cam, P.p, fl);
+    if (fade > 0.25) seen[id] = true;
+    drawWorld(cam, id, P, fl, now * P.spin, fade);
+    if (q && P.r * q.s < W * 0.4) tags.push({ id, x: q.x / W, y: (q.y + P.r * q.s * 1.15) / H, d, fade });
+  });
+  dust3.forEach(p => {
+    const q = project(cam, add(shipS.p, p), fl), q2 = project(cam, add(shipS.p, add(p, mul(basis().f, -shipS.speed * 0.04))), fl);
+    if (!q || !q2) return;
+    ctx.strokeStyle = `rgba(170,180,220,${Math.min(0.6, 500 / q.z)})`; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q2.x, q2.y); ctx.stroke();
+  });
+  drawShip(fl);
+  W = sw; H = sh; ctx = sc;
+  // pass two: blow it up soft, the way that console's filtering smeared everything
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low';
+  ctx.drawImage(low, 0, 0, W, H);
+  // names, the sight, pointers and the stick stay sharp
+  tags.forEach(t => {
+    ctx.globalAlpha = Math.min(1, t.fade * 1.4);
+    ctx.font = `${Math.round(Math.max(11, W * 0.034))}px 'Zen Dots', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = planetLocked(t.id) ? '#8a8e9e' : WORLDS[t.id].c; ctx.fillText(WORLDS[t.id].name, t.x * W, t.y * H + 4);
+    ctx.font = `${Math.round(Math.max(10, W * 0.028))}px 'Share Tech Mono', monospace`; ctx.fillStyle = '#9aa0b8';
+    ctx.fillText(cleared[t.id] ? 'VISITED' : Math.round(t.d / 10) + ' KM', t.x * W, t.y * H + 4 + W * 0.045);
+    ctx.globalAlpha = 1;
+  });
+  const camF = camera();
+  Object.entries(PLANETS).forEach(([id, P]) => {
+    if (cleared[id] || !seen[id] || planetHidden(id)) return;
+    const q = project(camF, P.p, W * 0.9);
+    if (q && q.x > 0 && q.x < W && q.y > 0 && q.y < H * 0.9) return;
+    const d = sub(P.p, camF.c), x = dot(d, camF.r), y = dot(d, camF.u), a = Math.atan2(-y, x);
+    ctx.save(); ctx.translate(W / 2 + Math.cos(a) * W * 0.42, H * 0.44 + Math.sin(a) * H * 0.36); ctx.rotate(a); ctx.fillStyle = WORLDS[id].c;
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -8); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
+  });
+  ctx.strokeStyle = 'rgba(248,210,74,0.6)'; ctx.lineWidth = 1.5;
+  const cx = W / 2, cy = H * 0.44;
+  ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.moveTo(cx - 18, cy); ctx.lineTo(cx - 12, cy); ctx.moveTo(cx + 12, cy); ctx.lineTo(cx + 18, cy); ctx.stroke();
+  if (stick.on) { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(stick.ox, stick.oy, 40, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(stick.ox + stick.x * 40, stick.oy + stick.y * 40, 14, 0, Math.PI * 2); ctx.fill(); }
+  if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
+}
+const planetHidden = id => id === 'earth' && !(cleared.echo && cleared.alpha && cleared.delta);
+function flyStep(dt) {
+  // steer: the stick (or keys) sets how fast you turn; the ship banks into the turn
+  let sx = stick.on ? stick.x : 0, sy = stick.on ? stick.y : 0;
+  if (keys.ArrowLeft || keys.a) sx = -1; if (keys.ArrowRight || keys.d) sx = 1; if (keys.ArrowUp || keys.w) sy = -1; if (keys.ArrowDown || keys.s) sy = 1;
+  shipS.vyaw += (sx * 1.1 - shipS.vyaw) * Math.min(1, dt * 4);
+  shipS.vpitch += (-sy * 0.8 - shipS.vpitch) * Math.min(1, dt * 4);
+  shipS.yaw += shipS.vyaw * dt;
+  shipS.pitch = Math.max(-1.2, Math.min(1.2, shipS.pitch + shipS.vpitch * dt));
+  shipS.roll += (-shipS.vyaw * 0.7 - shipS.roll) * Math.min(1, dt * 3);
+  const want = boost || keys[' '] ? 2600 : 1100;
+  shipS.speed += (want - shipS.speed) * Math.min(1, dt * 1.5);
+  const b = basis();
+  shipS.p = add(shipS.p, mul(b.f, shipS.speed * dt));
+  // dust is kept in the ship's neighbourhood
+  dust3.forEach(p => {
+    const rel = p, z = dot(rel, b.f);
+    if (z < -100 || Math.hypot(...rel) > 3200) { const n = add(mul(b.f, rand(1500, 3000)), add(mul(b.r, rand(-1500, 1500)), mul(b.u, rand(-1500, 1500)))); p[0] = n[0]; p[1] = n[1]; p[2] = n[2]; }
+    else { p[0] -= b.f[0] * shipS.speed * dt; p[1] -= b.f[1] * shipS.speed * dt; p[2] -= b.f[2] * shipS.speed * dt; }
+  });
+  // reaching a world
+  for (const [id, P] of Object.entries(PLANETS)) {
+    const d = Math.hypot(...sub(P.p, shipS.p));
+    if (d > P.r * 1.25) continue;
+    if (planetHidden(id)) continue;
+    if (cleared[id]) {
+      // turned away: the ship is pushed back out and swung round
+      const out = norm(sub(shipS.p, P.p)); shipS.p = add(P.p, mul(out, P.r * 1.6)); shipS.yaw += Math.PI * 0.8; shipS.speed = 500;
+      hint(`${WORLDS[id].name} is done. Try another world`);
+      tone(160, 0.3, 'sawtooth', 80, 0.05);
+      continue;
+    }
+    state = 'landing'; landTo = id; flash = 0.01; tone(90, 1.2, 'sawtooth', 400, 0.05);
+    return;
+  }
+}
+let landTo = null;
+const FAR = Array.from({ length: 700 }, () => { const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u); return { d: [r * Math.cos(a) * 1e6, u * 1e6, r * Math.sin(a) * 1e6], r: Math.random() < 0.08 ? 2 : 1, b: rand(0.3, 1), tw: rand(0.5, 2), ph: rand(0, 6) }; });
+function stickFrom(e) { const p = toCanvas(e); stick.x = Math.max(-1, Math.min(1, (p.x - stick.ox) / 40)); stick.y = Math.max(-1, Math.min(1, (p.y - stick.oy) / 40)); }
+cv.addEventListener('pointermove', e => { if (stick.on && state === 'fly') stickFrom(e); });
+const endStick = () => { stick.on = false; stick.x = stick.y = 0; };
+cv.addEventListener('pointerup', endStick); cv.addEventListener('pointercancel', endStick);
+document.addEventListener('keydown', e => { if (state === 'fly' && (e.key.startsWith('Arrow') || e.key === ' ')) e.preventDefault(); keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = true; });
+document.addEventListener('keyup', e => { keys[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
+const boostBtn = document.getElementById('boost');
+boostBtn.addEventListener('pointerdown', e => { e.preventDefault(); boost = true; boostBtn.classList.add('on'); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(n => boostBtn.addEventListener(n, () => { boost = false; boostBtn.classList.remove('on'); }));
+
+// ---- Drawing: the worlds -------------------------------------------------
+const SH = () => H * 0.5;   // the scene takes the top half; the neck sits below
+function sky(stops) { const g = ctx.createLinearGradient(0, 0, 0, SH()); stops.forEach(([o, c]) => g.addColorStop(o, c)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, SH()); }
+function ridge(col, base, amp, freq, seed, jag) {
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, SH());
+  for (let x = 0; x <= W; x += 4) { const u = x / W; let y = base - amp * (0.5 + 0.3 * Math.sin(u * freq + seed) + 0.2 * Math.sin(u * freq * 2.7 + seed * 2)); if (jag) y -= jag * Math.abs(((x / 4 + seed * 5) % 6) - 3); ctx.lineTo(x, y); }
+  ctx.lineTo(W, SH()); ctx.closePath(); ctx.fill();
+}
+// a person of the world: a body, a head, arms that wave now and then
+function person(x, y, h, skin, cloth, now, ph, style) {
+  const bob = Math.sin(now * 2 + ph) * h * 0.02, wave = Math.max(0, Math.sin(now * 1.3 + ph * 3)) * 1.2;
+  ctx.save(); ctx.translate(x, y + bob);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0, 0, h * 0.18, h * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = cloth;
+  if (style === 'robe') { ctx.beginPath(); ctx.moveTo(-h * 0.14, 0); ctx.lineTo(-h * 0.07, -h * 0.62); ctx.lineTo(h * 0.07, -h * 0.62); ctx.lineTo(h * 0.14, 0); ctx.fill(); }
+  else if (style === 'suit') { ctx.beginPath(); ctx.roundRect(-h * 0.12, -h * 0.6, h * 0.24, h * 0.42, h * 0.06); ctx.fill(); ctx.fillRect(-h * 0.1, -h * 0.2, h * 0.07, h * 0.2); ctx.fillRect(h * 0.03, -h * 0.2, h * 0.07, h * 0.2); }
+  else { ctx.beginPath(); ctx.moveTo(-h * 0.1, 0); ctx.lineTo(-h * 0.06, -h * 0.55); ctx.lineTo(h * 0.06, -h * 0.55); ctx.lineTo(h * 0.1, 0); ctx.fill(); }
+  ctx.strokeStyle = skin; ctx.lineWidth = h * 0.05; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-h * 0.08, -h * 0.55); ctx.lineTo(-h * 0.16, -h * 0.3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(h * 0.08, -h * 0.55); ctx.lineTo(h * 0.08 + Math.cos(-0.6 - wave) * h * 0.22, -h * 0.55 + Math.sin(-0.6 - wave) * h * 0.22 + h * 0.18); ctx.stroke();
+  const neck = style === 'long' ? h * 0.22 : h * 0.06;
+  ctx.fillStyle = skin; ctx.fillRect(-h * 0.025, -h * 0.62 - neck, h * 0.05, neck + 2);
+  ctx.beginPath(); ctx.ellipse(0, -h * 0.7 - neck, h * 0.09, style === 'robe' ? h * 0.12 : h * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(-h * 0.045, -h * 0.72 - neck, h * 0.025, h * 0.02); ctx.fillRect(h * 0.02, -h * 0.72 - neck, h * 0.025, h * 0.02);
+  if (style === 'suit') { ctx.strokeStyle = 'rgba(255,220,200,0.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -h * 0.7 - neck, h * 0.13, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+}
+// ---- Drawing: the neck ---------------------------------------------------
+let N = {};
+function neckLayout() {
+  const top = H * 0.58, bottom = H * 0.95, left = W * 0.1, right = W * 0.97;
+  const widths = [0.75]; for (let k = 1; k <= 12; k++) widths.push(Math.pow(0.944, k - 1));
+  const total = widths.reduce((a, b) => a + b, 0), unit = (right - left) / total, cols = []; let x = left;
+  widths.forEach(w => { cols.push([x, x + w * unit]); x += w * unit; });
+  const gap = (bottom - top) / 6;
+  N = { top, bottom, left, right, cols, gap, rowY: s => top + gap * (5 - s + 0.5) };   // high e drawn on top
+}
+// ---- Echo: dithered blue pixel art, drawn small and blown up blocky ------
+const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+const EP = ['#06102c', '#123a86', '#3a7ad8', '#8ac4f8', '#e8f6ff'];
+const pix = document.createElement('canvas'), pc = pix.getContext('2d');
+function sceneEcho(now) {
+  const S = 3, w = Math.ceil(W / S), h = Math.ceil(SH() / S);
+  if (pix.width !== w || pix.height !== h) { pix.width = w; pix.height = h; }
+  const img = pc.createImageData(w, h), d = img.data, RGBS = EP.map(rgb);
+  // tone 0..4 for every pixel, then dithered between the two nearest palette steps
+  const put = (x, y, t) => { const lo = Math.max(0, Math.min(3, Math.floor(t))), f = t - lo, c = f * 16 > BAYER[y & 3][x & 3] ? lo + 1 : lo, [r, g, b] = RGBS[Math.min(4, c)], i = (y * w + x) * 4; d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255; };
+  const mtn = x => h * 0.55 - h * 0.18 * Math.abs(Math.sin(x * 0.07 + 1)) - h * 0.08 * Math.abs(Math.sin(x * 0.19 + 3));
+  const spires = [[0.14, 0.5], [0.22, 0.36], [0.3, 0.56], [0.66, 0.42], [0.74, 0.6], [0.84, 0.46]];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let t = 0.2 + (y / h) * 2.4;                                                  // sky, darker up top
+    const ay = h * (0.22 + 0.06 * Math.sin(x * 0.09 + now * 0.6)), aur = Math.max(0, 1 - Math.abs(y - ay) / (h * 0.06));
+    t += aur * 1.6 * (0.6 + 0.4 * Math.sin(x * 0.3 + now));                      // an aurora rippling
+    const mx = w * 0.76, my = h * 0.16, mr = h * 0.09, md = Math.hypot(x - mx, y - my);
+    if (md < mr) t = 3.2 + (1 - (x - mx + mr) / (2 * mr)) * 0.8;                 // the moon, lit from the left
+    if (y > mtn(x)) t = 1.1 + (Math.sin(x * 0.07 + 1) > 0 ? 0.6 : 0) - (y - mtn(x)) / h;   // mountains with a lit face
+    spires.forEach(([fx, fh], i) => { const cx = fx * w, b = h * 0.86, top = b - fh * h, half = (y - top) / (b - top) * w * 0.035; if (y > top && y < b && Math.abs(x - cx) < half) t = 3.6 - Math.abs(x - cx) / half * 1.6 + ((Math.floor(now * 2 + i + y * 0.1) % 7 === 0 && Math.abs(x - cx) < 1) ? 1 : 0); });
+    if (y >= h * 0.86) t = 3.4 - (y - h * 0.86) / h * 3 + (hash(x >> 2, y >> 1) > 0.9 ? -0.8 : 0);   // snow
+    if (hash(x, y) > 0.995 && y < h * 0.4) t = 4;                                // stars
+    put(x, y, t);
+  }
+  pc.putImageData(img, 0, 0);
+  // people: little sprites, white robes and blue faces, bobbing a pixel
+  const PERSON = ['..bbb..', '.bbbbb.', '.bwbwb.', '..bbb..', '...b...', '.wwwww.', 'wwwwwww', 'b.www.b', '..www..', '..www..', '.wwwww.', '.wwwww.', 'wwwwwww'];
+  [0.34, 0.46, 0.58].forEach((fx, k) => {
+    const ox = Math.round(fx * w), oy = Math.round(h * 0.97) - PERSON.length * 2 + (Math.sin(now * 3 + k) > 0.6 ? -1 : 0);
+    PERSON.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '.') return; pc.fillStyle = ch === 'b' ? EP[2] : ch === 'w' ? EP[4] : EP[0]; pc.fillRect(ox + i * 2, oy + j * 2, 2, 2); }));
+  });
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(pix, 0, 0, w * S, h * S);
+}
+// ---- Alpha: a constructivist poster, red and black on cream --------------
+function sceneAlpha(now) {
+  const h = SH();
+  ctx.fillStyle = '#ece0c4'; ctx.fillRect(0, 0, W, h);
+  // halftone dots thinning toward the top
+  ctx.fillStyle = 'rgba(30,20,14,0.16)';
+  for (let y = 6; y < h; y += 7) for (let x = (y / 7 & 1) * 3.5; x < W; x += 7) { const r = 2.6 * (y / h); if (r > 0.3) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); } }
+  // the big red sun, printed a hair off register
+  const sx = W * 0.68, sy = h * 0.36, sr = W * 0.27;
+  ctx.fillStyle = '#d42a1a'; ctx.beginPath(); ctx.arc(sx + 3, sy + 2, sr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(20,14,10,0.12)'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+  // black diagonals slicing across
+  ctx.save(); ctx.translate(W * 0.5, h * 0.5); ctx.rotate(-0.42);
+  ctx.fillStyle = '#16100c'; ctx.fillRect(-W, -h * 0.12, W * 2, h * 0.07); ctx.fillStyle = '#d42a1a'; ctx.fillRect(-W, h * 0.0, W * 2, h * 0.025);
+  ctx.restore();
+  // towers and girders, a radio mast throwing out rings
+  ctx.fillStyle = '#16100c';
+  [[0.06, 0.5, 0.12], [0.2, 0.34, 0.08], [0.82, 0.58, 0.1]].forEach(([fx, fh, fw]) => ctx.fillRect(W * fx, h * (0.9 - fh), W * fw, h * fh));
+  ctx.strokeStyle = '#16100c'; ctx.lineWidth = 2;
+  for (let k = 0; k < 6; k++) { const y0 = h * (0.88 - k * 0.07); ctx.beginPath(); ctx.moveTo(W * 0.3, y0); ctx.lineTo(W * 0.36, y0 - h * 0.07); ctx.moveTo(W * 0.36, y0); ctx.lineTo(W * 0.3, y0 - h * 0.07); ctx.stroke(); }
+  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W * 0.3, h * 0.9); ctx.lineTo(W * 0.33, h * 0.42); ctx.lineTo(W * 0.36, h * 0.9); ctx.stroke();
+  for (let k = 1; k <= 3; k++) { const ph = ((now * 0.8 + k / 3) % 1); ctx.strokeStyle = `rgba(212,42,26,${1 - ph})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(W * 0.33, h * 0.42, 6 + ph * 30, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); }
+  // the ground, a hard black band
+  ctx.fillStyle = '#16100c'; ctx.fillRect(0, h * 0.9, W, h * 0.1);
+  // three marching figures in silhouette, one with a red banner
+  [0.48, 0.6, 0.72].forEach((fx, k) => {
+    const x = W * fx, b = h * 0.9, s = h * 0.26, step = Math.sin(now * 4 + k) * 0.3;
+    ctx.fillStyle = '#16100c'; ctx.strokeStyle = '#16100c'; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(x - s * 0.1, b - s * 0.45); ctx.lineTo(x + s * 0.12, b - s * 0.45); ctx.lineTo(x + s * 0.08, b - s * 0.85); ctx.lineTo(x - s * 0.07, b - s * 0.85); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s * 0.02, b - s * 0.93, s * 0.08, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.moveTo(x - s * 0.03, b - s * 0.46); ctx.lineTo(x - s * 0.03 - step * s * 0.4, b); ctx.moveTo(x + s * 0.06, b - s * 0.46); ctx.lineTo(x + s * 0.06 + step * s * 0.4, b); ctx.stroke();
+    if (k === 1) { ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x + s * 0.1, b - s * 0.7); ctx.lineTo(x + s * 0.3, b - s * 1.45); ctx.stroke(); ctx.fillStyle = '#d42a1a'; ctx.beginPath(); ctx.moveTo(x + s * 0.3, b - s * 1.45); ctx.lineTo(x + s * 0.75 + Math.sin(now * 5) * 4, b - s * 1.35); ctx.lineTo(x + s * 0.26, b - s * 1.2); ctx.fill(); }
+  });
+}
+// ---- Delta: vector lines glowing green on black ---------------------------
+function vline(pts, a) { ctx.globalAlpha = a == null ? 1 : a; ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); ctx.globalAlpha = 1; }
+function sceneDelta(now) {
+  const h = SH(), hz = h * 0.6;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, h);
+  ctx.save(); ctx.strokeStyle = '#5aff8a'; ctx.shadowColor = '#3aff6a'; ctx.shadowBlur = 8; ctx.lineWidth = 1.3;
+  // a grid floor rolling toward you
+  for (let k = 0; k < 14; k++) { const t = ((k + (now * 0.6) % 1) / 14), y = hz + (h - hz) * t * t; vline([[0, y], [W, y]], 0.25 + 0.6 * t); }
+  for (let k = -10; k <= 10; k++) vline([[W / 2 + k * W * 0.02, hz], [W / 2 + k * W * 0.2, h]], 0.45);
+  // mountains as a single broken line, a moon as a circle with its ring
+  vline(Array.from({ length: 30 }, (_, i) => [i / 29 * W, hz - h * (0.08 + 0.1 * Math.abs(Math.sin(i * 0.9 + 1)) + (i % 3 === 0 ? 0.06 : 0))]), 0.7);
+  ctx.beginPath(); ctx.arc(W * 0.8, h * 0.18, W * 0.06, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(W * 0.8, h * 0.18, W * 0.12, W * 0.025, -0.3, 0, Math.PI * 2); ctx.stroke();
+  // a stepped temple in real perspective, turning slowly
+  const a = now * 0.25, fl = W * 0.9, cx = W * 0.32, cyb = hz + h * 0.05, dz = 600;
+  const P3 = (x, y, z) => { const X = x * Math.cos(a) - z * Math.sin(a), Z = x * Math.sin(a) + z * Math.cos(a) + dz; return [cx + X * fl / Z, cyb - y * fl / Z]; };
+  for (let k = 0; k < 5; k++) {
+    const s = 90 - k * 16, y0 = k * 26, y1 = y0 + 26;
+    const c = [[-s, -s], [s, -s], [s, s], [-s, s]];
+    vline([...c, c[0]].map(([x, z]) => P3(x, y0, z))); vline([...c, c[0]].map(([x, z]) => P3(x, y1, z)));
+    c.forEach(([x, z]) => vline([P3(x, y0, z), P3(x, y1, z)]));
+  }
+  // tall pillars with caps
+  [[0.7, 0.42], [0.9, 0.5]].forEach(([fx, fh]) => { const x = W * fx, b = hz + h * 0.04; vline([[x - 5, b], [x - 5, b - h * fh], [x + 5, b - h * fh], [x + 5, b]]); ctx.beginPath(); ctx.ellipse(x, b - h * fh, 16, 4, 0, 0, Math.PI * 2); ctx.stroke(); });
+  // long-necked figures in line, swaying
+  [0.48, 0.58, 0.82].forEach((fx, k) => {
+    const x = W * fx, b = h * 0.95, s = h * 0.3, sw = Math.sin(now * 1.5 + k) * s * 0.04;
+    vline([[x - s * 0.1, b], [x - s * 0.04, b - s * 0.5], [x + s * 0.04, b - s * 0.5], [x + s * 0.1, b], [x - s * 0.1, b]]);
+    vline([[x, b - s * 0.5], [x + sw, b - s * 0.78]]);
+    ctx.beginPath(); ctx.arc(x + sw, b - s * 0.84, s * 0.06, 0, Math.PI * 2); ctx.stroke();
+    vline([[x - s * 0.04, b - s * 0.45], [x - s * 0.15, b - s * 0.25]]); vline([[x + s * 0.04, b - s * 0.45], [x + s * 0.16, b - s * 0.6 + Math.sin(now * 2 + k) * 4]]);
+  });
+  ctx.restore();
+  // scanlines over the glass
+  ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, W, 1);
+}
+// ---- Earth: ink and gouache, a picture-book page --------------------------
+function inked(draw, fill, lw) { ctx.fillStyle = fill; ctx.beginPath(); draw(); ctx.fill(); ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = lw || 2; ctx.lineJoin = 'round'; ctx.stroke(); }
+function sceneEarth(now) {
+  const h = SH();
+  let g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#9cc8e8'); g.addColorStop(0.7, '#f4e4c0'); g.addColorStop(1, '#f8d8a8');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
+  // a soft rainbow, brushed
+  ['#e85a4a', '#f0a03c', '#f0d04a', '#6ab85a', '#4a8ad0', '#8a6ad0'].forEach((c, i) => { ctx.strokeStyle = c; ctx.globalAlpha = 0.5; ctx.lineWidth = W * 0.014; ctx.beginPath(); ctx.arc(W * 0.52, h * 0.98, W * (0.5 - i * 0.014), Math.PI * 1.02, Math.PI * 1.98); ctx.stroke(); });
+  ctx.globalAlpha = 1;
+  // the volcano, smoke curling up in loose rounds
+  inked(() => { ctx.moveTo(W * 0.6, h * 0.78); ctx.quadraticCurveTo(W * 0.74, h * 0.4, W * 0.77, h * 0.3); ctx.lineTo(W * 0.85, h * 0.3); ctx.quadraticCurveTo(W * 0.9, h * 0.45, W * 1.04, h * 0.78); ctx.closePath(); }, '#8a6a5a');
+  inked(() => { ctx.moveTo(W * 0.77, h * 0.3); ctx.lineTo(W * 0.85, h * 0.3); ctx.lineTo(W * 0.83, h * 0.42); ctx.lineTo(W * 0.8, h * 0.36); ctx.lineTo(W * 0.78, h * 0.44); ctx.closePath(); }, '#f06a2a', 1.5);
+  for (let i = 0; i < 5; i++) { const t = (now * 0.12 + i / 5) % 1; ctx.globalAlpha = 1 - t; inked(() => ctx.arc(W * (0.81 + t * 0.08), h * (0.27 - t * 0.24), W * (0.025 + t * 0.05), 0, Math.PI * 2), '#d8ccc4', 1.5); ctx.globalAlpha = 1; }
+  inked(() => { ctx.moveTo(0, h * 0.8); for (let x = 0; x <= W; x += 10) ctx.lineTo(x, h * (0.7 - 0.06 * Math.sin(x / W * 6 + 1))); ctx.lineTo(W, h * 0.8); ctx.closePath(); }, '#7ab86a');
+  // the cliff and its waterfall, falling into a pool
+  inked(() => ctx.rect(W * 0.06, h * 0.4, W * 0.24, h * 0.5), '#a08a6a');
+  inked(() => ctx.rect(W * 0.04, h * 0.37, W * 0.28, h * 0.06), '#5aa04a');
+  const fx = W * 0.18, fw = W * 0.07;
+  inked(() => ctx.rect(fx - fw / 2, h * 0.42, fw, h * 0.46), '#cfeeff', 1.5);
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; for (let i = 0; i < 6; i++) { const y = h * 0.42 + ((now * 110 + i * 34) % (h * 0.44)); ctx.beginPath(); ctx.moveTo(fx - fw / 2 + 4 + (i % 3) * fw * 0.3, y); ctx.lineTo(fx - fw / 2 + 4 + (i % 3) * fw * 0.3, y + 12); ctx.stroke(); }
+  inked(() => ctx.rect(0, h * 0.88, W * 0.46, h * 0.12), '#5a9ad0');
+  inked(() => ctx.rect(W * 0.46, h * 0.86, W * 0.54, h * 0.14), '#6aae4a');
+  // jungle leaves, fat and inked
+  const leaf = (x, y, r, a, c) => inked(() => { ctx.ellipse(x, y, r, r * 0.38, a, 0, Math.PI * 2); }, c, 1.5);
+  const palm = (x, b, hh, lean) => {
+    ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x, b); ctx.quadraticCurveTo(x + lean, b - hh * 0.5, x + lean * 1.4, b - hh); ctx.stroke();
+    ctx.strokeStyle = '#9a6a3a'; ctx.lineWidth = 4; ctx.stroke();
+    for (let k = 0; k < 6; k++) leaf(x + lean * 1.4 + Math.cos(-Math.PI / 2 + (k - 2.5) * 0.6) * hh * 0.2, b - hh + Math.sin(-Math.PI / 2 + (k - 2.5) * 0.6) * hh * 0.12 + 8, hh * 0.22, (k - 2.5) * 0.6 + Math.sin(now + k) * 0.04, k % 2 ? '#3a8a3a' : '#5aaa48');
+  };
+  palm(W * 0.56, h * 0.92, h * 0.42, 10); palm(W * 0.93, h * 0.95, h * 0.5, -14);
+  for (let i = 0; i < 7; i++) leaf(W * (0.48 + i * 0.08), h * 0.95, 18, -0.5 + i * 0.25, i % 2 ? '#3a8a3a' : '#6ab84a');
+  // the travellers, home together
+  [[0.64, '#c8906a', '#f0c04a', 'plain'], [0.72, '#4aa8ff', '#f4f0e8', 'robe'], [0.8, '#e8543a', '#2a1a10', 'suit'], [0.88, '#4ad88a', '#2a5a3a', 'long']].forEach(([fx2, skin, cloth, st], i) => person(W * fx2, h * 0.99, h * 0.22, skin, cloth, now, i, st));
+  // paper grain over the page
+  ctx.fillStyle = 'rgba(80,50,20,0.06)'; for (let i = 0; i < 260; i++) ctx.fillRect(hash(i, 3) * W, hash(i, 4) * h, 2, 1);
+}
+
+// ---- The neck, dressed differently on every world -------------------------
+const NECKS = {
+  echo:  { panel: '#06102c', board: '#0c1c4c', fret: '#3a7ad8', nut: '#8ac4f8', str: '#8ac4f8', inlay: '#3a7ad8', label: '#3a7ad8', labelOn: '#e8f6ff', font: "'Jersey 10', monospace", band: 'rgba(138,196,248,0.22)', dot: 'square' },
+  alpha: { panel: '#ece0c4', board: '#ece0c4', fret: '#16100c', nut: '#16100c', str: '#16100c', inlay: '#d42a1a', label: '#7a6a5a', labelOn: '#d42a1a', font: "'Big Shoulders Display', sans-serif", band: 'rgba(212,42,26,0.18)', dot: 'print' },
+  delta: { panel: '#000000', board: '#000000', fret: '#2a8a4a', nut: '#5aff8a', str: '#5aff8a', inlay: '#2a8a4a', label: '#2a8a4a', labelOn: '#5aff8a', font: "'Share Tech Mono', monospace", band: 'rgba(90,255,138,0.12)', dot: 'ring', glow: true },
+  earth: { panel: '#f4e4c0', board: '#8a5a34', fret: '#e8d8a8', nut: '#f8f0d8', str: '#2a1a10', inlay: '#f8f0d8', label: '#8a6a4a', labelOn: '#2a1a10', font: "'Young Serif', serif", band: 'rgba(255,240,180,0.35)', dot: 'ink' },
+};
+function drawNeck(now) {
+  const { top, bottom, left, right, cols, gap, rowY } = N, T = NECKS[world], accent = WORLDS[world].c;
+  ctx.fillStyle = T.panel; ctx.fillRect(0, SH(), W, H - SH());
+  if (world === 'alpha') { ctx.fillStyle = 'rgba(30,20,14,0.1)'; for (let y = SH() + 4; y < H; y += 7) for (let x = 0; x < W; x += 7) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#16100c'; ctx.fillRect(0, SH(), W, 6); }
+  ctx.fillStyle = T.board; ctx.fillRect(cols[0][1], top, right - cols[0][1], bottom - top);
+  if (world === 'earth') { ctx.strokeStyle = 'rgba(40,20,8,0.25)'; ctx.lineWidth = 1; for (let i = 0; i < 9; i++) { const y = top + (bottom - top) * hash(i, 9); ctx.beginPath(); ctx.moveTo(cols[0][1], y); ctx.bezierCurveTo(W * 0.4, y + 4, W * 0.7, y - 4, right, y + 2); ctx.stroke(); } ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 2; ctx.strokeRect(cols[0][1], top, right - cols[0][1], bottom - top); }
+  ctx.save();
+  if (T.glow) { ctx.shadowColor = '#3aff6a'; ctx.shadowBlur = 6; }
+  if (world === 'earth') { const x0 = cols[win0][0], x1 = cols[win0 + 4][1]; ctx.fillStyle = T.band; ctx.fillRect(x0, top - 4, x1 - x0, bottom - top + 8); ctx.strokeStyle = '#f0c04a'; ctx.lineWidth = 2.5; ctx.strokeRect(x0, top - 4, x1 - x0, bottom - top + 8); }
+  const inl = (x, y) => { if (world === 'echo') { ctx.fillStyle = T.inlay; ctx.fillRect(Math.round(x - 3), Math.round(y - 3), 6, 6); } else if (world === 'delta') { ctx.strokeStyle = T.inlay; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, gap * 0.12, 0, Math.PI * 2); ctx.stroke(); } else { ctx.fillStyle = T.inlay; ctx.beginPath(); ctx.arc(x, y, gap * 0.13, 0, Math.PI * 2); ctx.fill(); } };
+  [3, 5, 7, 9].forEach(k => inl((cols[k][0] + cols[k][1]) / 2, (top + bottom) / 2));
+  [rowY(4) + gap / 2, rowY(2) + gap / 2].forEach(y => inl((cols[12][0] + cols[12][1]) / 2, y));
+  ctx.fillStyle = T.nut; ctx.fillRect(cols[0][1] - 3, top, world === 'alpha' ? 7 : 4, bottom - top);
+  cols.forEach((c, k) => { if (k) { ctx.fillStyle = T.fret; ctx.fillRect(Math.round(c[1] - (world === 'alpha' ? 2 : 1)), top, world === 'alpha' ? 4 : 2, bottom - top); } });
+  const anchor = ANCHOR[world === 'earth' ? pick : WORLDS[world].shape];
+  for (let s = 0; s < 6; s++) {
+    const y = rowY(s), th = world === 'echo' ? 2 : 1 + (5 - s) * 0.4;
+    if (s === anchor) {
+      const pulse = 0.7 + 0.3 * Math.sin(now * 4);
+      if (world === 'alpha') { ctx.fillStyle = '#d42a1a'; ctx.globalAlpha = 0.85; ctx.beginPath(); ctx.moveTo(left - 4, y - gap * 0.3); ctx.lineTo(right + 4, y - gap * 0.42); ctx.lineTo(right + 4, y + gap * 0.3); ctx.lineTo(left - 4, y + gap * 0.42); ctx.fill(); ctx.globalAlpha = 1; }
+      else if (world === 'echo') { ctx.fillStyle = T.band; for (let x = left; x < right; x += 6) if (((x / 6) | 0) % 2 === (Math.floor(now * 4) % 2)) ctx.fillRect(x, y - gap * 0.4, 6, gap * 0.8); }
+      else if (world === 'delta') { ctx.strokeStyle = T.nut; ctx.globalAlpha = pulse; ctx.lineWidth = 1; ctx.strokeRect(left - 4, y - gap * 0.4, right - left + 8, gap * 0.8); ctx.globalAlpha = 1; }
+      else { ctx.fillStyle = accentA(WORLDS[pick].c, 0.35 * pulse); ctx.fillRect(left - 4, y - gap * 0.42, right - left + 8, gap * 0.84); }
+    }
+    ctx.fillStyle = s === anchor && world === 'alpha' ? '#ece0c4' : T.str; ctx.fillRect(left, Math.round(y - th / 2), right - left, th);
+  }
+  ctx.restore();
+  ctx.font = `${Math.round(gap * (world === 'alpha' ? 0.75 : 0.6))}px ${T.font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ['E', 'A', 'D', 'G', 'B', 'e'].forEach((n, s) => { ctx.fillStyle = s === anchor ? T.labelOn : T.label; ctx.fillText(n, left - gap * 0.55, rowY(s)); });
+  // the grip, in each world's own hand
+  if (grip) {
+    const a = Math.min(1, gripT * 3), col = grip.ok ? (world === 'earth' ? WORLDS[grip.shape].c : accent) : '#ff4040';
+    grip.cells.forEach(cell => {
+      const [f, s] = cell.split('-').map(Number), x = (cols[f][0] + cols[f][1]) / 2, y = rowY(s), r = gap * 0.36, root = f === grip.rootFret && s === grip.anchor;
+      ctx.globalAlpha = a;
+      if (T.dot === 'square') { ctx.fillStyle = grip.ok ? EP[4] : col; ctx.fillRect(Math.round(x - r), Math.round(y - r), Math.round(r * 2), Math.round(r * 2)); ctx.fillStyle = grip.ok ? EP[2] : '#000'; ctx.fillRect(Math.round(x - r + 3), Math.round(y - r + 3), Math.round(r * 2 - 6), Math.round(r * 2 - 6)); if (root) { ctx.fillStyle = EP[4]; ctx.fillRect(Math.round(x - 3), Math.round(y - 3), 6, 6); } }
+      else if (T.dot === 'print') { ctx.fillStyle = '#16100c'; ctx.beginPath(); ctx.arc(x + 2, y + 2, r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = grip.ok ? '#d42a1a' : '#7a6a5a'; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); if (root) { ctx.fillStyle = '#ece0c4'; ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, Math.PI * 2); ctx.fill(); } }
+      else if (T.dot === 'ring') { ctx.save(); ctx.shadowColor = '#3aff6a'; ctx.shadowBlur = 10; ctx.strokeStyle = grip.ok ? '#8affaa' : '#ff4040'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); if (root) { ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, Math.PI * 2); ctx.stroke(); } ctx.restore(); }
+      else { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = root ? 3.5 : 2; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    });
+  }
+  if (buzzT > 0 && grip && !grip.ok) { ctx.fillStyle = `rgba(255,60,60,${buzzT})`; ctx.fillRect(0, SH(), W, 4); }
+}
+function accentA(hex, a) { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return `rgba(${r},${g},${b},${a})`; }
+function draw() {
+  const now = performance.now() / 1000;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (state === 'fly' || state === 'landing' || state === 'title' || !world) { if (!shipS) resetShip(); return drawFlight(now); }
+  ({ echo: sceneEcho, alpha: sceneAlpha, delta: sceneDelta, earth: sceneEarth })[world](now);
+  drawNeck(now);
+  parts.forEach(p => { ctx.fillStyle = p.c; ctx.globalAlpha = Math.max(0, p.t); ctx.fillRect(p.x, p.y, 3, 3); }); ctx.globalAlpha = 1;
+}
+
+// ---- Playing a chord -----------------------------------------------------
+function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) }; }
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const p = toCanvas(e);
+  if (state === 'fly') { stick.on = true; stick.ox = p.x; stick.oy = p.y; stick.x = stick.y = 0; return; }
+  if (state !== 'play') return;
+  const { cols, rowY, gap } = N, shape = world === 'earth' ? pick : WORLDS[world].shape, anchor = ANCHOR[shape];
+  // only the glowing string takes a tap; that is where the root goes
+  if (Math.abs(p.y - rowY(anchor)) > gap * 0.75) { hint(world === 'earth' ? 'Tap the glowing string, or pick another shape below' : `Put the root on the glowing ${['low E', 'A', 'D'][anchor]} string`); return; }
+  const f = cols.findIndex(c => p.x >= c[0] && p.x < c[1]); if (f < 0) return;
+  const ch = prog[step], rootHere = (STR_OPEN[anchor] + f) % 12 === ch.pc;
+  if (!rootHere) { miss(`That fret isn't ${ch.root}`); grip = { cells: new Set([`${f}-${anchor}`]), ok: false, rootFret: f, anchor, shape }; gripT = 1; return; }
+  const cells = gripFor(shape, ch);
+  if (world === 'earth' && !fits(cells, win0)) { miss(`The ${shape} shape for ${ch.name} won't fit in the lit frets. Try another shape`); grip = { cells, ok: false, rootFret: f, anchor, shape }; gripT = 0; return; }
+  grip = { cells, ok: true, rootFret: [...cells].map(c => c.split('-').map(Number)).find(([, s]) => s === anchor)[0], anchor, shape }; gripT = 0;
+  strum(cells);
+  const x = (cols[f][0] + cols[f][1]) / 2, y = rowY(anchor);
+  for (let i = 0; i < 18; i++) parts.push({ x, y, vx: rand(-90, 90), vy: rand(-120, 20), c: world === 'earth' ? WORLDS[shape].c : WORLDS[world].c, t: 0.8 });
+  step++; renderProg(); hint('');
+  if (step >= prog.length) setTimeout(progDone, 900);
+});
+function miss(msg) { misses++; time += 2; buzzT = 1; hint(msg + '  +2s'); tone(110, 0.25, 'sawtooth', 70, 0.05); }
+function hint(t) { document.getElementById('hint').textContent = t; }
+document.querySelectorAll('#shapes button').forEach(b => b.addEventListener('click', () => { pick = b.dataset.s; document.querySelectorAll('#shapes button').forEach(x => x.classList.toggle('sel', x === b)); tone(500, 0.05, 'triangle'); }));
+function renderProg() {
+  const el = document.getElementById('prog'), c = WORLDS[world].c;
+  el.className = 'prog w-' + world; document.getElementById('hud').className = 'hud w-' + world;
+  el.style.top = (SH() + H * 0.015) + 'px';
+  el.innerHTML = `<div class="rnd" style="--c:${c}">${round + 1}/${ROUNDS}</div>` + prog.map((ch, i) => `<div class="chip${i < step ? ' done' : i === step ? ' now' : ''}" style="--c:${c}">${ch.name}<small>${ch.deg}</small></div>`).join('');
+  document.getElementById('world').textContent = WORLDS[world].name;
+}
+
+// ---- Flight and the run of play ------------------------------------------
+// each world sets three progressions, each in its own key
+const ROUNDS = 3;
+let round = 0;
+function progDone() {
+  round++;
+  [659, 784].forEach((f, i) => tone(f, 0.14, 'triangle', 0, 0.05, i * 0.08));
+  if (round >= ROUNDS) return worldDone();
+  plan(world); step = 0; grip = null; state = 'brief'; document.getElementById('prog').innerHTML = '';
+  const w = WORLDS[world];
+  overlay(`<div class="kick">PROGRESSION ${round} OF ${ROUNDS} DONE</div><h2 style="--c:${w.c}">Next, in <span>${key}</span></h2>
+    <p>${world === 'earth' ? 'Any shape, inside the lit frets' : `Still the ${w.name[0] + w.name.slice(1).toLowerCase()} shape`}: <b>${prog.map(c => c.name).join('  ')}</b></p>
+    <span class="go" style="--c:${w.c}" onclick="beginWorld()">Play</span>`, w.c);
+}
+function arrive(id) {
+  world = id; round = 0; plan(id); step = 0; grip = null; state = 'brief'; pick = 'echo'; hint('');
+  document.querySelectorAll('#shapes button').forEach(x => x.classList.toggle('sel', x.dataset.s === pick));
+  const w = WORLDS[id];
+  overlay(`<div class="kick">LANDED</div><h2 style="--c:${w.c}">Planet <span>${w.name[0] + w.name.slice(1).toLowerCase()}</span></h2>
+    <p>${w.blurb}</p><p>Complete ${ROUNDS} progressions here. The first is in <b>${key}</b>: <b>${prog.map(c => c.name).join('  ')}</b></p>
+    <span class="go" style="--c:${w.c}" onclick="beginWorld()">Play</span>`, w.c);
+}
+function beginWorld() {
+  hideOverlay(); state = 'play'; renderProg();
+  document.getElementById('shapes').className = world === 'earth' ? 'shapes on' : 'shapes';
+  hint(world === 'earth' ? 'Pick a shape, then tap its root on the glowing string' : 'Tap the root on the glowing string');
+}
+function worldDone() { hint('');
+  cleared[world] = true; state = 'brief';
+  document.getElementById('shapes').className = 'shapes';
+  document.getElementById('prog').innerHTML = '';
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0, 0.05, i * 0.1));
+  if (world === 'earth') return finish();
+  const left = ['echo', 'alpha', 'delta'].filter(k => !cleared[k]);
+  overlay(`<div class="kick">WORLD CLEARED</div><h2 style="--c:${WORLDS[world].c}"><span>${WORLDS[world].name}</span></h2>
+    <p>${left.length ? `Still to visit: <b>${left.map(k => WORLDS[k].name).join(', ')}</b>.` : 'All three worlds visited. <b>Earth</b> is open, and every shape works there.'}</p>
+    <span class="go" style="--c:${WORLDS[world].c}" onclick="toMap()">Back to the ship</span>`, WORLDS[world].c);
+}
+function toMap() { hideOverlay(); state = 'fly'; world = null; resetShip(); flyHud(); }
+function flyHud() { document.getElementById('hud').className = 'hud'; document.getElementById('flybar').className = 'flybar on'; document.getElementById('world').textContent = 'IN FLIGHT'; hint(cleared.echo && cleared.alpha && cleared.delta ? 'Earth is out there now, dead ahead. Fly home' : 'Drag to steer. Fly on into the dark'); }
+function overlay(html, c) { document.getElementById('hud').style.visibility = 'hidden'; const o = document.getElementById('over'); o.className = 'over' + (world && state !== 'over' ? ' t-' + world : ''); o.style.setProperty('--c', c || '#f8d24a'); o.innerHTML = html; }
+function hideOverlay() { document.getElementById('over').className = 'over hidden'; document.getElementById('hud').style.visibility = ''; }
+function frame(t) {
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0; lastT = t;
+  if (voyaging && (state === 'play' || state === 'fly' || state === 'landing')) time += dt;
+  document.getElementById('time').textContent = fmt(time);
+  if (state === 'fly') flyStep(dt);
+  if (state === 'landing') { flash += dt * 1.6; shipS.p = add(shipS.p, mul(norm(sub(PLANETS[landTo].p, shipS.p)), 3000 * dt)); if (flash >= 1) { flash = 0; document.getElementById('flybar').className = 'flybar'; const to = landTo; landTo = null; arrive(to); } }
+  gripT += dt; buzzT = Math.max(0, buzzT - dt * 2);
+  parts.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 200 * dt; p.t -= dt * 1.2; }); parts = parts.filter(p => p.t > 0);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// ---- Start and finish ----------------------------------------------------
+function showStart() {
+  state = 'title';
+  const best = times()[0];
+  overlay(`<div class="kick">A SHAPE VOYAGE</div><h2>Planets</h2>
+    <p>Pilot your fighter through space to planet <b style="color:var(--echo)">Echo</b>, <b style="color:var(--alpha)">Alpha</b> and <b style="color:var(--delta)">Delta</b>. Each world plays its progression with only its own shape. When all three are done, fly home to <b>Earth</b>, where every shape is yours.</p>
+    ${best ? `<div class="lbl">Fastest voyage ${fmt(best.s)} by ${best.i}</div>` : ''}
+    <span class="go" onclick="launch()">Launch</span>`);
+}
+function launch() { cleared = {}; time = 0; misses = 0; voyaging = true; hideOverlay(); state = 'fly'; resetShip(); flyHud(); tone(220, 0.3, 'triangle', 440, 0.05); }
+let finalTime = 0;
+function finish() {
+  state = 'over'; finalTime = time; voyaging = false;
+  const list = times(), qualifies = list.length < 10 || finalTime < list[list.length - 1].s;
+  overlay(`<div class="kick">HOME</div><h2>Back on <span>Earth</span></h2><div class="big">${fmt(finalTime)}</div>
+    <div class="lbl">Four worlds, ${misses ? `${misses} wrong ${misses > 1 ? 'tries' : 'try'}, +${misses * 2}s` : 'not one wrong note'}.</div>
+    ${qualifies
+      ? `<p>Log your name in the ship's book:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saveTime()">LOG</button></div>`
+      : `<span class="go" onclick="launch()">Fly again</span>` + table(-1)}`);
+  setTimeout(() => { const i = document.getElementById('initials'); if (i) i.focus(); }, 50);
+}
+function table(hi) {
+  const list = times(); if (!list.length) return '';
+  return `<div class="hs-h">FASTEST VOYAGES</div><div class="hs">` + list.map((e, i) => { const k = i === hi ? ' class="me"' : ''; return `<span${k}>${i + 1}</span><span${k}>${e.i}</span><span${k}>${fmt(e.s)}</span>`; }).join('') + '</div>';
+}
+function saveTime() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalTime.toFixed(1) };
+  const list = times(); list.push(entry); list.sort((a, b) => a.s - b.s); const top = list.slice(0, 10); store(HS_KEY, JSON.stringify(top));
+  overlay(`<div class="kick">HOME</div><h2>Back on <span>Earth</span></h2><div class="big">${fmt(finalTime)}</div><div class="lbl">Logged.</div><span class="go" onclick="launch()">Fly again</span>${table(top.indexOf(entry))}`);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('initials')) saveTime(); });
+
+// ---- Setup ---------------------------------------------------------------
+function fit() {
+  W = (document.querySelector('.screen').clientWidth - 16) | 0;
+  const room = window.innerHeight - document.querySelector('.stage').getBoundingClientRect().top - 100;
+  H = Math.max(460, Math.min(Math.round(W * 1.9), room)) | 0;
+  dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  document.querySelector('.stage').style.height = H + 'px';
+  low.width = Math.round(W / 2.6); low.height = Math.round(H / 2.6);
+  neckLayout();
+  if (world && state === 'play') renderProg();
+}
+window.addEventListener('resize', fit);
+stars = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() < 0.1 ? 2 : 1, b: Math.random(), tw: rand(0.5, 2), ph: rand(0, 6) }));
+soundOn = load(SOUND_KEY) !== '0';
+document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+fit();
+document.fonts && document.fonts.ready.then(fit);
+showStart();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
