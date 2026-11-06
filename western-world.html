@@ -61,6 +61,14 @@ canvas { display: block; touch-action: none; cursor: none; border: 3px solid #12
 .sign .soon { display: block; font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 12px; letter-spacing: 3px; opacity: 0.75; }
 .sign.shut { filter: drop-shadow(0 5px 0 rgba(0,0,0,0.45)) grayscale(0.5) brightness(0.72); cursor: default; }
 .sign:not(.shut):active { transform: translateX(22px) rotate(-2deg) translateY(2px); }
+/* 16-bit look for the game itself (see PIXEL_LOOK) */
+.pix #cv { image-rendering: pixelated; }
+.pix .hud .side, .pix .plank { background: none center / 100% 100% no-repeat; image-rendering: pixelated; box-shadow: 3px 3px 0 rgba(28,18,10,0.5); border-radius: 0; }
+.pix .plank::before, .pix .plank::after { display: none; }
+.pix .hud .side, .pix .plank { position: relative; }
+.pix .hud .side { min-width: 100px; min-height: 60px; } .pix .plank { min-height: 64px; min-width: 120px; }
+.pix .hud .side, .pix .hud .side b, .pix .plank span, .pix .plank b { color: transparent !important; text-shadow: none !important; }
+.pix canvas.pixhud { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
 /* the trail screen, in 16-bit sepia */
 .post.pix { background: #94704f; image-rendering: pixelated; background-size: 100% 100%; padding-top: 16px; }
 .post.pix img { image-rendering: pixelated; display: block; }
@@ -129,9 +137,9 @@ const Pix = (() => {
     for (const ch of text) { const b = F3[ch] || F3[' ']; for (let i = 0; i < 15; i++) if (b[i] === '1') { if (hi) rect(g, x + i % 3, y + (i / 3 | 0) + 1, 1, 1, hi); } for (let i = 0; i < 15; i++) if (b[i] === '1') rect(g, x + i % 3, y + (i / 3 | 0), 1, 1, col); x += 4; }
   }
   // the western face drawn at pixel size: anything over half covered is ink, the rest is not
-  function big(g, text, cx, base, size, col, hi) {
+  function big(g, text, cx, base, size, col, hi, sx) {
     const W = g.canvas.width, H = g.canvas.height, m = canvas(W, H), mg = m.getContext('2d');
-    mg.font = `${size}px Rye, serif`; mg.textAlign = 'center'; mg.fillStyle = '#000'; mg.fillText(text, cx, base);
+    mg.font = `${size}px Rye, serif`; mg.textAlign = 'center'; mg.fillStyle = '#000'; mg.translate(cx, 0); mg.scale(sx || 1, 1); mg.fillText(text, 0, base);
     const d = mg.getImageData(0, 0, W, H).data, on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 120;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (on(x, y)) rect(g, x, y, 1, 1, col);
@@ -237,6 +245,27 @@ const TARGETS = 12, PENALTY = 2;
 // ---- State ---------------------------------------------------------------
 const HS_KEY = 'westernWorldTimes', SOUND_KEY = 'arcadeSound';
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+// ---- 16-bit look ---------------------------------------------------------
+// set to false to go back to the smooth picture; nothing else depends on it
+const PIXEL_LOOK = true;
+if (PIXEL_LOOK) document.documentElement.classList.add('pix');
+// after each frame: snap every pixel to a short ramp of sepia tones, flat, no blending between them
+const TONES = (() => { const base = Pix.P.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))), out = [];
+  base.forEach((c, i) => { out.push(c); if (i < base.length - 1) out.push(c.map((v, k) => Math.round((v + base[i + 1][k]) / 2))); }); return out; })();
+const TONE_L = TONES.map(([r, g, b]) => r * 0.3 + g * 0.59 + b * 0.11);
+const TONE_LUT = new Uint8Array(256);
+for (let L = 0; L < 256; L++) { let best = 0; TONE_L.forEach((t, k) => { if (Math.abs(t - L) < Math.abs(TONE_L[best] - L)) best = k; }); TONE_LUT[L] = best; }
+function pixelate() {
+  const img = ctx.getImageData(0, 0, cv.width, cv.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    // keep the red of a miss red, just flattened
+    if (r > 150 && r - b > 90 && r - g > 50) { d[i] = 196; d[i + 1] = 72; d[i + 2] = 44; continue; }
+    const c = TONES[TONE_LUT[(r * 0.3 + g * 0.59 + b * 0.11) | 0]];
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+  }
+  ctx.putImageData(img, 0, 0);
+}
 let W = 360, H = 560, dpr = 1;
 let state = 'start', round = 0, target = 5, pans = [], time = 0, penalties = 0, hits = 0, misses = 0, lastT = 0, soundOn = true;
 let aim = { x: 180, y: 300, show: false }, recoil = 0, flashT = 0, shots = 0, reloadT = 0, betweenT = 0, roundT = 0;
@@ -632,6 +661,7 @@ function fire() {
 // ---- The run of play -----------------------------------------------------
 function updateHud() {
   document.getElementById('count').textContent = Math.min(round + 1, TARGETS) + '/' + TARGETS;
+  if (PIXEL_LOOK) queueMicrotask(drawHudPix);
   document.getElementById('ask').textContent = NAMES[target];
   document.getElementById('time').textContent = fmt(time + penalties);
 }
@@ -655,6 +685,7 @@ function frame(t) {
   if (!tumble && Math.random() < dt * 0.06) tumble = { x: -30, y: H * rand(0.68, 0.78), r: rand(9, 14), v: rand(50, 90) };
   if (tumble) { tumble.x += tumble.v * dt; if (tumble.x > W + 40) tumble = null; }
   draw();
+  if (PIXEL_LOOK) pixelate();
   requestAnimationFrame(frame);
 }
 
@@ -739,12 +770,40 @@ function fit() {
   W = (document.querySelector('.screen').clientWidth - 22) | 0;
   const room = window.innerHeight - document.querySelector('.stage').getBoundingClientRect().top - 40;
   H = Math.max(420, Math.min(Math.round(W * 1.9), room)) | 0;
-  dpr = window.devicePixelRatio || 1;
+  dpr = PIXEL_LOOK ? 0.5 : (window.devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.width = W + 'px'; cv.style.height = H + 'px';
   document.querySelector('.stage').style.minHeight = H + 6 + 'px';
   document.getElementById('post').style.height = (H - 6) + 'px';
   birds = [{ x: W * 0.3, y: H * 0.12, rx: 30, ry: 8, sp: 0.6, ph: 0 }, { x: W * 0.36, y: H * 0.1, rx: 24, ry: 6, sp: 0.7, ph: 2 }];
   layout();
+  if (PIXEL_LOOK) requestAnimationFrame(pixelBoards);
+}
+// the scoreboard planks, drawn to their own size two screen pixels to the art pixel, lettering and all
+let hudArt = [];
+function pixelBoards() {
+  hudArt = [...document.querySelectorAll('.hud .side, .hud .plank')].map((el, i) => {
+    const w = Math.round(el.offsetWidth / 2), h = Math.round(el.offsetHeight / 2); if (w < 8 || h < 8) return null;
+    let c = el.querySelector('canvas.pixhud'); if (!c) { c = document.createElement('canvas'); c.className = 'pixhud'; el.appendChild(c); }
+    c.width = w; c.height = h;
+    return { el, c, base: Pix.board(w, h, 60 + i * 7, { knots: 1, nails: [[2, 2], [w - 4, 2], [2, h - 4], [w - 4, h - 4]] }), key: '' };
+  }).filter(Boolean);
+  drawHudPix();
+}
+function drawHudPix() {
+  if (!PIXEL_LOOK) return;
+  hudArt.forEach(a => {
+    const label = (a.el.querySelector('span') || a.el.firstChild).textContent.trim(), val = a.el.querySelector('b').textContent;
+    if (a.key === label + val) return; a.key = label + val;
+    const g = a.c.getContext('2d'), w = a.c.width, h = a.c.height, P = Pix.P;
+    g.clearRect(0, 0, w, h); g.drawImage(a.base, 0, 0);
+    Pix.small(g, label, w / 2, 3, P[0], P[7]);
+    // the value in the western face, as big as the board allows
+    // squeeze it sideways rather than shrink it, down to two thirds width, then shrink if it still won't fit
+    let size = Math.round((h - 14) / 0.7); g.font = `${size}px Rye, serif`;
+    while (size > 8 && g.measureText(val).width * 0.66 > w - 5) { size--; g.font = `${size}px Rye, serif`; }
+    const sx = Math.min(1, (w - 5) / g.measureText(val).width);
+    Pix.big(g, val, w / 2, h - 3, size, P[0], P[7], sx);
+  });
 }
 window.addEventListener('resize', fit);
 
