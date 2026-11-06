@@ -519,12 +519,25 @@ function drawFlight(now) {
   });
   const camF = camera();
   Object.entries(PLANETS).forEach(([id, P]) => {
-    if (cleared[id] || !seen[id] || planetHidden(id)) return;
-    const q = project(camF, P.p, W * 0.9);
-    if (q && q.x > 0 && q.x < W && q.y > 0 && q.y < H * 0.9) return;
-    const d = sub(P.p, camF.c), x = dot(d, camF.r), y = dot(d, camF.u), a = Math.atan2(-y, x);
-    ctx.save(); ctx.translate(W / 2 + Math.cos(a) * W * 0.42, H * 0.44 + Math.sin(a) * H * 0.36); ctx.rotate(a); ctx.fillStyle = WORLDS[id].c;
+    const home = id === 'earth';
+    if (cleared[id] || planetHidden(id) || (!seen[id] && !home)) return;
+    const q = project(camF, P.p, W * 0.9), far = Math.hypot(...sub(P.p, shipS.p)), pulse = 0.5 + 0.5 * Math.sin(now * 5);
+    if (q && q.x > 0 && q.x < W && q.y > 0 && q.y < H * 0.9) {
+      // home is in front of you: a beacon over it until it is close enough to see
+      if (home && far > SEE * 0.8) {
+        ctx.strokeStyle = WORLDS.earth.c; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + pulse * 0.5;
+        ctx.beginPath(); ctx.arc(q.x, q.y, 9 + pulse * 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(q.x, q.y - 22 - pulse * 4); ctx.lineTo(q.x - 6, q.y - 32 - pulse * 4); ctx.lineTo(q.x + 6, q.y - 32 - pulse * 4); ctx.closePath(); ctx.fillStyle = WORLDS.earth.c; ctx.fill();
+        ctx.globalAlpha = 1; ctx.font = `${Math.round(Math.max(11, W * 0.034))}px 'Zen Dots', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('EARTH', q.x, q.y + 20);
+        ctx.font = `${Math.round(Math.max(10, W * 0.028))}px 'Share Tech Mono', monospace`; ctx.fillStyle = '#9aa0b8'; ctx.fillText(Math.round(far / 10) + ' KM', q.x, q.y + 20 + W * 0.045);
+      }
+      return;
+    }
+    const d = sub(P.p, camF.c), x = dot(d, camF.r), y = dot(d, camF.u), a = Math.atan2(-y, x), k = home ? 1.5 + pulse * 0.4 : 1;
+    const ax = W / 2 + Math.cos(a) * W * 0.42, ay = H * 0.44 + Math.sin(a) * H * 0.36;
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(a); ctx.scale(k, k); ctx.fillStyle = WORLDS[id].c;
     ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -8); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
+    if (home) { ctx.font = `${Math.round(Math.max(10, W * 0.028))}px 'Zen Dots', sans-serif`; ctx.fillStyle = WORLDS.earth.c; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('EARTH', ax - Math.cos(a) * 34, ay - Math.sin(a) * 30); }
   });
   ctx.strokeStyle = 'rgba(248,210,74,0.6)'; ctx.lineWidth = 1.5;
   const cx = W / 2, cy = H * 0.44;
@@ -724,34 +737,72 @@ function sceneDelta(now) {
 // ---- Earth: ink and gouache, a picture-book page --------------------------
 function inked(draw, fill, lw) { ctx.fillStyle = fill; ctx.beginPath(); draw(); ctx.fill(); ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = lw || 2; ctx.lineJoin = 'round'; ctx.stroke(); }
 function sceneEarth(now) {
-  const h = SH();
-  let g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#9cc8e8'); g.addColorStop(0.7, '#f4e4c0'); g.addColorStop(1, '#f8d8a8');
+  const h = SH(), u = Math.min(W, h * 1.4) / 100;   // u: one hundredth of the page, for sizing things
+  let g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#7ab8e8'); g.addColorStop(0.55, '#cfe6f0'); g.addColorStop(1, '#f8e8c0');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
-  // a soft rainbow, brushed
-  ['#e85a4a', '#f0a03c', '#f0d04a', '#6ab85a', '#4a8ad0', '#8a6ad0'].forEach((c, i) => { ctx.strokeStyle = c; ctx.globalAlpha = 0.5; ctx.lineWidth = W * 0.014; ctx.beginPath(); ctx.arc(W * 0.52, h * 0.98, W * (0.5 - i * 0.014), Math.PI * 1.02, Math.PI * 1.98); ctx.stroke(); });
-  ctx.globalAlpha = 1;
-  // the volcano, smoke curling up in loose rounds
-  inked(() => { ctx.moveTo(W * 0.6, h * 0.78); ctx.quadraticCurveTo(W * 0.74, h * 0.4, W * 0.77, h * 0.3); ctx.lineTo(W * 0.85, h * 0.3); ctx.quadraticCurveTo(W * 0.9, h * 0.45, W * 1.04, h * 0.78); ctx.closePath(); }, '#8a6a5a');
-  inked(() => { ctx.moveTo(W * 0.77, h * 0.3); ctx.lineTo(W * 0.85, h * 0.3); ctx.lineTo(W * 0.83, h * 0.42); ctx.lineTo(W * 0.8, h * 0.36); ctx.lineTo(W * 0.78, h * 0.44); ctx.closePath(); }, '#f06a2a', 1.5);
-  for (let i = 0; i < 5; i++) { const t = (now * 0.12 + i / 5) % 1; ctx.globalAlpha = 1 - t; inked(() => ctx.arc(W * (0.81 + t * 0.08), h * (0.27 - t * 0.24), W * (0.025 + t * 0.05), 0, Math.PI * 2), '#d8ccc4', 1.5); ctx.globalAlpha = 1; }
-  inked(() => { ctx.moveTo(0, h * 0.8); for (let x = 0; x <= W; x += 10) ctx.lineTo(x, h * (0.7 - 0.06 * Math.sin(x / W * 6 + 1))); ctx.lineTo(W, h * 0.8); ctx.closePath(); }, '#7ab86a');
-  // the cliff and its waterfall, falling into a pool
-  inked(() => ctx.rect(W * 0.06, h * 0.4, W * 0.24, h * 0.5), '#a08a6a');
-  inked(() => ctx.rect(W * 0.04, h * 0.37, W * 0.28, h * 0.06), '#5aa04a');
-  const fx = W * 0.18, fw = W * 0.07;
-  inked(() => ctx.rect(fx - fw / 2, h * 0.42, fw, h * 0.46), '#cfeeff', 1.5);
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; for (let i = 0; i < 6; i++) { const y = h * 0.42 + ((now * 110 + i * 34) % (h * 0.44)); ctx.beginPath(); ctx.moveTo(fx - fw / 2 + 4 + (i % 3) * fw * 0.3, y); ctx.lineTo(fx - fw / 2 + 4 + (i % 3) * fw * 0.3, y + 12); ctx.stroke(); }
-  inked(() => ctx.rect(0, h * 0.88, W * 0.46, h * 0.12), '#5a9ad0');
-  inked(() => ctx.rect(W * 0.46, h * 0.86, W * 0.54, h * 0.14), '#6aae4a');
-  // jungle leaves, fat and inked
-  const leaf = (x, y, r, a, c) => inked(() => { ctx.ellipse(x, y, r, r * 0.38, a, 0, Math.PI * 2); }, c, 1.5);
-  const palm = (x, b, hh, lean) => {
-    ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x, b); ctx.quadraticCurveTo(x + lean, b - hh * 0.5, x + lean * 1.4, b - hh); ctx.stroke();
-    ctx.strokeStyle = '#9a6a3a'; ctx.lineWidth = 4; ctx.stroke();
-    for (let k = 0; k < 6; k++) leaf(x + lean * 1.4 + Math.cos(-Math.PI / 2 + (k - 2.5) * 0.6) * hh * 0.2, b - hh + Math.sin(-Math.PI / 2 + (k - 2.5) * 0.6) * hh * 0.12 + 8, hh * 0.22, (k - 2.5) * 0.6 + Math.sin(now + k) * 0.04, k % 2 ? '#3a8a3a' : '#5aaa48');
+  // a fat sun with its rays turning slowly
+  const sx = W * 0.62, sy = h * 0.14, sr = u * 5.5;
+  ctx.save(); ctx.translate(sx, sy); ctx.rotate(now * 0.15);
+  for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); inked(() => { ctx.moveTo(sr * 1.15, -u * 0.9); ctx.lineTo(sr * 1.75, 0); ctx.lineTo(sr * 1.15, u * 0.9); ctx.closePath(); }, '#f8c84a', 1.5); }
+  ctx.restore(); inked(() => ctx.arc(sx, sy, sr, 0, Math.PI * 2), '#f8d84a');
+  // clouds drifting, round and inked
+  const cloud = (x, y, s) => inked(() => { ctx.arc(x, y, s, Math.PI * 0.5, Math.PI * 1.5); ctx.arc(x + s * 1.1, y - s * 0.5, s * 1.1, Math.PI, Math.PI * 1.9); ctx.arc(x + s * 2.3, y - s * 0.1, s * 0.9, Math.PI * 1.3, Math.PI * 0.5); ctx.closePath(); }, '#ffffff', 1.5);
+  [[0.1, 0.12, 3.2, 6], [0.78, 0.07, 2.4, 4], [0.38, 0.22, 2.2, 5]].forEach(([fx, fy, s, sp]) => cloud(((fx * W + now * sp * u * 0.3) % (W + 12 * u)) - 6 * u, h * fy, s * u));
+  // far mountains, blue with snow
+  [[0.0, 0.3, 0.26], [0.22, 0.2, 0.3], [0.48, 0.28, 0.24], [0.7, 0.18, 0.32], [0.92, 0.26, 0.24]].forEach(([fx, top, w2]) => {
+    const x = W * fx, b = h * 0.6, t = h * top;
+    inked(() => { ctx.moveTo(x - W * w2, b); ctx.lineTo(x, t); ctx.lineTo(x + W * w2, b); ctx.closePath(); }, '#8a9ad0', 1.5);
+    inked(() => { const k = 0.22; ctx.moveTo(x - W * w2 * k, t + (b - t) * k); ctx.lineTo(x, t); ctx.lineTo(x + W * w2 * k, t + (b - t) * k); ctx.lineTo(x + W * w2 * k * 0.4, t + (b - t) * k * 0.7); ctx.lineTo(x, t + (b - t) * k * 1.1); ctx.lineTo(x - W * w2 * k * 0.5, t + (b - t) * k * 0.75); ctx.closePath(); }, '#ffffff', 1.5);
+  });
+  // a waterfall: pale sheet, white streaks running down, foam boiling at the foot
+  const fall = (x, t, b, w2, sp) => {
+    inked(() => ctx.rect(x - w2 / 2, t, w2, b - t), '#bfe6fa', 1.5);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, u * 0.5); ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { const lx = x - w2 / 2 + w2 * (0.15 + (i % 4) * 0.23), y = t + ((now * sp * u + i * 37 * u * 0.3) % (b - t)); ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx, Math.min(b, y + u * 3)); ctx.stroke(); }
+    for (let i = 0; i < 4; i++) { const p = Math.sin(now * 5 + i * 1.7) * 0.25 + 1; inked(() => ctx.arc(x - w2 / 2 + w2 * (i + 0.5) / 4, b, w2 * 0.22 * p, Math.PI, 0), '#ffffff', 1.2); }
   };
-  palm(W * 0.56, h * 0.92, h * 0.42, 10); palm(W * 0.93, h * 0.95, h * 0.5, -14);
-  for (let i = 0; i < 7; i++) leaf(W * (0.48 + i * 0.08), h * 0.95, 18, -0.5 + i * 0.25, i % 2 ? '#3a8a3a' : '#6ab84a');
+  // cliffs either side, grass on top, falls pouring off them
+  const cliff = (x0, x1, t, b, lip) => { inked(() => { ctx.moveTo(x0, b); ctx.lineTo(x0, t + u * 2); ctx.lineTo(x1, t); ctx.lineTo(x1, b); ctx.closePath(); }, '#b0906a');
+    ctx.strokeStyle = 'rgba(42,26,16,0.35)'; ctx.lineWidth = 1.2; for (let k = 1; k < 5; k++) { const y = t + (b - t) * k / 5; ctx.beginPath(); ctx.moveTo(x0 + u, y); ctx.lineTo(x1 - u, y + u * (k % 2 ? 1 : -1)); ctx.stroke(); }
+    inked(() => { ctx.moveTo(x0 - u, t + u * 3.5); ctx.lineTo(x0 - u, t + u * 1.2); ctx.quadraticCurveTo((x0 + x1) / 2, t - u * lip, x1 + u, t - u * 0.6); ctx.lineTo(x1 + u, t + u * 2); ctx.closePath(); }, '#5aa84a'); };
+  const pool = h * 0.76;
+  cliff(-u * 2, W * 0.3, h * 0.24, pool, 2); cliff(W * 0.74, W + u * 2, h * 0.34, pool, 1.5);
+  // the river, the pools running together and out of the page
+  inked(() => { ctx.moveTo(-u, pool - u); ctx.quadraticCurveTo(W * 0.5, pool - u * 3, W + u, pool - u); ctx.lineTo(W + u, pool + u * 3); ctx.bezierCurveTo(W * 0.7, pool + u * 4, W * 0.55, h * 0.86, W * 0.5, h + u); ctx.lineTo(W * 0.3, h + u); ctx.bezierCurveTo(W * 0.36, h * 0.88, W * 0.2, pool + u * 4, -u, pool + u * 3); ctx.closePath(); }, '#5a9ad0');
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 6; i++) { const t = (now * 0.25 + i / 6) % 1, x = W * (0.12 + i * 0.15), y = pool + u * (0.5 + (i % 2)); ctx.globalAlpha = 1 - t; ctx.beginPath(); ctx.moveTo(x + t * u * 4, y); ctx.lineTo(x + t * u * 4 + u * 3, y); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  fall(W * 0.17, h * 0.26, pool, u * 7, 22); fall(W * 0.06, h * 0.3, pool, u * 3, 30); fall(W * 0.86, h * 0.36, pool, u * 5.5, 26);
+  // a rainbow standing in the spray of the big fall
+  ['#e85a4a', '#f0a03c', '#f0d04a', '#6ab85a', '#4a8ad0', '#8a6ad0'].forEach((c, i) => { ctx.strokeStyle = c; ctx.globalAlpha = 0.55; ctx.lineWidth = u * 0.9; ctx.beginPath(); ctx.arc(W * 0.17, pool, u * (16 - i * 0.9), Math.PI * 1.08, Math.PI * 1.92); ctx.stroke(); });
+  ctx.globalAlpha = 1;
+  // trees: round ones, pointed ones, tall thin ones, all inked
+  const greens = ['#3a8a3a', '#5aaa48', '#2c7a4a', '#7ab84a', '#4a9a5a'];
+  const tree = (x, b, s, kind, c) => {
+    const sway = Math.sin(now * 1.3 + x * 0.05) * s * 0.03;
+    if (kind === 0) { inked(() => ctx.rect(x - s * 0.08, b - s * 0.5, s * 0.16, s * 0.5), '#8a5a34', 1.5); inked(() => { ctx.arc(x - s * 0.22 + sway, b - s * 0.62, s * 0.3, 0, Math.PI * 2); }, c, 1.5); inked(() => { ctx.arc(x + s * 0.2 + sway, b - s * 0.66, s * 0.28, 0, Math.PI * 2); }, c, 1.5); inked(() => { ctx.arc(x + sway, b - s * 0.9, s * 0.32, 0, Math.PI * 2); }, c, 1.5); ctx.fillStyle = '#e84a3a'; [[-0.2, -0.6], [0.15, -0.95], [0.25, -0.62]].forEach(([a, bb]) => { ctx.beginPath(); ctx.arc(x + a * s + sway, b + bb * s, s * 0.05, 0, Math.PI * 2); ctx.fill(); }); }
+    else if (kind === 1) { inked(() => ctx.rect(x - s * 0.06, b - s * 0.25, s * 0.12, s * 0.25), '#8a5a34', 1.5); for (let k = 0; k < 3; k++) { const y0 = b - s * (0.2 + k * 0.28), w2 = s * (0.36 - k * 0.08); inked(() => { ctx.moveTo(x - w2, y0); ctx.lineTo(x + sway * (k + 1), y0 - s * 0.42); ctx.lineTo(x + w2, y0); ctx.closePath(); }, c, 1.5); } }
+    else { inked(() => ctx.rect(x - s * 0.05, b - s * 0.3, s * 0.1, s * 0.3), '#8a5a34', 1.5); inked(() => ctx.ellipse(x + sway, b - s * 0.75, s * 0.17, s * 0.5, 0, 0, Math.PI * 2), c, 1.5); }
+  };
+  // three rows, back to front, packed in but clear of the falls and the river mouth
+  [[h * 0.62, 7, 13, 0.3, 0.74], [h * 0.73, 9.5, 9, 0, 1], [h * 0.86, 13, 7, 0, 1]].forEach(([b, s, n, xa, xb], row) => {
+    for (let i = 0; i < n; i++) {
+      const x = W * (xa + (xb - xa) * (i + 0.5) / n + (hash(i, row + 3) - 0.5) * 0.04);
+      if (row > 0 && (Math.abs(x - W * 0.17) < u * 6 || Math.abs(x - W * 0.86) < u * 5 || Math.abs(x - W * 0.06) < u * 3)) continue;
+      if (row === 2 && x > W * 0.3 && x < W * 0.52) continue;
+      tree(x, b + (hash(i, row) - 0.5) * u * 2, s * u * (0.85 + hash(i, row + 7) * 0.35), Math.floor(hash(i, row + 11) * 3), greens[Math.floor(hash(i, row + 5) * greens.length)]);
+    }
+  });
+  // birds over the falls
+  ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 1.5;
+  for (let i = 0; i < 4; i++) { const x = ((now * u * (4 + i) + i * W * 0.3) % (W + 10 * u)) - 5 * u, y = h * (0.2 + i * 0.05) + Math.sin(now * 2 + i) * u, f = Math.sin(now * 9 + i) * u * 0.8; ctx.beginPath(); ctx.moveTo(x - u * 1.5, y - f); ctx.quadraticCurveTo(x - u * 0.6, y - u, x, y); ctx.quadraticCurveTo(x + u * 0.6, y - u, x + u * 1.5, y - f); ctx.stroke(); }
+  // the bank in front, flowers and fat leaves
+  inked(() => { ctx.moveTo(W * 0.5, h); ctx.quadraticCurveTo(W * 0.56, h * 0.9, W * 0.7, h * 0.89); ctx.lineTo(W + u, h * 0.88); ctx.lineTo(W + u, h + u); ctx.closePath(); }, '#6aae4a');
+  inked(() => { ctx.moveTo(-u, h * 0.9); ctx.lineTo(W * 0.24, h * 0.91); ctx.quadraticCurveTo(W * 0.32, h * 0.94, W * 0.3, h + u); ctx.lineTo(-u, h + u); ctx.closePath(); }, '#6aae4a');
+  const leaf = (x, y, r, a, c) => inked(() => { ctx.ellipse(x, y, r, r * 0.38, a, 0, Math.PI * 2); }, c, 1.5);
+  for (let i = 0; i < 5; i++) leaf(W * (0.02 + i * 0.05), h * 0.97, u * 3.2, -0.6 + i * 0.3, i % 2 ? '#3a8a3a' : '#6ab84a');
+  const flower = (x, y, c) => { for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + now * 0.4; inked(() => ctx.arc(x + Math.cos(a) * u * 0.9, y + Math.sin(a) * u * 0.9, u * 0.7, 0, Math.PI * 2), c, 1); } inked(() => ctx.arc(x, y, u * 0.55, 0, Math.PI * 2), '#f8d84a', 1); };
+  [[0.04, 0.93, '#e85a7a'], [0.15, 0.95, '#ffffff'], [0.24, 0.93, '#f0a03c'], [0.58, 0.93, '#e85a7a'], [0.97, 0.91, '#ffffff']].forEach(([fx, fy, c]) => flower(W * fx, h * fy, c));
   // the travellers, home together
   [[0.64, '#c8906a', '#f0c04a', 'plain'], [0.72, '#4aa8ff', '#f4f0e8', 'robe'], [0.8, '#e8543a', '#2a1a10', 'suit'], [0.88, '#4ad88a', '#2a5a3a', 'long']].forEach(([fx2, skin, cloth, st], i) => person(W * fx2, h * 0.99, h * 0.22, skin, cloth, now, i, st));
   // paper grain over the page
@@ -766,7 +817,9 @@ const NECKS = {
   earth: { panel: '#f4e4c0', board: '#8a5a34', fret: '#e8d8a8', nut: '#f8f0d8', str: '#2a1a10', inlay: '#f8f0d8', label: '#8a6a4a', labelOn: '#2a1a10', font: "'Young Serif', serif", band: 'rgba(255,240,180,0.35)', dot: 'ink' },
 };
 function drawNeck(now) {
-  const { top, bottom, left, right, cols, gap, rowY } = N, T = NECKS[world], accent = WORLDS[world].c;
+  const { left, right, cols, gap, rowY } = N, T = NECKS[world], accent = WORLDS[world].c;
+  // the board's edges sit just outside the high and low strings, as on a real neck
+  const top = rowY(5) - gap * 0.3, bottom = rowY(0) + gap * 0.3;
   ctx.fillStyle = T.panel; ctx.fillRect(0, SH(), W, H - SH());
   if (world === 'alpha') { ctx.fillStyle = 'rgba(30,20,14,0.1)'; for (let y = SH() + 4; y < H; y += 7) for (let x = 0; x < W; x += 7) { ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#16100c'; ctx.fillRect(0, SH(), W, 6); }
   ctx.fillStyle = T.board; ctx.fillRect(cols[0][1], top, right - cols[0][1], bottom - top);
@@ -891,7 +944,7 @@ function worldDone() { hint('');
     <span class="go" style="--c:${WORLDS[world].c}" onclick="toMap()">Back to the ship</span>`, WORLDS[world].c);
 }
 function toMap() { hideOverlay(); state = 'fly'; world = null; resetShip(); flyHud(); }
-function flyHud() { document.getElementById('hud').className = 'hud'; document.getElementById('flybar').className = 'flybar on'; document.getElementById('world').textContent = 'IN FLIGHT'; hint(cleared.echo && cleared.alpha && cleared.delta ? 'Earth is out there now, dead ahead. Fly home' : 'Drag to steer. Fly on into the dark'); }
+function flyHud() { document.getElementById('hud').className = 'hud'; document.getElementById('flybar').className = 'flybar on'; document.getElementById('world').textContent = 'IN FLIGHT'; hint(cleared.echo && cleared.alpha && cleared.delta ? 'Earth is open. Follow the gold arrow home' : 'Drag to steer. Fly on into the dark'); }
 function overlay(html, c) { document.getElementById('hud').style.visibility = 'hidden'; const o = document.getElementById('over'); o.className = 'over' + (world && state !== 'over' ? ' t-' + world : ''); o.style.setProperty('--c', c || '#f8d24a'); o.innerHTML = html; }
 function hideOverlay() { document.getElementById('over').className = 'over hidden'; document.getElementById('hud').style.visibility = ''; }
 function frame(t) {

@@ -61,6 +61,16 @@ canvas { display: block; touch-action: none; cursor: none; border: 3px solid #12
 .sign .soon { display: block; font-family: 'Courier Prime', monospace; font-weight: 700; font-size: 12px; letter-spacing: 3px; opacity: 0.75; }
 .sign.shut { filter: drop-shadow(0 5px 0 rgba(0,0,0,0.45)) grayscale(0.5) brightness(0.72); cursor: default; }
 .sign:not(.shut):active { transform: translateX(22px) rotate(-2deg) translateY(2px); }
+/* the trail screen, in 16-bit sepia */
+.post.pix { background: #94704f; image-rendering: pixelated; background-size: 100% 100%; padding-top: 16px; }
+.post.pix img { image-rendering: pixelated; display: block; }
+.post.pix .title { width: 300px; max-width: 92%; height: auto; position: relative; z-index: 2; margin-bottom: 10px; filter: drop-shadow(4px 4px 0 rgba(28,18,10,0.45)); }
+.post.pix .pole::before { width: 16px; margin-left: -8px; top: -14px; background: var(--pixpost) center top / 100% auto repeat-y; image-rendering: pixelated; box-shadow: 4px 0 0 rgba(28,18,10,0.35); }
+.post.pix .sign { width: 248px; height: 60px; padding: 0; background: none; box-shadow: none; clip-path: none; filter: drop-shadow(4px 4px 0 rgba(28,18,10,0.45)); }
+.post.pix .sign img { width: 248px; height: 60px; }
+.post.pix .sign.r { transform: translateX(22px); } .post.pix .sign.l { transform: translateX(-22px); }
+.post.pix .sign:not(.shut):active { transform: translateX(22px) translateY(2px); }
+.post.pix .sign.shut { filter: drop-shadow(4px 4px 0 rgba(28,18,10,0.45)); }
 .cls { display: grid; gap: 8px; margin: 6px 6px 6px; }
 .cl { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: rgba(255,248,230,0.45); border: 2px solid var(--ink); text-align: left; cursor: pointer; color: var(--ink); }
 .cl:active, .cl:hover { background: rgba(255,248,230,0.8); }
@@ -103,6 +113,118 @@ canvas { display: block; touch-action: none; cursor: none; border: 3px solid #12
 </div>
 
 <script>
+// ---- 16-bit sepia: drawn a pixel at a time, then scaled up with hard edges ----
+const Pix = (() => {
+  // nine sepia tones, darkest first
+  const P = ['#1c120a', '#36251a', '#55392a', '#74513a', '#94704f', '#b38f68', '#cdab80', '#e2c79c', '#f3e3bf'];
+  const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+  function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+  function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  function rect(g, x, y, w, h, col) { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); }
+  // a tiny 3x5 font for the small print
+  const F3 = { A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010', K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100', Q: '010101101110011', R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010', Z: '111001010100111',
+    0: '111101101101111', 1: '010110010010111', 2: '110001010100111', 3: '110001010001110', 4: '101101111001001', 5: '111100110001110', 6: '011100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001110', ':': '000010000010000', '.': '000000000000010', '-': '000000111000000', ' ': '000000000000000' };
+  function small(g, text, cx, y, col, hi) {
+    text = String(text).toUpperCase(); const w = text.length * 4 - 1; let x = Math.round(cx - w / 2);
+    for (const ch of text) { const b = F3[ch] || F3[' ']; for (let i = 0; i < 15; i++) if (b[i] === '1') { if (hi) rect(g, x + i % 3, y + (i / 3 | 0) + 1, 1, 1, hi); } for (let i = 0; i < 15; i++) if (b[i] === '1') rect(g, x + i % 3, y + (i / 3 | 0), 1, 1, col); x += 4; }
+  }
+  // the western face drawn at pixel size: anything over half covered is ink, the rest is not
+  function big(g, text, cx, base, size, col, hi) {
+    const W = g.canvas.width, H = g.canvas.height, m = canvas(W, H), mg = m.getContext('2d');
+    mg.font = `${size}px Rye, serif`; mg.textAlign = 'center'; mg.fillStyle = '#000'; mg.fillText(text, cx, base);
+    const d = mg.getImageData(0, 0, W, H).data, on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 120;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (on(x, y)) rect(g, x, y, 1, 1, col);
+      else if (hi && on(x - 1, y - 1)) rect(g, x, y, 1, 1, hi);
+    }
+  }
+  // poster lettering: arched along a curve, filled light to deep in bands, bevelled, outlined, dropped shadow
+  function epic(g, text, cx, base, size, opt) {
+    opt = Object.assign({ arc: 0, stretch: 1.15, shadow: 2 }, opt || {});
+    const W = g.canvas.width, H = g.canvas.height, m = canvas(W, H), mg = m.getContext('2d');
+    mg.font = `${size}px Rye, serif`; mg.textBaseline = 'alphabetic'; mg.fillStyle = '#000';
+    const ws = [...text].map(ch => mg.measureText(ch).width), total = ws.reduce((a, b) => a + b, 0), half = total / 2;
+    const lift = x => { const t = (x - cx) / half; return -opt.arc * (1 - t * t); };
+    let x = cx - half;
+    [...text].forEach((ch, i) => { const mid = x + ws[i] / 2, t = (mid - cx) / half, ang = Math.atan(2 * opt.arc * t / half);
+      mg.save(); mg.translate(mid, base + lift(mid)); mg.rotate(ang); mg.scale(1, opt.stretch); mg.textAlign = 'center'; mg.fillText(ch, 0, 0); mg.restore(); x += ws[i]; });
+    const d = mg.getImageData(0, 0, W, H).data, on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 120;
+    const capH = size * 0.74 * opt.stretch;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue;
+      let near = false; for (let a = -1; a <= 1 && !near; a++) for (let b = -1; b <= 1; b++) if (on(x + a, y + b)) { near = true; break; }
+      if (near) { rect(g, x, y, 1, 1, P[0]); continue; }
+      for (let k = 2; k <= opt.shadow + 1; k++) if (on(x - k, y - k)) { rect(g, x, y, 1, 1, P[1]); break; } }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!on(x, y)) continue;
+      const v = (y - (base + lift(x) - capH)) / capH;
+      let k = v < 0.22 ? 8 : v < 0.5 ? 7 : v < 0.58 ? 5 : v < 0.82 ? 6 : 5;
+      if (!on(x + 1, y + 1) || !on(x, y + 1)) k -= 2; else if (!on(x - 1, y - 1) || !on(x, y - 1)) k = 8;
+      rect(g, x, y, 1, 1, P[Math.max(2, Math.min(8, k))]); }
+  }
+  // a plank: dark outline, lit top edge, broken grain lines, a knot or two, nails
+  function board(w, h, seed, opt) {
+    opt = Object.assign({ dir: 0, tone: 5, nails: [] }, opt || {});
+    const c = canvas(w, h), g = c.getContext('2d'), r = rng(seed), t = opt.tone, tip = Math.round(h * 0.55);
+    // which pixels belong to the board (an arrow point at one end when dir is set)
+    const inside = (x, y) => { if (y < 0 || y >= h || x < 0 || x >= w) return false;
+      const mid = (h - 1) / 2, dy = Math.abs(y - mid);
+      if (opt.dir > 0 && x > w - 1 - tip) return (w - 1 - x) >= dy * tip / mid - 0.5;
+      if (opt.dir < 0 && x < tip) return x >= dy * tip / mid - 0.5;
+      return true; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (inside(x, y)) rect(g, x, y, 1, 1, P[t]);
+    // grain: long thin streaks running the length
+    for (let k = 0; k < h * 1.6; k++) { const y = 2 + Math.floor(r() * (h - 4)), x0 = Math.floor(r() * w), len = 6 + Math.floor(r() * w * 0.5), col = r() < 0.7 ? P[t - 1] : P[t + 1];
+      for (let x = x0; x < x0 + len; x++) { const yy = y + (r() < 0.06 ? 1 : 0); if (inside(x, yy) && r() > 0.12) rect(g, x, yy, 1, 1, col); } }
+    // a knot
+    for (let k = 0; k < (opt.knots ?? 1); k++) { const kx = Math.floor(w * (0.15 + r() * 0.7)), ky = Math.floor(h * (0.3 + r() * 0.4));
+      [[0, 0, 2], [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1], [-2, 0, 0], [2, 0, 0]].forEach(([a, b, s]) => { if (inside(kx + a, ky + b)) rect(g, kx + a, ky + b, 1, 1, P[t - 1 - s]); }); }
+    // edges: light along the top, shade along the bottom, dark outline all round
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (!inside(x, y)) continue;
+      const out = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      if (out) rect(g, x, y, 1, 1, P[0]);
+      else if (!inside(x, y - 2)) rect(g, x, y, 1, 1, P[t + 2]);
+      else if (!inside(x, y + 2)) rect(g, x, y, 1, 1, P[t - 2]); }
+    opt.nails.forEach(([x, y]) => { rect(g, x, y, 2, 2, P[1]); rect(g, x, y, 1, 1, P[6]); });
+    return c;
+  }
+  // desert at sundown: dithered sky, a banded sun, mesas, cactus, a fence
+  function scene(w, h, seed, opt) {
+    opt = Object.assign({ hz: 0.6, sunX: 0.72 }, opt || {});
+    const c = canvas(w, h), g = c.getContext('2d'), r = rng(seed), hz = Math.round(h * opt.hz);
+    const sky = [P[4], P[5], P[6], P[7], P[8]];
+    for (let y = 0; y < hz; y++) { const f = Math.pow(y / hz, 1.3) * (sky.length - 1), i = Math.floor(f), t = f - i;
+      for (let x = 0; x < w; x++) rect(g, x, y, 1, 1, t * 16 > BAYER[y & 3][x & 3] + 0.5 ? sky[Math.min(sky.length - 1, i + 1)] : sky[i]); }
+    const sx = Math.round(w * opt.sunX), sr = Math.round(Math.min(w, h) * 0.13), sy = hz - Math.round(sr * 0.35);
+    for (let y = -sr; y <= sr; y++) for (let x = -sr; x <= sr; x++) if (x * x + y * y <= sr * sr + sr && sy + y < hz) { if (y > 0 && (y % 3 === 0)) continue; rect(g, sx + x, sy + y, 1, 1, P[8]); }
+    const mesa = (x0, x1, top, slope, col, lit) => { for (let x = x0; x <= x1; x++) { const e = Math.min(x - x0, x1 - x) * slope, y = Math.max(top, hz - e); rect(g, x, y, 1, hz - y + 1, col);
+      if (lit && x1 - x < (hz - top) / slope) rect(g, x, y, 1, 1, lit); } };
+    mesa(-6, Math.round(w * 0.32), hz - Math.round(h * 0.16), 1.6, P[4], P[5]);
+    mesa(Math.round(w * 0.38), Math.round(w * 0.58), hz - Math.round(h * 0.1), 1.8, P[4], P[5]);
+    mesa(Math.round(w * 0.82), w + 8, hz - Math.round(h * 0.14), 1.5, P[4], P[5]);
+    mesa(-20, Math.round(w * 0.2), hz - Math.round(h * 0.08), 2.4, P[3], null);
+    // ground in bands, dithered where they meet
+    const gr = [P[3], P[4], P[5], P[5]];
+    for (let y = hz; y < h; y++) { const f = (y - hz) / (h - hz) * (gr.length - 1), i = Math.floor(f), t = f - i;
+      for (let x = 0; x < w; x++) rect(g, x, y, 1, 1, t * 16 > BAYER[y & 3][x & 3] + 0.5 ? gr[Math.min(gr.length - 1, i + 1)] : gr[i]); }
+    for (let k = 0; k < w * (h - hz) / 90; k++) { const x = Math.floor(r() * w), y = hz + 3 + Math.floor(r() * (h - hz - 3)); rect(g, x, y, 2, 1, P[3]); rect(g, x + 1, y - 1, 1, 1, P[2]); }
+    if (opt.fence) { const [fx0, fx1] = opt.fence; for (let x = fx0; x <= fx1; x += 7) rect(g, x, hz - 1, 1, 4, P[2]); rect(g, fx0, hz, fx1 - fx0 + 1, 1, P[2]); }
+    return c;
+  }
+  // a saguaro, lit from the sun side
+  function cactus(g, x, y, h, flip) {
+    const s = flip ? -1 : 1, X = (dx) => flip ? x + 3 - dx : x + dx;
+    const col = (dx, yy, hh, c) => rect(g, X(dx), yy, 1, hh, c);
+    for (let i = 0; i < 4; i++) col(i, y + (i === 0 || i === 3 ? 1 : 0), h - (i === 0 || i === 3 ? 1 : 0), i === 3 ? P[0] : i === 0 ? P[2] : P[1]);
+    const ay = Math.round(y + h * 0.45), by = Math.round(y + h * 0.25);
+    for (let i = -3; i < 0; i++) col(i, ay, 2, P[1]); col(-3, by, ay - by, P[2]); col(-2, by, ay - by + 1, P[1]);
+    const cy = Math.round(y + h * 0.55), dy = Math.round(y + h * 0.35);
+    for (let i = 4; i < 7; i++) col(i, cy, 2, P[0]); col(5, dy, cy - dy, P[1]); col(6, dy, cy - dy + 1, P[0]);
+    rect(g, Math.min(X(-3), X(6)), y + h, 10, 1, P[2]);
+  }
+  // blow a small canvas up into a big one with no smoothing
+  function scale(c, k) { const o = canvas(c.width * k, c.height * k), g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; }
+  return { P, rng, canvas, rect, small, big, epic, board, scene, cactus, scale };
+})();
+
 // ---- Music ---------------------------------------------------------------
 const NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 // strings top to bottom as tab reads them: high e first
@@ -541,16 +663,40 @@ function overlay(html) { const o = document.getElementById('over'); o.className 
 function hideOverlay() { document.getElementById('over').className = 'over hidden'; document.getElementById('hud').style.visibility = ''; }
 function bestFor(c) { const t = times()[c] || []; return t.length ? fmt(t[0].s) : ''; }
 const PLACES = [['range', 'The Range'], ['saloon', 'Saloon'], ['plains', 'The Plains'], ['corral', 'The Corral']];
+function trailArt(el) {
+  const { P, board, big, small, scene, cactus, scale, canvas, rect } = Pix;
+  // the backdrop, two screen pixels to one art pixel
+  const w = Math.max(60, Math.round(el.clientWidth / 2)), h = Math.max(60, Math.round(el.clientHeight / 2));
+  const bg = scene(w, h, 7, { hz: 0.62, sunX: 0.8 }), bgg = bg.getContext('2d');
+  cactus(bgg, 8, Math.round(h * 0.62) - 22, 26, false); cactus(bgg, w - 18, Math.round(h * 0.62) + 6, 14, true);
+  el.style.backgroundImage = `url(${bg.toDataURL()})`;
+  // the post
+  const po = canvas(8, 64), pg = po.getContext('2d'); rect(pg, 0, 0, 8, 64, P[3]); rect(pg, 0, 0, 1, 64, P[0]); rect(pg, 7, 0, 1, 64, P[0]); rect(pg, 1, 0, 1, 64, P[4]); rect(pg, 6, 0, 1, 64, P[2]);
+  const r = Pix.rng(5); for (let i = 0; i < 26; i++) rect(pg, 2 + Math.floor(r() * 4), Math.floor(r() * 64), 1, 2 + Math.floor(r() * 5), r() < 0.6 ? P[2] : P[4]);
+  el.style.setProperty('--pixpost', `url(${scale(po, 2).toDataURL()})`);
+  // the name, on one board
+  const t = board(156, 68, 11, { tone: 3, nails: [[5, 6], [149, 6], [5, 60], [149, 60]] }), tg = t.getContext('2d');
+  Pix.epic(tg, 'WESTERN', 78, 35, 23, { arc: 6 }); Pix.epic(tg, 'WORLD', 78, 60, 23);
+  return { title: scale(t, 2).toDataURL(), sign(name, sub, dir, seed, shut) {
+    const c = board(124, 30, seed, { dir, tone: shut ? 4 : 5, knots: 1, nails: [[dir > 0 ? 6 : 116, 13]] }), g = c.getContext('2d'), cx = 62 - dir * 5;
+    big(g, name, cx, sub ? 18 : 21, 15, shut ? P[1] : P[0], P[shut ? 5 : 7]);
+    if (sub) small(g, sub, cx, 21, P[0], shut ? P[5] : P[7]);
+    return scale(c, 2).toDataURL(); } };
+}
 function showStart() {
   state = 'start';
   document.getElementById('over').className = 'over hidden';
   document.getElementById('hud').style.visibility = 'hidden';
   const best = (times().range || [])[0];
-  const el = document.getElementById('post'); el.className = 'post';
-  el.innerHTML = `<h1>Western<br>World</h1><div class="tag">PICK YOUR TRAIL</div><div class="pole">${PLACES.map(([id, name], i) => {
-    const open = id === 'range';
-    return `<button class="sign ${i % 2 ? 'l' : 'r'}${open ? '' : ' shut'}" ${open ? `onclick="startStage()"` : 'aria-disabled="true"'}><i></i>${name}${open ? (best ? `<span class="best">BEST ${fmt(best.s)} ${best.i}</span>` : '') : '<span class="soon">COMING SOON</span>'}</button>`;
-  }).join('')}</div>`;
+  const el = document.getElementById('post'); el.className = 'post pix';
+  const draw = () => {
+    const art = trailArt(el);
+    el.innerHTML = `<img class="title" src="${art.title}" alt="Western World"><div class="pole">${PLACES.map(([id, name], i) => {
+      const open = id === 'range', sub = open ? (best ? `best ${fmt(best.s)} ${best.i}` : '') : 'coming soon';
+      return `<button class="sign ${i % 2 ? 'l' : 'r'}${open ? '' : ' shut'}" ${open ? `onclick="startStage()"` : 'aria-disabled="true"'} aria-label="${name}"><img src="${art.sign(name, sub, i % 2 ? -1 : 1, 101 + i * 17, !open)}" alt=""></button>`;
+    }).join('')}</div>`;
+  };
+  (document.fonts ? document.fonts.load('22px Rye').catch(() => {}) : Promise.resolve()).then(draw);
 }
 function startStage() {
   layout();
