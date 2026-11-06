@@ -158,6 +158,14 @@ const Pix = (() => {
       mg.save(); mg.translate(mid, base + lift(mid)); mg.rotate(ang); mg.scale(1, opt.stretch); mg.textAlign = 'center'; mg.fillText(ch, 0, 0); mg.restore(); x += ws[i]; });
     const d = mg.getImageData(0, 0, W, H).data, on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 120;
     const capH = size * 0.74 * opt.stretch;
+    // flat: one colour, an optional dark outline, no shading and no shadow
+    if (opt.flat) {
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (on(x, y)) { rect(g, x, y, 1, 1, opt.fill || P[7]); continue; }
+        if (opt.outline !== false && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) rect(g, x, y, 1, 1, P[0]);
+      }
+      return;
+    }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (on(x, y)) continue;
       let near = false; for (let a = -1; a <= 1 && !near; a++) for (let b = -1; b <= 1; b++) if (on(x + a, y + b)) { near = true; break; }
       if (near) { rect(g, x, y, 1, 1, P[0]); continue; }
@@ -706,12 +714,12 @@ function trailArt(el) {
   const r = Pix.rng(5); for (let i = 0; i < 26; i++) rect(pg, 2 + Math.floor(r() * 4), Math.floor(r() * 64), 1, 2 + Math.floor(r() * 5), r() < 0.6 ? P[2] : P[4]);
   el.style.setProperty('--pixpost', `url(${scale(po, 2).toDataURL()})`);
   // the name, on one board
-  const t = board(156, 68, 11, { tone: 3, nails: [[5, 6], [149, 6], [5, 60], [149, 60]] }), tg = t.getContext('2d');
-  Pix.epic(tg, 'WESTERN', 78, 35, 23, { arc: 6 }); Pix.epic(tg, 'WORLD', 78, 60, 23);
+  const t = board(156, 68, 11, { tone: 5, nails: [[5, 6], [149, 6], [5, 60], [149, 60]] }), tg = t.getContext('2d'), flat = { flat: true, outline: false, fill: P[0] };
+  Pix.epic(tg, 'WESTERN', 78, 35, 23, { arc: 6, ...flat }); Pix.epic(tg, 'WORLD', 78, 60, 23, flat);
   return { title: scale(t, 2).toDataURL(), sign(name, sub, dir, seed, shut) {
     const c = board(124, 30, seed, { dir, tone: shut ? 4 : 5, knots: 1, nails: [[dir > 0 ? 6 : 116, 13]] }), g = c.getContext('2d'), cx = 62 - dir * 5;
-    big(g, name, cx, sub ? 18 : 21, 15, shut ? P[1] : P[0], P[shut ? 5 : 7]);
-    if (sub) small(g, sub, cx, 21, P[0], shut ? P[5] : P[7]);
+    big(g, name, cx, sub ? 18 : 21, 15, shut ? P[1] : P[0], null);
+    if (sub) small(g, sub, cx, 21, P[0], null);
     return scale(c, 2).toDataURL(); } };
 }
 function showStart() {
@@ -796,13 +804,13 @@ function drawHudPix() {
     if (a.key === label + val) return; a.key = label + val;
     const g = a.c.getContext('2d'), w = a.c.width, h = a.c.height, P = Pix.P;
     g.clearRect(0, 0, w, h); g.drawImage(a.base, 0, 0);
-    Pix.small(g, label, w / 2, 3, P[0], P[7]);
+    Pix.small(g, label, w / 2, 3, P[0], null);
     // the value in the western face, as big as the board allows
     // squeeze it sideways rather than shrink it, down to two thirds width, then shrink if it still won't fit
     let size = Math.round((h - 14) / 0.7); g.font = `${size}px Rye, serif`;
     while (size > 8 && g.measureText(val).width * 0.66 > w - 5) { size--; g.font = `${size}px Rye, serif`; }
     const sx = Math.min(1, (w - 5) / g.measureText(val).width);
-    Pix.big(g, val, w / 2, h - 3, size, P[0], P[7], sx);
+    Pix.big(g, val, w / 2, h - 3, size, P[0], null, sx);
   });
 }
 window.addEventListener('resize', fit);
