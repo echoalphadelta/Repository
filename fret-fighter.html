@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Fret Fighter | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; background: #0b0806; overflow: hidden; }
+body { color: #f3ead6; font-family: 'Big Shoulders Display', sans-serif; -webkit-user-select: none; user-select: none; }
+.wrap { max-width: 520px; margin: 0 auto; position: relative; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 34px; padding: 0 12px; font-weight: 700; font-size: 16px; letter-spacing: 2px; }
+.top a, .top button { color: #8a8494; text-decoration: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; }
+.stage { position: relative; overflow: hidden; touch-action: none; }
+#cv { display: block; width: 100%; height: 100%; cursor: pointer; }
+/* the fight card over the top of the scene */
+.hud { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; padding: 8px 14px 0; background: linear-gradient(rgba(8,6,4,0.92), rgba(8,6,4,0.55) 70%, rgba(8,6,4,0)); }
+.hud.hidden { display: none; }
+.names { display: flex; justify-content: space-between; align-items: flex-end; font-weight: 900; font-size: 20px; line-height: 1; }
+.bars { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
+.bar { flex: 1; height: 9px; background: #1c1a22; position: relative; }
+.bar i { position: absolute; top: 1px; bottom: 1px; left: 1px; background: #e8e0d0; transition: width 0.25s; }
+.bar.r i { left: auto; right: 1px; }
+.bar i.low { background: #ffcc44; }
+.clock { font-weight: 700; font-size: 16px; color: #8a8494; min-width: 40px; text-align: center; }
+.call { text-align: center; margin-top: 6px; }
+.call .chord { font-weight: 900; font-size: 84px; line-height: 0.95; }
+.call .zone { font-weight: 900; font-size: 22px; color: #ffcc44; letter-spacing: 1px; }
+.call .zone.danger { color: #ff9a6a; }
+.prog { display: flex; justify-content: center; gap: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: #8a8494; }
+.prog span { padding: 1px 6px; border: 1px solid #3a3640; }
+.prog span.now { color: #f3ead6; border-color: #f3ead6; }
+.prog span.done { color: #ffcc44; border-color: #ffcc44; }
+.timer { height: 4px; margin: 8px auto 0; width: 60%; background: #1c1a22; }
+.timer i { display: block; height: 100%; width: 100%; background: #ff9a6a; }
+.timer.off { visibility: hidden; }
+.msg { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-weight: 900; font-size: 26px; pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.2s; }
+.msg.on { opacity: 1; }
+.msg small { display: block; font-weight: 700; font-size: 16px; color: #d8d0c0; margin-top: 2px; }
+.pan { position: absolute; bottom: 50%; font-weight: 900; font-size: 28px; color: rgba(243,234,214,0.35); pointer-events: none; }
+.pan.l { left: 6px; } .pan.r { right: 6px; }
+/* the card between fights */
+.over { position: absolute; inset: 0; z-index: 5; background: rgba(8,6,4,0.9); padding: 26px 22px; overflow: auto; }
+.over.hidden { display: none; }
+.over h1 { margin: 0; font-weight: 900; font-size: 64px; line-height: 0.9; letter-spacing: -1px; }
+.over .kick { font-weight: 700; font-size: 15px; letter-spacing: 4px; color: #8a8494; margin-bottom: 8px; }
+.over p { margin: 0 0 12px; font-family: Georgia, serif; font-size: 16px; line-height: 1.45; color: #ddd6c8; }
+.over p b { color: #ffcc44; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 18px; letter-spacing: 0.5px; }
+.over .big { font-weight: 900; font-size: 72px; line-height: 1; margin: 6px 0; }
+.over table { border-collapse: collapse; margin: 6px 0 14px; font-weight: 700; font-size: 18px; }
+.over td { padding: 1px 16px 1px 0; } .over tr.me td { color: #ffcc44; }
+.go { display: inline-block; margin: 6px 10px 14px 0; padding: 10px 22px 8px; background: #f3ead6; color: #0b0806; font-weight: 900; font-size: 22px; letter-spacing: 2px; cursor: pointer; }
+.go.alt { background: none; color: #f3ead6; border: 2px solid #f3ead6; }
+.ini { display: flex; gap: 10px; align-items: center; margin: 4px 0 14px; }
+.ini input { width: 110px; font: inherit; font-weight: 900; font-size: 34px; letter-spacing: 4px; text-transform: uppercase; background: none; color: #f3ead6; border: none; border-bottom: 3px solid #f3ead6; border-radius: 0; padding: 0 0 0 2px; }
+.ini input:focus { outline: none; }
+.ini button { background: #f3ead6; color: #0b0806; border: none; padding: 8px 14px; font: inherit; font-weight: 900; font-size: 18px; letter-spacing: 2px; cursor: pointer; }
+.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; letter-spacing: 3px; color: #8a8494; }
+</style>
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a href="arcade.html">&lt; ARCADE</a>
+    <button id="snd">SOUND ON</button>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="Fret Fighter: the floor is the fretboard"></canvas>
+    <div class="hud hidden" id="hud">
+      <div class="names"><span>YOU</span><span>THE BRAWLER</span></div>
+      <div class="bars"><div class="bar"><i id="hpYou" style="width:calc(100% - 2px)"></i></div><span class="clock" id="clock">0:00</span><div class="bar r"><i id="hpHim" style="width:calc(100% - 2px)"></i></div></div>
+      <div class="call"><div class="chord" id="chord">&nbsp;</div><div class="zone" id="zone">&nbsp;</div><div class="prog" id="prog"></div><div class="timer off" id="timer"><i id="timerBar"></i></div></div>
+    </div>
+    <div class="pan l" id="panL">&lsaquo;</div><div class="pan r" id="panR">&rsaquo;</div>
+    <div class="msg" id="msg"></div>
+    <div class="loading" id="loading">LOADING</div>
+    <div class="over hidden" id="over"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+// ---- Shape engine (same grips as the rest of the arcade) -----------------
+const STR_OPEN = [4, 9, 2, 7, 11, 4];
+const PC_NAMES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const QUAL_MAP = { '':'major','m':'minor','7':'7','maj7':'Maj7','m7':'m7','sus4':'sus4' };
+const QUALITY_INTERVALS_MAIN = {
+  major:[0,4,7], minor:[0,3,7], '7':[0,4,7,10], Maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,4,7],
+};
+const TONE_NAMES_MAIN = {
+  0:'root',2:'ninth',3:'minor-third',4:'third',5:'fourth',7:'fifth',9:'sixth',10:'seventh',11:'maj7',
+};
+const GRIP_CONFIG = {
+  echo:  { anchor:0, strings:[0,1,2,3,4,5], win:2, upper:[3,4,5] },
+  alpha: { anchor:1, strings:[1,2,3,4,5],   win:2, upper:[3,4,5] },
+  delta: { anchor:2, strings:[2,3,4,5],      win:3, upper:[5]     },
+};
+
+function findFrets(si, pc) {
+  const out = [];
+  for (let f = 0; f <= 12; f++) if ((STR_OPEN[si] + f) % 12 === pc) out.push(f);
+  return out;
+}
+function computeGripTones(shapeName, qualStr, rootPc) {
+  const quality   = QUAL_MAP[qualStr] || 'major';
+  const r         = rootPc % 12;
+  const intervals = QUALITY_INTERVALS_MAIN[quality];
+  const { anchor, strings, win, upper } = GRIP_CONFIG[shapeName];
+  const anchorFret = findFrets(anchor, r)[0];
+  if (anchorFret === undefined) return new Set();
+  const isSus = quality === 'sus4', suppressUpperRoot = quality === '7';
+  const echoSlideback = shapeName === 'echo' && quality === 'Maj7';
+  const dots = [];
+  strings.forEach(s => {
+    for (let fo = 0; fo <= win; fo++) {
+      let f = anchorFret + fo;
+      if (f > 12) f -= 12;
+      if (f > 12) continue;
+      const noteAtFret = (STR_OPEN[s] + f) % 12;
+      intervals.forEach(interval => {
+        if (noteAtFret !== (r + interval) % 12) return;
+        if (shapeName === 'delta' && (interval === 4 || interval === 3) && s !== 5) return;
+        const isThird = interval === 4 || interval === 3;
+        const isUpperStr = upper.includes(s);
+        const isUpperRoot = interval === 0 && isUpperStr && s !== anchor;
+        if (suppressUpperRoot && isUpperRoot && fo > 0) return;
+        if (echoSlideback && interval === 11) return;
+        if (isSus && isThird && isUpperStr) {
+          const sf = f + 1 > 12 ? f - 11 : f + 1;
+          dots.push({ s, fret:sf, t:'fourth', isRoot:false });
+        } else {
+          const t = TONE_NAMES_MAIN[interval] || 'tone';
+          dots.push({ s, fret:f, t, isRoot:interval === 0 });
+          if (f === 12) dots.push({ s, fret:0,  t, isRoot:interval === 0 });
+          if (f === 0)  dots.push({ s, fret:12, t, isRoot:interval === 0 });
+        }
+      });
+    }
+  });
+  if (echoSlideback) {
+    const target = (r + 11) % 12;
+    for (let f2 = 0; f2 <= 12; f2++) {
+      if ((STR_OPEN[5] + f2) % 12 === target) { dots.push({ s:5, fret:f2, t:'maj7', isRoot:false }); break; }
+    }
+  }
+  const byStr = {};
+  dots.forEach(d => { (byStr[d.s] = byStr[d.s] || []).push(d); });
+  const priority = ['sixth','ninth','seventh','maj7','fourth','fifth','minor-third','third','root'];
+  const result = new Set();
+  Object.entries(byStr).forEach(([sStr, group]) => {
+    const s = parseInt(sStr);
+    let pick;
+    if (group.length === 1) { pick = group[0]; }
+    else if (s === anchor) { pick = group.find(d => d.isRoot) || group[0]; }
+    else {
+      group.sort((a,b) => {
+        const ai = priority.indexOf(a.t), bi = priority.indexOf(b.t);
+        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+      });
+      pick = group[0];
+    }
+    result.add(`${pick.fret}-${s}`);
+  });
+  return result;
+}
+
+
+// ---- Fight rules -----------------------------------------------------------
+// the three heights of the body sit on the three root strings: legs low E, body A, head D
+const ZONES = [
+  { name: 'LEGS', block: 'LOW',  string: 0, shape: 'echo',  hit: 'Kick_Right' },
+  { name: 'BODY', block: 'BODY', string: 1, shape: 'alpha', hit: 'Punch_Right' },
+  { name: 'HEAD', block: 'HIGH', string: 2, shape: 'delta', hit: 'Punch_Left' },
+];
+const STRING_NAMES = ['low E', 'A', 'D', 'G', 'B', 'high e'];
+// keys and their progressions, in note names
+const KEYS = {
+  G: [['G', ''], ['C', ''], ['D', ''], ['Em', 'm']],
+  C: [['C', ''], ['F', ''], ['G', ''], ['Am', 'm']],
+  D: [['D', ''], ['G', ''], ['A', ''], ['Bm', 'm']],
+  A: [['A', ''], ['D', ''], ['E', ''], ['F#m', 'm']],
+  E: [['E', ''], ['A', ''], ['B', ''], ['C#m', 'm']],
+};
+const pcOf = name => PC_NAMES.indexOf(name.replace('m', '').replace('#', '#'));
+const NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const HS_KEY = 'fretFighterTimes', SOUND_KEY = 'arcadeSound';
+const HP = 100;
+
+// ---- The stage -------------------------------------------------------------
+const stage = document.getElementById('stage'), cv = document.getElementById('cv');
+let W = 360, H = 640;
+const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.shadowMap.enabled = true; r.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#0b0806'); scene.fog = new THREE.Fog('#0b0806', 8, 18);
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.35;
+const cam = new THREE.PerspectiveCamera(66, 0.6, 0.1, 60);
+let camX = 1.4;
+function placeCam() { cam.position.set(camX, 4.3, 4.3); cam.lookAt(camX, 0.3, 1.75); }
+function fit() {
+  W = stage.parentElement.clientWidth; H = window.innerHeight - 34;
+  stage.style.height = H + 'px'; r.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix();
+}
+window.addEventListener('resize', fit);
+
+// lights: a lamp overhead, two on the wall, a cool and a warm edge light on the fighters
+scene.add(new THREE.HemisphereLight('#8a90a8', '#1a100a', 0.7));
+const key = new THREE.SpotLight('#ffe6c0', 140, 20, 0.6, 0.5, 1.2); key.position.set(1.4, 7.5, 4.2); key.target.position.set(1.4, 0, 1.6); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); scene.add(key, key.target);
+const rimL = new THREE.PointLight('#cfd8e6', 8, 3.2, 2); rimL.position.set(0.1, 2.0, 0.9); scene.add(rimL);
+const rimR = new THREE.PointLight('#ffd8b0', 8, 3.2, 2); rimR.position.set(2.8, 2.0, 0.9); scene.add(rimR);
+[-0.3, 3.9, 8.1].forEach(x => { const l = new THREE.PointLight('#ffb070', 5, 5, 2); l.position.set(x, 3.0, 0.3); scene.add(l); const b = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 8), new THREE.MeshBasicMaterial({ color: '#ffd9a0' })); b.position.set(x, 3.0, 0.1); scene.add(b); });
+
+// ---- Textures: brick for the wall, stone for the floor ----------------------
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function texOf(c, srgb) { const t = new THREE.CanvasTexture(c); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; }
+function brickWall() {
+  const N = 1024, c = document.createElement('canvas'), bp = document.createElement('canvas'); c.width = bp.width = N; c.height = bp.height = N;
+  const g = c.getContext('2d'), b = bp.getContext('2d'), rnd = rng(7), rows = 22, bh = N / rows, bw = bh * 2.1, m = 6;
+  g.fillStyle = '#5a5048'; g.fillRect(0, 0, N, N); b.fillStyle = '#202020'; b.fillRect(0, 0, N, N);
+  const cols = [[96, 40, 30], [84, 34, 26], [104, 48, 36], [72, 30, 24], [90, 44, 34]];
+  for (let row = 0; row < rows; row++) { const off = (row % 2) * bw / 2; for (let x = -bw + off; x < N + bw; x += bw) {
+    const base = cols[Math.floor(rnd() * cols.length)], v = 0.82 + rnd() * 0.3, x0 = x + m / 2, y0 = row * bh + m / 2, w = bw - m, h = bh - m;
+    g.fillStyle = `rgb(${base.map(q => Math.min(255, q * v | 0)).join(',')})`; g.fillRect(x0, y0, w, h);
+    const gr = g.createLinearGradient(x0, 0, x0 + w, 0); gr.addColorStop(0, 'rgba(0,0,0,0.22)'); gr.addColorStop(0.2, 'rgba(0,0,0,0)'); gr.addColorStop(0.8, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.18)'); g.fillStyle = gr; g.fillRect(x0, y0, w, h);
+    for (let k = 0; k < 70; k++) { g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.18)' : 'rgba(255,220,190,0.10)'; g.fillRect(x0 + rnd() * w, y0 + rnd() * h, 1 + rnd() * 3, 1 + rnd() * 2); }
+    g.fillStyle = 'rgba(255,230,200,0.10)'; g.fillRect(x0, y0, w, 2); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x0, y0 + h - 3, w, 3);
+    const bv = 150 + rnd() * 60 | 0; b.fillStyle = `rgb(${bv},${bv},${bv})`; b.fillRect(x0, y0, w, h);
+  } }
+  const gr = g.createLinearGradient(0, 0, 0, N); gr.addColorStop(0, 'rgba(10,6,4,0.45)'); gr.addColorStop(0.5, 'rgba(10,6,4,0)'); gr.addColorStop(1, 'rgba(20,14,10,0.35)'); g.fillStyle = gr; g.fillRect(0, 0, N, N);
+  const t = texOf(c, true), bt = texOf(bp); [t, bt].forEach(x => { x.wrapS = x.wrapT = THREE.RepeatWrapping; x.repeat.set(3.4, 1.1); });
+  return { t, bt };
+}
+const wb = brickWall();
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(18, 6), new THREE.MeshStandardMaterial({ map: wb.t, bumpMap: wb.bt, bumpScale: 3, roughness: 0.92 }));
+wall.position.set(4.5, 3, -0.02); wall.receiveShadow = true; scene.add(wall);
+
+// one stone: grey, speckled, pitted, softly rounded, lit along its top edge
+function stone(g, b, x0, y0, w, h, rnd) {
+  const base = [[124, 123, 118], [108, 108, 104], [134, 131, 124], [96, 97, 96], [116, 114, 108], [104, 106, 110]][Math.floor(rnd() * 6)], v = 0.86 + rnd() * 0.22, rad = Math.min(w, h) * 0.08;
+  const shape = c2 => { c2.beginPath(); c2.moveTo(x0 + rad, y0); c2.lineTo(x0 + w - rad, y0); c2.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rad); c2.lineTo(x0 + w, y0 + h - rad); c2.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rad, y0 + h); c2.lineTo(x0 + rad, y0 + h); c2.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rad); c2.lineTo(x0, y0 + rad); c2.quadraticCurveTo(x0, y0, x0 + rad, y0); c2.closePath(); };
+  g.save(); shape(g); g.clip();
+  g.fillStyle = `rgb(${base.map(q => q * v | 0).join(',')})`; g.fillRect(x0, y0, w, h);
+  for (let k = 0; k < w * h / 40; k++) { const l = rnd(); g.fillStyle = l < 0.45 ? 'rgba(0,0,0,0.16)' : l < 0.9 ? 'rgba(255,255,255,0.07)' : 'rgba(40,30,20,0.25)'; g.fillRect(x0 + rnd() * w, y0 + rnd() * h, 1 + rnd() * 2.5, 1 + rnd() * 2.5); }
+  const cx = x0 + w * (0.3 + rnd() * 0.4), cy = y0 + h * (0.3 + rnd() * 0.4), wg = g.createRadialGradient(cx, cy, 0, cx, cy, w * 0.7); wg.addColorStop(0, 'rgba(255,255,255,0.06)'); wg.addColorStop(1, 'rgba(0,0,0,0.14)'); g.fillStyle = wg; g.fillRect(x0, y0, w, h);
+  g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(x0, y0, w, 3); g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x0, y0 + h - 4, w, 4);
+  g.restore();
+  const bv = 150 + rnd() * 50 | 0; b.fillStyle = `rgb(${bv},${bv},${bv})`; shape(b); b.fill();
+}
+
+// ---- The floor is the fretboard ----------------------------------------------
+// One grid of stones: a column per fret, a row per string. High e runs along the wall,
+// low E is nearest you. Frets get narrower toward the body, as on a real neck.
+const S = 8.9, KERB = 0.12, OPEN = 0.5, ROWH = 0.74;
+const colEdge = f => f === 0 ? 0 : OPEN + KERB + S * (1 - Math.pow(2, -(f - 1) / 12));
+const X0 = -1.0, X1 = colEdge(16), Z0 = 0, Z1 = 6 * ROWH;
+const rowZ = s => Z1 - (s + 0.5) * ROWH;                      // centre of a string's row
+const cellX = f => f === 0 ? OPEN / 2 : (colEdge(f) + colEdge(f + 1)) / 2;
+const cellW = f => f === 0 ? OPEN : colEdge(f + 1) - colEdge(f);
+(function floor() {
+  const PPM = 300, CW = Math.round((X1 - X0) * PPM), CH = Math.round((Z1 - Z0) * PPM);
+  const tc = document.createElement('canvas'), bc = document.createElement('canvas'); tc.width = bc.width = CW; tc.height = bc.height = CH;
+  const g = tc.getContext('2d'), gb = bc.getContext('2d'); g.fillStyle = '#2c2b29'; g.fillRect(0, 0, CW, CH); gb.fillStyle = '#181818'; gb.fillRect(0, 0, CW, CH);
+  const px = x => (x - X0) * PPM, pz = z => (z - Z0) * PPM, rnd = rng(77), J = 15;
+  const cols = [[X0, -0.5], [-0.5, 0], [0, OPEN]]; for (let f = 1; f < 16; f++) cols.push([colEdge(f), colEdge(f + 1)]);
+  for (let s = 0; s < 6; s++) cols.forEach(([xa, xb]) => { const x0 = px(xa) + J / 2, x1 = px(xb) - J / 2, y0 = pz(Z1 - (s + 1) * ROWH) + J / 2, y1 = pz(Z1 - s * ROWH) - J / 2; if (x1 > x0) stone(g, gb, x0, y0, x1 - x0, y1 - y0, rnd); });
+  // the nut: a pale kerb stone
+  const kx0 = px(OPEN), kx1 = px(OPEN + KERB), kg = g.createLinearGradient(kx0, 0, kx1, 0); kg.addColorStop(0, '#bdb6a8'); kg.addColorStop(0.5, '#dcd5c6'); kg.addColorStop(1, '#9c9484'); g.fillStyle = kg; g.fillRect(kx0 + 3, 0, kx1 - kx0 - 6, CH); gb.fillStyle = '#e0e0e0'; gb.fillRect(kx0 + 3, 0, kx1 - kx0 - 6, CH);
+  // brass studs set in the joints, where the dots are on a neck
+  const stud = (f, between) => { const x = px(cellX(f)), y = pz(Z1 - between * ROWH), rr = 30; const sg = g.createRadialGradient(x - 8, y - 8, 2, x, y, rr); sg.addColorStop(0, '#fff0b0'); sg.addColorStop(0.5, '#c89a3a'); sg.addColorStop(1, '#6a4a14'); g.fillStyle = sg; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); gb.fillStyle = '#fff'; gb.beginPath(); gb.arc(x, y, rr, 0, 7); gb.fill(); };
+  [3, 5, 7, 9, 15].forEach(f => stud(f, 3)); stud(12, 2); stud(12, 4);
+  // string names chalked on the open-string stones, and a fret number chalked small at the front of the marked frets
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  ['E', 'A', 'D', 'G', 'B', 'e'].forEach((n, s) => { g.font = 'bold 120px sans-serif'; g.fillStyle = 'rgba(236,232,222,0.82)'; g.fillText(n, px(OPEN / 2), pz(rowZ(s))); });
+  const t = texOf(tc, true), mesh = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), new THREE.MeshStandardMaterial({ map: t, bumpMap: texOf(bc), bumpScale: 2.5, roughness: 0.9 }));
+  mesh.rotation.x = -Math.PI / 2; mesh.position.set((X0 + X1) / 2, 0, (Z0 + Z1) / 2); mesh.receiveShadow = true; scene.add(mesh);
+})();
+
+// light laid on the stones: a row hint, and the cells of a shape when it lands
+const glows = [];
+function cellGlow(f, s, col, life, strength) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(cellW(f) - 0.06, ROWH - 0.06), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(cellX(f), 0.012, rowZ(s)); scene.add(m); glows.push({ m, t: 0, life, strength }); return m;
+}
+const hintRow = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, ROWH - 0.04), new THREE.MeshBasicMaterial({ color: '#ffcc44', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+hintRow.rotation.x = -Math.PI / 2; hintRow.position.set((X0 + X1) / 2, 0.01, rowZ(1)); scene.add(hintRow);
+let hintOn = false;
+
+// ---- Fighters --------------------------------------------------------------
+// One free animated character (CC0, by Quaternius), dressed two ways in neutral colours.
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const FZ = 1.55;
+async function makeFighter(x, face, look) {
+  const gl = await loader.loadAsync('fret-fighter/fighter.glb'), m = gl.scene, hide = [];
+  m.traverse(o => {
+    if (o.name.startsWith('Backpack')) hide.push(o);
+    if (!o.isMesh) return; o.castShadow = true; o.frustumCulled = false;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach(mt => {
+      if (mt.name === 'Green') mt.color.set(look.main); if (mt.name === 'LightGreen') mt.color.set(look.trim);
+      if (mt.name === 'Brown' || mt.name === 'Brown2') mt.color.set(look.legs); if (mt.name === 'Hair') mt.color.set(look.hair);
+      if (mt.name === 'Skin') mt.color.set(look.skin); mt.roughness = mt.name === 'Skin' ? 0.55 : 0.75;
+    });
+  });
+  hide.forEach(o => o.visible = false);
+  const mixer = new THREE.AnimationMixer(m), clips = Object.fromEntries(gl.animations.map(a => [a.name.split('|').pop(), a]));
+  m.rotation.y = face; scene.add(m);
+  // stand them up on their mark, at a fighter's height
+  m.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(m, true); m.scale.multiplyScalar(2.1 / (b.max.y - b.min.y));
+  m.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(m, true); const c = b.getCenter(new THREE.Vector3());
+  const home = new THREE.Vector3(m.position.x + x - c.x, m.position.y - b.min.y, m.position.z + FZ - c.z); m.position.copy(home);
+  const F = { m, mixer, clips, home, cur: null, lunge: 0, lungeT: 0, dir: Math.sign(Math.sin(face)) };
+  F.play = (name, once) => {
+    const a = mixer.clipAction(clips[name]); a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = !!once;
+    if (F.cur && F.cur !== a) a.crossFadeFrom(F.cur, 0.12, false); a.play(); F.cur = a; F.once = once ? name : null;
+  };
+  mixer.addEventListener('finished', () => { if (F.once && F.once !== 'Death') F.play('Idle'); });
+  F.play('Idle'); return F;
+}
+
+// ---- Sound -------------------------------------------------------------------
+let soundOn = true, ac = null;
+function ctxA() { return ac || (ac = new (window.AudioContext || window.webkitAudioContext)()); }
+function note(midi, when, dur, vol) { if (!soundOn) return; try { const a = ctxA(), t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.1, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.6)); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + (dur || 0.6) + 0.05); } catch (e) {} }
+function thud(vol, cut) { if (!soundOn) return; try { const a = ctxA(), n = a.createBufferSource(), b = a.createBuffer(1, a.sampleRate * 0.25, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 4); n.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cut || 500; const g = a.createGain(); g.gain.value = vol || 0.6; n.connect(f); f.connect(g); g.connect(a.destination); n.start(); } catch (e) {} }
+const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
+document.getElementById('snd').onclick = () => { soundOn = !soundOn; try { localStorage.setItem(SOUND_KEY, soundOn ? '1' : '0'); } catch (e) {} document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF'; };
+try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch (e) {}
+document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+
+// ---- The fight ----------------------------------------------------------------
+let you, him, state = 'loading', hpYou = HP, hpHim = HP, fightT = 0, turnT = 0, keyName = 'G', prog = [], step = 0, streak = 0, turnsSinceTheirs = 0, ask = null, wait = 0, after = null, hits = 0, blocks = 0, misses = 0;
+const $ = id => document.getElementById(id);
+const fmt = s => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
+function say(big, small, ms) { const m = $('msg'); m.innerHTML = big + (small ? `<small>${small}</small>` : ''); m.classList.add('on'); clearTimeout(say.t); say.t = setTimeout(() => m.classList.remove('on'), ms || 1400); }
+function bars() { $('hpYou').style.width = `calc(${Math.max(0, hpYou)}% - 2px)`; $('hpHim').style.width = `calc(${Math.max(0, hpHim)}% - 2px)`; $('hpYou').className = hpYou < 30 ? 'low' : ''; $('hpHim').className = hpHim < 30 ? 'low' : ''; }
+function progChips() { const done = streak % 4; $('prog').innerHTML = prog.map((c, i) => `<span class="${i < done ? 'done' : ask && ask.mine && i === step % 4 ? 'now' : ''}">${c[0]}</span>`).join(''); }
+
+function startFight() {
+  $('over').className = 'over hidden'; $('hud').className = 'hud';
+  hpYou = hpHim = HP; fightT = 0; streak = 0; step = 0; turnsSinceTheirs = 0; hits = blocks = misses = 0;
+  const keys = Object.keys(KEYS); keyName = keys[Math.floor(Math.random() * keys.length)]; prog = KEYS[keyName];
+  you.m.position.copy(you.home); him.m.position.copy(him.home); you.play('Idle'); him.play('Idle'); bars();
+  ctxA(); yourTurn();
+}
+// your turn: a chord from the progression, one zone left open
+function yourTurn() {
+  const c = prog[step % 4], ok = zonesFor(pcOf(c[0])), z = ok[Math.floor(Math.random() * ok.length)];
+  ask = { mine: true, name: c[0], q: c[1], pc: pcOf(c[0]), zone: ZONES[z] };
+  state = 'yours'; turnT = 0;
+  $('chord').textContent = ask.name; $('zone').textContent = ask.zone.name + ' OPEN'; $('zone').className = 'zone'; $('timer').className = 'timer off';
+  setHint(ask.zone.string); progChips();
+}
+// his turn: he calls a chord and where he's aiming; block it in time
+function theirTurn() {
+  const c = prog[Math.floor(Math.random() * 4)], ok = zonesFor(pcOf(c[0])), z = ok[Math.floor(Math.random() * ok.length)];
+  ask = { mine: false, name: c[0], q: c[1], pc: pcOf(c[0]), zone: ZONES[z], limit: Math.max(3.2, 5 - fightT / 60) };
+  state = 'theirs'; turnT = 0; turnsSinceTheirs = 0;
+  $('chord').textContent = ask.name; $('zone').textContent = 'BLOCK ' + ask.zone.block; $('zone').className = 'zone danger'; $('timer').className = 'timer';
+  setHint(ask.zone.string); progChips();
+  him.lungeT = 0; him.windup = true;
+}
+// the zones where this chord's root sits in the first five frets; every note has at least one
+function zonesFor(pc) { return [0, 1, 2].filter(z => findFrets(ZONES[z].string, pc)[0] <= 4); }
+function setHint(s) { hintRow.position.z = rowZ(s); hintOn = true; }
+
+// where a tap lands on the floor: which string and which fret
+const ray = new THREE.Raycaster(), floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function cellAt(clientX, clientY) {
+  const b = cv.getBoundingClientRect(), v = new THREE.Vector2(((clientX - b.left) / b.width) * 2 - 1, -((clientY - b.top) / b.height) * 2 + 1);
+  ray.setFromCamera(v, cam); const p = new THREE.Vector3(); if (!ray.ray.intersectPlane(floorPlane, p)) return null;
+  if (p.z < Z0 || p.z > Z1 || p.x < 0) return null;
+  const s = Math.floor((Z1 - p.z) / ROWH); let f = 0;
+  if (p.x >= OPEN + KERB) { f = 1; while (f < 15 && colEdge(f + 1) <= p.x) f++; } else if (p.x > OPEN) return null;
+  return { s, f };
+}
+const noteAt = (s, f) => (STR_OPEN[s] + f) % 12;
+
+function tapCell(s, f) {
+  if (state !== 'yours' && state !== 'theirs') return;
+  const pc = noteAt(s, f), z = ask.zone;
+  note(OPEN_MIDI[s] + f, 0, 0.5, 0.08);
+  if (state === 'yours') {
+    if (s === z.string && pc === ask.pc) return landHit(s, f);
+    if (s !== z.string) { streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6); say('BLOCKED', `He's covering that. ${z.name.toLowerCase()} is the ${STRING_NAMES[z.string]} string`); thud(0.3, 2500); progChips(); return; }
+    // right string, wrong fret: you swing at air and he punishes it
+    streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6);
+    say('MISSED', `That's ${NOTE_NAMES[pc]}. Find ${ask.name.replace('m', '')} on the ${STRING_NAMES[s]} string`);
+    attack(you, z.hit, false); state = 'busy';
+    setTimeout(() => { attack(him, 'Punch_Right', true); hurt('you', 6); setTimeout(() => { if (state === 'busy') { state = 'yours'; turnT = 0; } }, 600); }, 450);
+    progChips(); return;
+  }
+  // blocking
+  if (s === z.string && pc === ask.pc) {
+    blocks++; state = 'busy'; hintOn = false; $('timer').className = 'timer off';
+    lightShape(z, ask, f, '#e8e0d0');
+    attack(him, z.hit, false); say('BLOCKED', `${ask.name} on the ${STRING_NAMES[s]} string`);
+    thud(0.35, 1800);
+    setTimeout(nextTurn, 1100); return;
+  }
+  cellGlow(f, s, '#8a8494', 0.5, 0.6);
+}
+function landHit(s, f) {
+  state = 'busy'; hintOn = false; hits++;
+  const z = ask.zone, speed = turnT, dmg = Math.round(Math.max(7, Math.min(16, 18 - speed * 2)));
+  streak++; step++;
+  const finisher = streak > 0 && streak % 4 === 0;
+  lightShape(z, ask, f, '#ffcc44');
+  attack(you, finisher ? 'Kick_Left' : z.hit, false);
+  setTimeout(() => { him.play(finisher ? 'HitRecieve' : 'HitRecieve_2', true); thud(finisher ? 1 : 0.7, finisher ? 300 : 500); hurt('him', dmg + (finisher ? 18 : 0)); }, 260);
+  say(finisher ? 'FINISHER' : speed < 2.5 ? 'CLEAN HIT' : 'HIT', finisher ? `The whole progression in ${keyName}` : `${ask.name} with the ${z.shape.toUpperCase()} shape`, 1200);
+  progChips();
+  setTimeout(nextTurn, 1300);
+}
+function nextTurn() {
+  if (state === 'over') return;
+  turnsSinceTheirs++;
+  if (turnsSinceTheirs >= 2 + Math.floor(Math.random() * 2)) theirTurn(); else yourTurn();
+}
+// the shape that grows from the root you found, laid in light on the stones
+function lightShape(z, a, rootFret, col) {
+  const pts = [...computeGripTones(z.shape, a.q, a.pc)].map(k => k.split('-').map(Number));
+  const anchor = findFrets(GRIP_CONFIG[z.shape].anchor, a.pc)[0], shift = rootFret - anchor;
+  const notes = [];
+  pts.forEach(([f, s]) => { const ff = f + shift; if (ff < 0 || ff > 15) return; cellGlow(ff, s, col, 1.3, 0.85); notes.push(OPEN_MIDI[s] + ff); });
+  notes.sort((p, q) => p - q).forEach((m, i) => note(m, 0.05 + i * 0.035, 1.1, 0.06));
+}
+function attack(F, clip, landed) { F.play(clip, true); F.lungeT = 0.001; thud(0.25, 3000); }
+function hurt(who, d) {
+  if (who === 'him') { hpHim -= d; if (hpHim <= 0) return win(); }
+  else { hpYou -= d; you.play('HitRecieve', true); thud(0.7, 400); if (hpYou <= 0) return lose(); }
+  bars();
+}
+function timeOut() {
+  // too slow: his shot lands
+  state = 'busy'; hintOn = false; $('timer').className = 'timer off';
+  attack(him, ask.zone.hit, true);
+  say('HIT', `${ask.name} was on the ${STRING_NAMES[ask.zone.string]} string`);
+  lightShape(ask.zone, ask, findFrets(GRIP_CONFIG[ask.zone.shape].anchor, ask.pc)[0], '#8a8494');
+  setTimeout(() => { hurt('you', 14); if (state !== 'over') setTimeout(nextTurn, 900); }, 280);
+}
+
+// ---- End of the fight --------------------------------------------------------
+function times() { try { return JSON.parse(localStorage.getItem(HS_KEY)) || []; } catch (e) { return []; } }
+function table(hi) { const t = times(); if (!t.length) return ''; return '<table>' + t.map((e, i) => `<tr class="${i === hi ? 'me' : ''}"><td>${i + 1}</td><td>${e.i}</td><td>${fmt(e.s)}</td></tr>`).join('') + '</table>'; }
+let finalT = 0;
+function win() {
+  state = 'over'; hpHim = 0; bars(); hintOn = false; him.play('Death', true); finalT = fightT;
+  const t = times(), ok = t.length < 10 || finalT < t[t.length - 1].s;
+  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">KNOCKOUT IN THE KEY OF ${keyName}</div><h1>YOU WIN</h1><div class="big">${fmt(finalT)}</div>
+    <p>${hits} ${hits === 1 ? 'hit' : 'hits'}, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}, ${misses} ${misses === 1 ? 'miss' : 'misses'}.</p>
+    ${ok ? `<p>Sign your name on the wall:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="sign">SIGN</button></div>` : '<span class="go" id="again">FIGHT AGAIN</span>' + table(-1)}`);
+    if (ok) { $('sign').onclick = sign; setTimeout(() => $('initials').focus(), 50); } else $('again').onclick = startFight; }, 1800);
+}
+function lose() {
+  state = 'over'; hpYou = 0; bars(); hintOn = false; you.play('Death', true);
+  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">THE KEY OF ${keyName}</div><h1>KNOCKED<br>DOWN</h1><p>Every root he calls sits in the first five frets of the string for the open zone. Count up from the kerb: open, 1, 2, 3, 4, with the brass stud on 3.</p><span class="go" id="again">GET UP</span>`); $('again').onclick = startFight; }, 1800);
+}
+function sign() {
+  const raw = ($('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalT.toFixed(1) };
+  const t = times(); t.push(entry); t.sort((a, b) => a.s - b.s); try { localStorage.setItem(HS_KEY, JSON.stringify(t.slice(0, 10))); } catch (e) {}
+  overlay(`<div class="kick">ON THE WALL</div><h1>YOU WIN</h1><div class="big">${fmt(finalT)}</div><span class="go" id="again">FIGHT AGAIN</span>${table(t.slice(0, 10).indexOf(entry))}`); $('again').onclick = startFight;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && $('initials')) sign(); });
+function overlay(html) { $('over').innerHTML = html; $('over').className = 'over'; }
+function showStart() {
+  state = 'start'; $('hud').className = 'hud hidden';
+  overlay(`<div class="kick">ECHO ALPHA DELTA</div><h1>FRET<br>FIGHTER</h1>
+    <p>The floor is the fretboard. Each row of stones is a string, each stone a fret.</p>
+    <p>He leaves one place open. <b>LEGS</b> is the low E string, <b>BODY</b> the A string, <b>HEAD</b> the D string. Tap the stone with the chord's root on that string and you strike with the shape that grows from it: Echo, Alpha or Delta.</p>
+    <p>When he winds up, tap the root he calls on the string for where he's aiming to <b>BLOCK</b> it before the bar runs out.</p>
+    <p>Every root is in the first five frets. Land the whole progression in a row for a <b>FINISHER</b>.</p>
+    <span class="go" id="fight">FIGHT</span>${table(-1)}`);
+  $('fight').onclick = startFight;
+}
+
+// ---- Touch: tap a stone, or drag to look along the neck ----------------------
+let down = null;
+cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, cam: camX, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 10) down.moved = true; if (down.moved) { camX = Math.max(1.4, Math.min(X1 - 1.7, down.cam - dx * 0.012)); placeCam(); } });
+cv.addEventListener('pointerup', e => { if (down && !down.moved) { const c = cellAt(e.clientX, e.clientY); if (c) tapCell(c.s, c.f); } down = null; });
+
+// ---- The loop -------------------------------------------------------------------
+const clock = new THREE.Clock();
+function frame() {
+  const dt = Math.min(0.05, clock.getDelta());
+  if (state === 'yours' || state === 'theirs' || state === 'busy') { fightT += dt; turnT += dt; $('clock').textContent = fmt(fightT).replace(/\.\d$/, ''); }
+  if (state === 'theirs') { const left = 1 - turnT / ask.limit; $('timerBar').style.width = Math.max(0, left * 100) + '%'; if (left <= 0) timeOut(); }
+  [you, him].forEach(F => { if (!F) return; F.mixer.update(dt);
+    // step in to throw, step back after
+    if (F.lungeT > 0) { F.lungeT += dt; const t = F.lungeT, k = t < 0.15 ? t / 0.15 : Math.max(0, 1 - (t - 0.15) / 0.4); F.m.position.x = F.home.x + F.dir * 0.42 * k; if (t > 0.6) { F.lungeT = 0; F.m.position.x = F.home.x; } } });
+  hintRow.material.opacity += ((hintOn ? 0.16 + 0.06 * Math.sin(performance.now() / 180) : 0) - hintRow.material.opacity) * 0.2;
+  for (let i = glows.length - 1; i >= 0; i--) { const gl = glows[i]; gl.t += dt; const k = gl.t < 0.08 ? gl.t / 0.08 : Math.max(0, 1 - (gl.t - 0.08) / (gl.life - 0.08)); gl.m.material.opacity = k * gl.strength; if (gl.t >= gl.life) { scene.remove(gl.m); gl.m.geometry.dispose(); gl.m.material.dispose(); glows.splice(i, 1); } }
+  const fr = camX > 1.45, fr2 = camX < X1 - 1.75; $('panL').style.visibility = fr ? 'visible' : 'hidden'; $('panR').style.visibility = fr2 ? 'visible' : 'hidden';
+  r.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+
+// ---- Go --------------------------------------------------------------------------
+fit(); placeCam();
+const look = {
+  you: { main: '#d8d4cc', trim: '#3a3836', legs: '#2a2a2c', skin: '#a5714f', hair: '#241a14' },
+  him: { main: '#9c6a4a', trim: '#9c6a4a', legs: '#151517', skin: '#9c6a4a', hair: '#1a1410' },
+};
+Promise.all([makeFighter(0.85, Math.PI / 2, look.you), makeFighter(2.0, -Math.PI / 2, look.him)]).then(([a, b]) => {
+  you = a; him = b; you.dir = 1; him.dir = -1; $('loading').remove(); showStart(); requestAnimationFrame(frame);
+});
+// for testing
+window.FF = { get state() { return state; }, get ask() { return ask; }, tapCell, cellAt, noteAt, get hp() { return [hpYou, hpHim]; }, rowZ, cellX, cam, startFight, findFrets, GRIP_CONFIG };
+</script>
+</body>
+</html>

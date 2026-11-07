@@ -1,0 +1,3 @@
+fighter.glb is the "Adventurer" animated character by Quaternius
+(https://quaternius.com), released into the public domain under CC0 1.0.
+No attribution is required; this note records where it came from.
