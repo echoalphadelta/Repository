@@ -11,80 +11,101 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Fret Fighter | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sedgwick+Ave&family=Sedgwick+Ave+Display&display=swap" rel="stylesheet">
 <style>
+/* Everything is written on the alley: tags in spray paint, notes in marker, nothing set in boxes */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; background: #0b0806; overflow: hidden; }
-body { color: #f3ead6; font-family: 'Big Shoulders Display', sans-serif; -webkit-user-select: none; user-select: none; }
+body { color: #f4efe4; font-family: 'Sedgwick Ave', cursive; -webkit-user-select: none; user-select: none; }
 .wrap { max-width: 520px; margin: 0 auto; position: relative; }
-.top { display: flex; justify-content: space-between; align-items: center; height: 34px; padding: 0 12px; font-weight: 700; font-size: 16px; letter-spacing: 2px; }
-.top a, .top button { color: #8a8494; text-decoration: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; }
+.top { display: flex; justify-content: space-between; align-items: center; height: 34px; padding: 0 12px; font-size: 17px; }
+.top a, .top button { color: #9a9284; text-decoration: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; }
+.top a { transform: rotate(-2deg); } .top button { transform: rotate(1.5deg); }
 .stage { position: relative; overflow: hidden; touch-action: none; }
 #cv { display: block; width: 100%; height: 100%; cursor: pointer; }
-/* the fight card over the top of the scene */
-.hud { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; padding: 8px 14px 0; background: linear-gradient(rgba(8,6,4,0.92), rgba(8,6,4,0.55) 70%, rgba(8,6,4,0)); }
+/* paint: a soft overspray halo round every tag so it reads on brick */
+.paint { text-shadow: 0 0 2px rgba(10,6,4,0.9), 0 0 10px rgba(10,6,4,0.7), 0 0 22px rgba(10,6,4,0.45); }
+.hud { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; height: 250px; }
 .hud.hidden { display: none; }
-.names { display: flex; justify-content: space-between; align-items: flex-end; font-weight: 900; font-size: 20px; line-height: 1; }
-.bars { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 6px; }
-.bar { flex: 1; height: 9px; background: #1c1a22; position: relative; }
-.bar i { position: absolute; top: 1px; bottom: 1px; left: 1px; background: #e8e0d0; transition: width 0.25s; }
-.bar.r i { left: auto; right: 1px; }
-.bar i.low { background: #ffcc44; }
-.clock { font-weight: 700; font-size: 16px; color: #8a8494; min-width: 40px; text-align: center; }
-.call { text-align: center; margin-top: 6px; }
-.call .chord { font-weight: 900; font-size: 84px; line-height: 0.95; }
-.call .zone { font-weight: 900; font-size: 22px; color: #ffcc44; letter-spacing: 1px; }
-.call .zone.danger { color: #ff9a6a; }
-.prog { display: flex; justify-content: center; gap: 6px; margin-top: 6px; font-weight: 700; font-size: 15px; color: #8a8494; }
-.prog span { padding: 1px 6px; border: 1px solid #3a3640; }
-.prog span.now { color: #f3ead6; border-color: #f3ead6; }
-.prog span.done { color: #ffcc44; border-color: #ffcc44; }
-.timer { height: 4px; margin: 8px auto 0; width: 60%; background: #1c1a22; }
-.timer i { display: block; height: 100%; width: 100%; background: #ff9a6a; }
+.tagname { position: absolute; top: 4px; font-size: 22px; line-height: 1; }
+.tagname.l { left: 12px; transform: rotate(-4deg); } .tagname.r { right: 12px; transform: rotate(3deg); }
+/* health is a sprayed stroke that gets scrubbed away from its far end */
+.stroke { position: absolute; top: 32px; width: 40%; height: 12px; }
+.stroke.l { left: 10px; transform: rotate(-1.5deg); } .stroke.r { right: 10px; transform: rotate(1.2deg); }
+.stroke i { position: absolute; top: 0; bottom: 0; left: 0; background: #f4efe4; border-radius: 6px 3px 7px 2px; box-shadow: 0 0 6px rgba(244,239,228,0.45); transition: width 0.25s; }
+.stroke i::after { content: ''; position: absolute; right: -6px; top: 1px; width: 10px; height: 10px; border-radius: 50%; background: inherit; opacity: 0.7; }
+.stroke.r i { left: auto; right: 0; }
+.stroke.r i::after { right: auto; left: -6px; }
+.stroke i.low { background: #ffcc44; box-shadow: 0 0 6px rgba(255,204,68,0.5); }
+.clock { position: absolute; top: 22px; left: 0; right: 0; text-align: center; font-size: 18px; color: #b8b0a2; transform: rotate(-1deg); }
+/* the call: the chord sprayed big and crooked, the zone scrawled under it */
+.call { position: absolute; top: 66px; left: 0; right: 0; text-align: center; }
+.call .chord { display: inline-block; font-family: 'Sedgwick Ave Display', cursive; font-size: 104px; line-height: 0.9; transform: rotate(-5deg); }
+.call .zone { font-size: 30px; color: #ffcc44; transform: rotate(2.5deg) translateX(18px); margin-top: -6px; }
+.call .zone.danger { color: #ff9a6a; transform: rotate(-2deg) translateX(-14px); }
+/* the progression, chalked; chords you've landed are struck through */
+.prog { display: flex; justify-content: center; gap: 16px; margin-top: 2px; font-size: 22px; color: #9a9284; }
+.prog span { position: relative; }
+.prog span:nth-child(odd) { transform: rotate(-4deg); } .prog span:nth-child(even) { transform: rotate(3deg) translateY(2px); }
+.prog span.now { color: #f4efe4; }
+.prog span.done { color: #ffcc44; }
+.prog span.done::after { content: ''; position: absolute; left: -5px; right: -5px; top: 52%; height: 3px; background: #ffcc44; transform: rotate(-12deg); border-radius: 2px; }
+.timer { height: 5px; margin: 10px auto 0; width: 58%; transform: rotate(-1deg); }
+.timer i { display: block; height: 100%; width: 100%; background: #ff9a6a; border-radius: 3px; }
 .timer.off { visibility: hidden; }
-.msg { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-weight: 900; font-size: 26px; pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.9); opacity: 0; transition: opacity 0.2s; }
-.msg.on { opacity: 1; }
-.msg small { display: block; font-weight: 700; font-size: 16px; color: #d8d0c0; margin-top: 2px; }
-.pan { position: absolute; bottom: 50%; font-weight: 900; font-size: 28px; color: rgba(243,234,214,0.35); pointer-events: none; }
+.msg { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; font-family: 'Sedgwick Ave Display', cursive; font-size: 46px; line-height: 1; pointer-events: none; opacity: 0; transform: rotate(-4deg) scale(0.9); transition: opacity 0.15s, transform 0.15s; }
+.msg.on { opacity: 1; transform: rotate(-4deg) scale(1); }
+.msg small { display: block; font-family: 'Sedgwick Ave', cursive; font-size: 20px; color: #e4dccc; margin-top: 6px; transform: rotate(3deg); }
+.pan { position: absolute; bottom: 50%; font-size: 34px; color: rgba(244,239,228,0.4); pointer-events: none; }
 .pan.l { left: 6px; } .pan.r { right: 6px; }
-/* the card between fights */
-.over { position: absolute; inset: 0; z-index: 5; background: rgba(8,6,4,0.9); padding: 26px 22px; overflow: auto; }
+/* between fights: no panel, just a darker patch of wall with the writing on it */
+.over { position: absolute; inset: 0; z-index: 5; background: radial-gradient(ellipse 90% 70% at 45% 40%, rgba(8,5,3,0.86), rgba(8,5,3,0.55)); overflow: auto; padding: 18px 16px 30px; }
 .over.hidden { display: none; }
-.over h1 { margin: 0; font-weight: 900; font-size: 64px; line-height: 0.9; letter-spacing: -1px; }
-.over .kick { font-weight: 700; font-size: 15px; letter-spacing: 4px; color: #8a8494; margin-bottom: 8px; }
-.over p { margin: 0 0 12px; font-family: Georgia, serif; font-size: 16px; line-height: 1.45; color: #ddd6c8; }
-.over p b { color: #ffcc44; font-family: 'Big Shoulders Display', sans-serif; font-weight: 900; font-size: 18px; letter-spacing: 0.5px; }
-.over .big { font-weight: 900; font-size: 72px; line-height: 1; margin: 6px 0; }
-.over table { border-collapse: collapse; margin: 6px 0 14px; font-weight: 700; font-size: 18px; }
-.over td { padding: 1px 16px 1px 0; } .over tr.me td { color: #ffcc44; }
-.go { display: inline-block; margin: 6px 10px 14px 0; padding: 10px 22px 8px; background: #f3ead6; color: #0b0806; font-weight: 900; font-size: 22px; letter-spacing: 2px; cursor: pointer; }
-.go.alt { background: none; color: #f3ead6; border: 2px solid #f3ead6; }
-.ini { display: flex; gap: 10px; align-items: center; margin: 4px 0 14px; }
-.ini input { width: 110px; font: inherit; font-weight: 900; font-size: 34px; letter-spacing: 4px; text-transform: uppercase; background: none; color: #f3ead6; border: none; border-bottom: 3px solid #f3ead6; border-radius: 0; padding: 0 0 0 2px; }
+.over .title { font-family: 'Sedgwick Ave Display', cursive; font-size: 92px; line-height: 0.82; margin: 22px 0 0 -2px; transform: rotate(-7deg); transform-origin: 0 50%; }
+.over .title span { display: block; margin-left: 50px; }
+.over .crew { font-size: 18px; color: #9a9284; transform: rotate(4deg); margin: 6px 0 0 150px; }
+.over .note { position: relative; font-size: 21px; line-height: 1.25; margin: 22px 0 0; max-width: 92%; }
+.over .note:nth-of-type(2n) { transform: rotate(-1.6deg); margin-left: 14px; }
+.over .note:nth-of-type(2n+1) { transform: rotate(1.2deg); }
+.over .note b { font-weight: 400; color: #ffcc44; }
+.over .note.num { padding-left: 34px; }
+.over .note .n { position: absolute; left: 0; top: -6px; font-family: 'Sedgwick Ave Display', cursive; font-size: 32px; color: #ffcc44; opacity: 0.85; transform: rotate(-12deg); }
+.over .big { font-family: 'Sedgwick Ave Display', cursive; font-size: 96px; line-height: 0.9; transform: rotate(-4deg); margin: 6px 0 4px 10px; }
+/* the button is a word circled in paint */
+.go { position: relative; display: inline-block; margin: 26px 0 18px 40px; padding: 8px 26px 10px; font-family: 'Sedgwick Ave Display', cursive; font-size: 46px; line-height: 1; color: #f4efe4; cursor: pointer; transform: rotate(-3deg); }
+.go::before { content: ''; position: absolute; inset: -4px -10px; border: 4px solid #ffcc44; border-radius: 52% 46% 55% 43% / 58% 50% 48% 54%; transform: rotate(5deg); }
+.go::after { content: ''; position: absolute; inset: -9px -4px -2px -16px; border: 2px solid rgba(255,204,68,0.55); border-radius: 46% 54% 42% 56% / 50% 58% 46% 52%; transform: rotate(-4deg); }
+.wallnames { margin: 4px 0 10px 18px; font-size: 22px; line-height: 1.35; }
+.wallnames div:nth-child(odd) { transform: rotate(-2deg); } .wallnames div:nth-child(even) { transform: rotate(1.5deg) translateX(10px); }
+.wallnames .me { color: #ffcc44; }
+.wallnames .hd { font-size: 17px; color: #9a9284; }
+.ini { display: flex; gap: 16px; align-items: flex-end; margin: 8px 0 14px 16px; transform: rotate(-2deg); }
+.ini input { width: 120px; font-family: 'Sedgwick Ave Display', cursive; font-size: 46px; letter-spacing: 4px; text-transform: uppercase; background: none; color: #f4efe4; border: none; border-bottom: 3px dashed #f4efe4; border-radius: 0; padding: 0 0 0 4px; }
 .ini input:focus { outline: none; }
-.ini button { background: #f3ead6; color: #0b0806; border: none; padding: 8px 14px; font: inherit; font-weight: 900; font-size: 18px; letter-spacing: 2px; cursor: pointer; }
+.ini button { background: none; border: none; color: #ffcc44; font-family: 'Sedgwick Ave Display', cursive; font-size: 34px; cursor: pointer; padding: 0; }
 .flash { position: absolute; inset: 0; pointer-events: none; background: #fff6e8; opacity: 0; }
-.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; letter-spacing: 3px; color: #8a8494; }
+.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #9a9284; transform: rotate(-3deg); }
 </style>
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }</script>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <a href="arcade.html">&lt; ARCADE</a>
-    <button id="snd">SOUND ON</button>
+    <a href="arcade.html">&larr; arcade</a>
+    <button id="snd">sound on</button>
   </div>
   <div class="stage" id="stage">
     <canvas id="cv" aria-label="Fret Fighter: the floor is the fretboard"></canvas>
     <div class="hud hidden" id="hud">
-      <div class="names"><span>YOU</span><span>THE BRAWLER</span></div>
-      <div class="bars"><div class="bar"><i id="hpYou" style="width:calc(100% - 2px)"></i></div><span class="clock" id="clock">0:00</span><div class="bar r"><i id="hpHim" style="width:calc(100% - 2px)"></i></div></div>
-      <div class="call"><div class="chord" id="chord">&nbsp;</div><div class="zone" id="zone">&nbsp;</div><div class="prog" id="prog"></div><div class="timer off" id="timer"><i id="timerBar"></i></div></div>
+      <div class="tagname l paint">you</div><div class="tagname r paint">the brawler</div>
+      <div class="stroke l"><i id="hpYou" style="width:100%"></i></div><div class="stroke r"><i id="hpHim" style="width:100%"></i></div>
+      <div class="clock paint" id="clock">0:00</div>
+      <div class="call"><div class="chord paint" id="chord">&nbsp;</div><div class="zone paint" id="zone">&nbsp;</div><div class="prog paint" id="prog"></div><div class="timer off" id="timer"><i id="timerBar"></i></div></div>
     </div>
     <div class="pan l" id="panL">&lsaquo;</div><div class="pan r" id="panR">&rsaquo;</div>
     <div class="flash" id="flash"></div>
-    <div class="msg" id="msg"></div>
-    <div class="loading" id="loading">LOADING</div>
+    <div class="msg paint" id="msg"></div>
+    <div class="loading" id="loading">warming up...</div>
     <div class="over hidden" id="over"></div>
   </div>
 </div>
@@ -279,7 +300,8 @@ const X0 = -1.0, X1 = colEdge(16), Z0 = 0, Z1 = 6 * ROWH;
 const rowZ = s => Z1 - (s + 0.5) * ROWH;                      // centre of a string's row
 const cellX = f => f === 0 ? OPEN / 2 : (colEdge(f) + colEdge(f + 1)) / 2;
 const cellW = f => f === 0 ? OPEN : colEdge(f + 1) - colEdge(f);
-(function floor() {
+async function floor() {
+  try { await Promise.race([document.fonts.load("120px 'Sedgwick Ave'"), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
   const PPM = 300, CW = Math.round((X1 - X0) * PPM), CH = Math.round((Z1 - Z0) * PPM);
   const tc = document.createElement('canvas'), bc = document.createElement('canvas'); tc.width = bc.width = CW; tc.height = bc.height = CH;
   const g = tc.getContext('2d'), gb = bc.getContext('2d'); g.fillStyle = '#2c2b29'; g.fillRect(0, 0, CW, CH); gb.fillStyle = '#181818'; gb.fillRect(0, 0, CW, CH);
@@ -293,10 +315,11 @@ const cellW = f => f === 0 ? OPEN : colEdge(f + 1) - colEdge(f);
   [3, 5, 7, 9, 15].forEach(f => stud(f, 3)); stud(12, 2); stud(12, 4);
   // string names chalked on the open-string stones, and a fret number chalked small at the front of the marked frets
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  ['E', 'A', 'D', 'G', 'B', 'e'].forEach((n, s) => { g.font = 'bold 120px sans-serif'; g.fillStyle = 'rgba(236,232,222,0.82)'; g.fillText(n, px(OPEN / 2), pz(rowZ(s))); });
+  ['E', 'A', 'D', 'G', 'B', 'e'].forEach((n, s) => { g.save(); g.translate(px(OPEN / 2), pz(rowZ(s))); g.rotate(-0.12 + (s % 2) * 0.16); g.font = "150px 'Sedgwick Ave', cursive"; g.fillStyle = 'rgba(240,236,226,0.85)'; g.fillText(n, 0, 0); g.restore(); });
   const t = texOf(tc, true), mesh = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), new THREE.MeshStandardMaterial({ map: t, bumpMap: texOf(bc), bumpScale: 2.5, roughness: 0.9 }));
   mesh.rotation.x = -Math.PI / 2; mesh.position.set((X0 + X1) / 2, 0, (Z0 + Z1) / 2); mesh.receiveShadow = true; scene.add(mesh);
-})();
+}
+await floor();
 
 // light laid on the stones: a row hint, and the cells of a shape when it lands
 const glows = [];
@@ -346,16 +369,16 @@ function ctxA() { return ac || (ac = new (window.AudioContext || window.webkitAu
 function note(midi, when, dur, vol) { if (!soundOn) return; try { const a = ctxA(), t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = 440 * Math.pow(2, (midi - 69) / 12); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.1, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.6)); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + (dur || 0.6) + 0.05); } catch (e) {} }
 function thud(vol, cut) { if (!soundOn) return; try { const a = ctxA(), n = a.createBufferSource(), b = a.createBuffer(1, a.sampleRate * 0.25, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 4); n.buffer = b; const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cut || 500; const g = a.createGain(); g.gain.value = vol || 0.6; n.connect(f); f.connect(g); g.connect(a.destination); n.start(); } catch (e) {} }
 const OPEN_MIDI = [40, 45, 50, 55, 59, 64];
-document.getElementById('snd').onclick = () => { soundOn = !soundOn; try { localStorage.setItem(SOUND_KEY, soundOn ? '1' : '0'); } catch (e) {} document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF'; };
+document.getElementById('snd').onclick = () => { soundOn = !soundOn; try { localStorage.setItem(SOUND_KEY, soundOn ? '1' : '0'); } catch (e) {} document.getElementById('snd').textContent = soundOn ? 'sound on' : 'sound off'; };
 try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch (e) {}
-document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+document.getElementById('snd').textContent = soundOn ? 'sound on' : 'sound off';
 
 // ---- The fight ----------------------------------------------------------------
 let you, him, state = 'loading', hpYou = HP, hpHim = HP, fightT = 0, turnT = 0, keyName = 'G', prog = [], step = 0, streak = 0, turnsSinceTheirs = 0, ask = null, wait = 0, after = null, hits = 0, blocks = 0, misses = 0;
 const $ = id => document.getElementById(id);
 const fmt = s => Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
 function say(big, small, ms) { const m = $('msg'); m.innerHTML = big + (small ? `<small>${small}</small>` : ''); m.classList.add('on'); clearTimeout(say.t); say.t = setTimeout(() => m.classList.remove('on'), ms || 1400); }
-function bars() { $('hpYou').style.width = `calc(${Math.max(0, hpYou)}% - 2px)`; $('hpHim').style.width = `calc(${Math.max(0, hpHim)}% - 2px)`; $('hpYou').className = hpYou < 30 ? 'low' : ''; $('hpHim').className = hpHim < 30 ? 'low' : ''; }
+function bars() { $('hpYou').style.width = Math.max(0, hpYou) + '%'; $('hpHim').style.width = Math.max(0, hpHim) + '%'; $('hpYou').className = hpYou < 30 ? 'low' : ''; $('hpHim').className = hpHim < 30 ? 'low' : ''; }
 function progChips() { const done = streak % 4; $('prog').innerHTML = prog.map((c, i) => `<span class="${i < done ? 'done' : ask && ask.mine && i === step % 4 ? 'now' : ''}">${c[0]}</span>`).join(''); }
 
 function startFight() {
@@ -370,7 +393,7 @@ function yourTurn() {
   const c = prog[step % 4], ok = zonesFor(pcOf(c[0])), z = ok[Math.floor(Math.random() * ok.length)];
   ask = { mine: true, name: c[0], q: c[1], pc: pcOf(c[0]), zone: ZONES[z] };
   state = 'yours'; turnT = 0;
-  $('chord').textContent = ask.name; $('zone').textContent = ask.zone.name + ' OPEN'; $('zone').className = 'zone'; $('timer').className = 'timer off';
+  $('chord').textContent = ask.name; $('zone').textContent = ask.zone.name.toLowerCase() + ' open'; $('zone').className = 'zone'; $('timer').className = 'timer off';
   setHint(ask.zone.string); progChips();
 }
 // his turn: he calls a chord and where he's aiming; block it in time
@@ -378,7 +401,7 @@ function theirTurn() {
   const c = prog[Math.floor(Math.random() * 4)], ok = zonesFor(pcOf(c[0])), z = ok[Math.floor(Math.random() * ok.length)];
   ask = { mine: false, name: c[0], q: c[1], pc: pcOf(c[0]), zone: ZONES[z], limit: Math.max(3.2, 5 - fightT / 60) };
   state = 'theirs'; turnT = 0; turnsSinceTheirs = 0;
-  $('chord').textContent = ask.name; $('zone').textContent = 'BLOCK ' + ask.zone.block; $('zone').className = 'zone danger'; $('timer').className = 'timer';
+  $('chord').textContent = ask.name; $('zone').textContent = 'block ' + ask.zone.block.toLowerCase() + '!'; $('zone').className = 'zone danger'; $('timer').className = 'timer';
   setHint(ask.zone.string); progChips();
 }
 // the zones where this chord's root sits in the first five frets; every note has at least one
@@ -403,10 +426,10 @@ function tapCell(s, f) {
   note(OPEN_MIDI[s] + f, 0, 0.5, 0.08);
   if (state === 'yours') {
     if (s === z.string && pc === ask.pc) return landHit(s, f);
-    if (s !== z.string) { streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6); say('BLOCKED', `He's covering that. ${z.name.toLowerCase()} is the ${STRING_NAMES[z.string]} string`); thud(0.3, 2500); progChips(); return; }
+    if (s !== z.string) { streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6); say('blocked', `he's covering that. ${z.name.toLowerCase()} is the ${STRING_NAMES[z.string]} string`); thud(0.3, 2500); progChips(); return; }
     // right string, wrong fret: you swing at air and he punishes it
     streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6);
-    say('MISSED', `That's ${NOTE_NAMES[pc]}. Find ${ask.name.replace('m', '')} on the ${STRING_NAMES[s]} string`);
+    say('missed!', `that's ${NOTE_NAMES[pc]}. find ${ask.name.replace('m', '')} on the ${STRING_NAMES[s]} string`);
     strike(you, him, z.hit, { zone: z.name, whiff: true }); state = 'busy';
     setTimeout(() => strike(him, you, 'Punch_Right', { zone: 'BODY', power: 0.7, react: 'HitRecieve', onImpact: () => { hurt('you', 6); setTimeout(() => { if (state === 'busy') { state = 'yours'; turnT = 0; } }, 700); } }), 550);
     progChips(); return;
@@ -415,7 +438,7 @@ function tapCell(s, f) {
   if (s === z.string && pc === ask.pc) {
     blocks++; state = 'busy'; hintOn = false; $('timer').className = 'timer off';
     lightShape(z, ask, f, '#e8e0d0');
-    strike(him, you, z.hit, { zone: z.name, guard: true, power: 0.6, onImpact: () => setTimeout(nextTurn, 800) }); say('BLOCKED', `${ask.name} on the ${STRING_NAMES[s]} string`);
+    strike(him, you, z.hit, { zone: z.name, guard: true, power: 0.6, onImpact: () => setTimeout(nextTurn, 800) }); say('blocked!', `${ask.name} on the ${STRING_NAMES[s]} string`);
     return;
   }
   cellGlow(f, s, '#8a8494', 0.5, 0.6);
@@ -428,7 +451,7 @@ function landHit(s, f) {
   lightShape(z, ask, f, '#ffcc44');
   strike(you, him, finisher ? 'Kick_Left' : z.hit, { zone: finisher ? 'BODY' : z.name, power: finisher ? 1.6 : speed < 2.5 ? 1.15 : 0.85, react: finisher ? 'HitRecieve' : 'HitRecieve_2',
     onImpact: () => { hurt('him', dmg + (finisher ? 18 : 0)); if (state !== 'over') setTimeout(nextTurn, 950); } });
-  say(finisher ? 'FINISHER' : speed < 2.5 ? 'CLEAN HIT' : 'HIT', finisher ? `The whole progression in ${keyName}` : `${ask.name} with the ${z.shape.toUpperCase()} shape`, 1200);
+  say(finisher ? 'finisher!!' : speed < 2.5 ? 'clean hit!' : 'hit!', finisher ? `the whole progression in ${keyName}` : `${ask.name} with the ${z.shape} shape`, 1200);
   progChips();
 }
 function nextTurn() {
@@ -536,41 +559,41 @@ function timeOut() {
   // too slow: his shot lands
   state = 'busy'; hintOn = false; $('timer').className = 'timer off';
   strike(him, you, ask.zone.hit, { zone: ask.zone.name, power: 1.1, react: 'HitRecieve', onImpact: () => { hurt('you', 14); if (state !== 'over') setTimeout(nextTurn, 900); } });
-  say('HIT', `${ask.name} was on the ${STRING_NAMES[ask.zone.string]} string`);
+  say('ouch', `${ask.name} was on the ${STRING_NAMES[ask.zone.string]} string`);
   lightShape(ask.zone, ask, findFrets(GRIP_CONFIG[ask.zone.shape].anchor, ask.pc)[0], '#8a8494');
 }
 
 // ---- End of the fight --------------------------------------------------------
 function times() { try { return JSON.parse(localStorage.getItem(HS_KEY)) || []; } catch (e) { return []; } }
-function table(hi) { const t = times(); if (!t.length) return ''; return '<table>' + t.map((e, i) => `<tr class="${i === hi ? 'me' : ''}"><td>${i + 1}</td><td>${e.i}</td><td>${fmt(e.s)}</td></tr>`).join('') + '</table>'; }
+function table(hi) { const t = times(); if (!t.length) return ''; return '<div class="wallnames paint"><div class="hd">fastest knockouts on this wall</div>' + t.map((e, i) => `<div class="${i === hi ? 'me' : ''}">${e.i} ${fmt(e.s)}</div>`).join('') + '</div>'; }
 let finalT = 0;
 function win() {
   state = 'over'; hpHim = 0; bars(); hintOn = false; him.play('Death', true); finalT = fightT; slow = 1.1; trauma = 1; freeze = 0.18;
   const t = times(), ok = t.length < 10 || finalT < t[t.length - 1].s;
-  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">KNOCKOUT IN THE KEY OF ${keyName}</div><h1>YOU WIN</h1><div class="big">${fmt(finalT)}</div>
-    <p>${hits} ${hits === 1 ? 'hit' : 'hits'}, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}, ${misses} ${misses === 1 ? 'miss' : 'misses'}.</p>
-    ${ok ? `<p>Sign your name on the wall:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="sign">SIGN</button></div>` : '<span class="go" id="again">FIGHT AGAIN</span>' + table(-1)}`);
+  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="title paint">knock<span>out!</span></div><div class="crew paint">in the key of ${keyName}</div><div class="big paint">${fmt(finalT)}</div>
+    <div class="note paint">${hits} ${hits === 1 ? 'hit' : 'hits'}, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}, ${misses} ${misses === 1 ? 'miss' : 'misses'}</div>
+    ${ok ? `<div class="note paint">put your name on the wall</div><div class="ini paint"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="sign">tag it</button></div>` : '<span class="go paint" id="again">again</span>' + table(-1)}`);
     if (ok) { $('sign').onclick = sign; setTimeout(() => $('initials').focus(), 50); } else $('again').onclick = startFight; }, 1800);
 }
 function lose() {
   state = 'over'; hpYou = 0; bars(); hintOn = false; you.play('Death', true); slow = 1.1; trauma = 1; freeze = 0.18;
-  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">THE KEY OF ${keyName}</div><h1>KNOCKED<br>DOWN</h1><p>Every root he calls sits in the first five frets of the string for the open zone. Count up from the kerb: open, 1, 2, 3, 4, with the brass stud on 3.</p><span class="go" id="again">GET UP</span>`); $('again').onclick = startFight; }, 1800);
+  setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="title paint">down<span>and out</span></div><div class="crew paint">in the key of ${keyName}</div><div class="note paint">every root he calls is in the first five frets of that string. count up from the kerb: open, 1, 2, 3, 4. the brass stud is on 3.</div><span class="go paint" id="again">get up</span>`); $('again').onclick = startFight; }, 1800);
 }
 function sign() {
   const raw = ($('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +finalT.toFixed(1) };
   const t = times(); t.push(entry); t.sort((a, b) => a.s - b.s); try { localStorage.setItem(HS_KEY, JSON.stringify(t.slice(0, 10))); } catch (e) {}
-  overlay(`<div class="kick">ON THE WALL</div><h1>YOU WIN</h1><div class="big">${fmt(finalT)}</div><span class="go" id="again">FIGHT AGAIN</span>${table(t.slice(0, 10).indexOf(entry))}`); $('again').onclick = startFight;
+  overlay(`<div class="title paint">knock<span>out!</span></div><div class="big paint">${fmt(finalT)}</div>${table(t.slice(0, 10).indexOf(entry))}<span class="go paint" id="again">again</span>`); $('again').onclick = startFight;
 }
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && $('initials')) sign(); });
 function overlay(html) { $('over').innerHTML = html; $('over').className = 'over'; }
 function showStart() {
   state = 'start'; $('hud').className = 'hud hidden';
-  overlay(`<div class="kick">ECHO ALPHA DELTA</div><h1>FRET<br>FIGHTER</h1>
-    <p>The floor is the fretboard. Each row of stones is a string, each stone a fret.</p>
-    <p>He leaves one place open. <b>LEGS</b> is the low E string, <b>BODY</b> the A string, <b>HEAD</b> the D string. Tap the stone with the chord's root on that string and you strike with the shape that grows from it: Echo, Alpha or Delta.</p>
-    <p>When he winds up, tap the root he calls on the string for where he's aiming to <b>BLOCK</b> it before the bar runs out.</p>
-    <p>Every root is in the first five frets. Land the whole progression in a row for a <b>FINISHER</b>.</p>
-    <span class="go" id="fight">FIGHT</span>${table(-1)}`);
+  overlay(`<div class="title paint">fret<span>fighter</span></div><div class="crew paint">echo alpha delta</div>
+    <div class="note paint">the floor is the neck. every row of stones is a string, every stone a fret.</div>
+    <div class="note num paint"><span class="n">1</span>he leaves one spot open. <b>legs</b> = low E string, <b>body</b> = A, <b>head</b> = D. hit the chord's root on that string.</div>
+    <div class="note num paint"><span class="n">2</span>when he swings, hit the root he calls on his target's string to <b>block</b>. be quick.</div>
+    <div class="note num paint"><span class="n">3</span>every root is in the first five frets. land the whole progression for a <b>finisher</b>.</div>
+    <span class="go paint" id="fight">fight</span>${table(-1)}`);
   $('fight').onclick = startFight;
 }
 

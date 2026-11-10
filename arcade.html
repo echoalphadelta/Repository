@@ -11,7 +11,7 @@
 <meta name="application-name" content="Echo Alpha Delta">
 <title>Arcade | Echo Alpha Delta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=IM+Fell+English&family=Jersey+10&family=Limelight&family=Special+Elite&family=UnifrakturMaguntia&family=Kanit:ital,wght@1,800&family=VT323&family=Tiny5&family=Jersey+15&family=Workbench&family=Rye&family=Courier+Prime&family=Zen+Dots&family=Share+Tech+Mono&family=Big+Shoulders+Display:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Press+Start+2P&family=IM+Fell+English&family=Jersey+10&family=Limelight&family=Special+Elite&family=UnifrakturMaguntia&family=Kanit:ital,wght@1,800&family=VT323&family=Tiny5&family=Jersey+15&family=Workbench&family=Rye&family=Courier+Prime&family=Zen+Dots&family=Share+Tech+Mono&family=Sedgwick+Ave&family=Sedgwick+Ave+Display&display=swap" rel="stylesheet">
 <style>
 :root { --echo: #4a9eff; --alpha: #ff4a4a; --delta: #4aff7a; --ink: #f4f1ea; --dim: #6b6862; --bg: #000; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -123,12 +123,14 @@ a { color: inherit; text-decoration: none; }
 .ww { position: relative; display: block; background: #120a05; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.5)); }
 .ww img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .ww .sub.best { position: absolute; left: 0; right: 0; bottom: 4%; text-align: center; font-family: 'Rye', serif; font-size: 17px; color: #1c120a; text-shadow: none; }
-.ff { display: block; background: #0b0806; border: 2px solid #3a3226; overflow: hidden; font-family: 'Big Shoulders Display', sans-serif; color: #f3ead6; }
+.ff { display: block; background: #0b0806; border: 2px solid #3a3226; overflow: hidden; font-family: 'Sedgwick Ave', cursive; color: #f4efe4; }
 .ff img { display: block; width: 100%; height: auto; }
-.ff .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 10px 14px 12px; background: linear-gradient(#14100c, #0b0806); }
-.ff .name { font-weight: 900; font-size: 38px; line-height: 0.9; letter-spacing: -0.5px; }
-.ff .sub.best { font-weight: 700; font-size: 16px; color: #ffcc44; margin-top: 6px; }
-.ff .go { background: #f3ead6; color: #0b0806; padding: 7px 16px 5px; font-weight: 900; font-size: 22px; letter-spacing: 2px; }
+.ff .info { display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 14px; background: linear-gradient(#14100c, #0b0806); }
+.ff .name { font-family: 'Sedgwick Ave Display', cursive; font-size: 46px; line-height: 0.85; transform: rotate(-5deg); transform-origin: 0 60%; margin-top: 8px; }
+.ff .name span { display: block; margin-left: 28px; }
+.ff .sub.best { font-size: 18px; color: #ffcc44; margin-top: 8px; transform: rotate(-2deg); }
+.ff .go { position: relative; font-family: 'Sedgwick Ave Display', cursive; font-size: 32px; color: #f4efe4; padding: 4px 16px 6px; transform: rotate(-3deg); }
+.ff .go::before { content: ''; position: absolute; inset: -2px -6px; border: 3px solid #ffcc44; border-radius: 52% 46% 55% 43% / 58% 50% 48% 54%; transform: rotate(5deg); }
 .pl { background: #0a0c16; color: #e8ecf8; border: 2px solid #2a2e44; border-radius: 8px; overflow: hidden; font-family: 'Share Tech Mono', monospace; }
 .pl svg { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; }
 .pl .info { display: flex; justify-content: space-between; align-items: flex-end; padding: 10px 14px 14px; }
@@ -268,8 +270,8 @@ a { color: inherit; text-decoration: none; }
   <a class="game ff" href="fret-fighter.html">
     <img src="fret-fighter-card.webp" alt="" width="780" height="520">
     <div class="info">
-      <div><div class="name">FRET<br>FIGHTER</div><div class="sub best" id="best13"></div></div>
-      <span class="go">FIGHT</span>
+      <div><div class="name">fret<span>fighter</span></div><div class="sub best" id="best13"></div></div>
+      <span class="go">fight</span>
     </div>
   </a>
 
@@ -338,7 +340,7 @@ try {
 } catch (e) {}
 try {
   const ff = JSON.parse(localStorage.getItem('fretFighterTimes')) || [];
-  if (ff.length) document.getElementById('best13').textContent = 'Fastest KO ' + Math.floor(ff[0].s / 60) + ':' + (ff[0].s % 60).toFixed(1).padStart(4, '0') + ' ' + ff[0].i;
+  if (ff.length) document.getElementById('best13').textContent = 'fastest KO ' + Math.floor(ff[0].s / 60) + ':' + (ff[0].s % 60).toFixed(1).padStart(4, '0') + ' ' + ff[0].i;
 } catch (e) {}
 // golf is scored against par, lowest first
 try {
