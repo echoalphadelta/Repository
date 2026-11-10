@@ -63,6 +63,7 @@ body { color: #f3ead6; font-family: 'Big Shoulders Display', sans-serif; -webkit
 .ini input { width: 110px; font: inherit; font-weight: 900; font-size: 34px; letter-spacing: 4px; text-transform: uppercase; background: none; color: #f3ead6; border: none; border-bottom: 3px solid #f3ead6; border-radius: 0; padding: 0 0 0 2px; }
 .ini input:focus { outline: none; }
 .ini button { background: #f3ead6; color: #0b0806; border: none; padding: 8px 14px; font: inherit; font-weight: 900; font-size: 18px; letter-spacing: 2px; cursor: pointer; }
+.flash { position: absolute; inset: 0; pointer-events: none; background: #fff6e8; opacity: 0; }
 .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; letter-spacing: 3px; color: #8a8494; }
 </style>
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }</script>
@@ -81,6 +82,7 @@ body { color: #f3ead6; font-family: 'Big Shoulders Display', sans-serif; -webkit
       <div class="call"><div class="chord" id="chord">&nbsp;</div><div class="zone" id="zone">&nbsp;</div><div class="prog" id="prog"></div><div class="timer off" id="timer"><i id="timerBar"></i></div></div>
     </div>
     <div class="pan l" id="panL">&lsaquo;</div><div class="pan r" id="panR">&rsaquo;</div>
+    <div class="flash" id="flash"></div>
     <div class="msg" id="msg"></div>
     <div class="loading" id="loading">LOADING</div>
     <div class="over hidden" id="over"></div>
@@ -208,7 +210,16 @@ const scene = new THREE.Scene(); scene.background = new THREE.Color('#0b0806'); 
 scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.35;
 const cam = new THREE.PerspectiveCamera(66, 0.6, 0.1, 60);
 let camX = 1.4;
-function placeCam() { cam.position.set(camX, 4.3, 4.3); cam.lookAt(camX, 0.3, 1.75); }
+// shake: trauma rises with each blow and drains away; the offset grows with its square
+let trauma = 0, kickFov = 0;
+function placeCam() {
+  const t = performance.now() / 1000, a = trauma * trauma;
+  const n = k => Math.sin(t * (37 + k * 11) + k * 2.1) * 0.6 + Math.sin(t * (59 + k * 7) + k) * 0.4;
+  const sx = 0.22 * a * n(1), sy = 0.16 * a * n(2), sz = 0.1 * a * n(3);
+  cam.position.set(camX + sx, 4.3 + sy, 4.3 + sz); cam.lookAt(camX + sx * 0.4, 0.3 + sy * 0.4, 1.75);
+  cam.rotateZ(0.05 * a * n(4));
+  const fov = 66 - kickFov; if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
+}
 function fit() {
   W = stage.parentElement.clientWidth; H = window.innerHeight - 34;
   stage.style.height = H + 'px'; r.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix();
@@ -313,13 +324,14 @@ async function makeFighter(x, face, look) {
     });
   });
   hide.forEach(o => o.visible = false);
+  const mats = [], bones = {}; m.traverse(o => { if (o.isBone) bones[o.name.replace(/\./g, '')] = o; if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(mt => mats.push(mt)); });
   const mixer = new THREE.AnimationMixer(m), clips = Object.fromEntries(gl.animations.map(a => [a.name.split('|').pop(), a]));
   m.rotation.y = face; scene.add(m);
   // stand them up on their mark, at a fighter's height
   m.updateMatrixWorld(true); let b = new THREE.Box3().setFromObject(m, true); m.scale.multiplyScalar(2.1 / (b.max.y - b.min.y));
   m.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(m, true); const c = b.getCenter(new THREE.Vector3());
   const home = new THREE.Vector3(m.position.x + x - c.x, m.position.y - b.min.y, m.position.z + FZ - c.z); m.position.copy(home);
-  const F = { m, mixer, clips, home, cur: null, lunge: 0, lungeT: 0, dir: Math.sign(Math.sin(face)) };
+  const F = { m, mixer, clips, home, mats, bones, cur: null, lunge: 0, push: 0, pushV: 0, flash: 0, strike: null, dir: Math.sign(Math.sin(face)) };
   F.play = (name, once) => {
     const a = mixer.clipAction(clips[name]); a.reset(); a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = !!once;
     if (F.cur && F.cur !== a) a.crossFadeFrom(F.cur, 0.12, false); a.play(); F.cur = a; F.once = once ? name : null;
@@ -350,7 +362,7 @@ function startFight() {
   $('over').className = 'over hidden'; $('hud').className = 'hud';
   hpYou = hpHim = HP; fightT = 0; streak = 0; step = 0; turnsSinceTheirs = 0; hits = blocks = misses = 0;
   const keys = Object.keys(KEYS); keyName = keys[Math.floor(Math.random() * keys.length)]; prog = KEYS[keyName];
-  you.m.position.copy(you.home); him.m.position.copy(him.home); you.play('Idle'); him.play('Idle'); bars();
+  [you, him].forEach(F => { F.m.position.copy(F.home); F.strike = null; F.push = F.pushV = 0; F.flash = 0; F.play('Idle'); }); slow = 0; freeze = 0; bars();
   ctxA(); yourTurn();
 }
 // your turn: a chord from the progression, one zone left open
@@ -368,7 +380,6 @@ function theirTurn() {
   state = 'theirs'; turnT = 0; turnsSinceTheirs = 0;
   $('chord').textContent = ask.name; $('zone').textContent = 'BLOCK ' + ask.zone.block; $('zone').className = 'zone danger'; $('timer').className = 'timer';
   setHint(ask.zone.string); progChips();
-  him.lungeT = 0; him.windup = true;
 }
 // the zones where this chord's root sits in the first five frets; every note has at least one
 function zonesFor(pc) { return [0, 1, 2].filter(z => findFrets(ZONES[z].string, pc)[0] <= 4); }
@@ -396,17 +407,16 @@ function tapCell(s, f) {
     // right string, wrong fret: you swing at air and he punishes it
     streak = 0; misses++; cellGlow(f, s, '#8a8494', 0.6, 0.6);
     say('MISSED', `That's ${NOTE_NAMES[pc]}. Find ${ask.name.replace('m', '')} on the ${STRING_NAMES[s]} string`);
-    attack(you, z.hit, false); state = 'busy';
-    setTimeout(() => { attack(him, 'Punch_Right', true); hurt('you', 6); setTimeout(() => { if (state === 'busy') { state = 'yours'; turnT = 0; } }, 600); }, 450);
+    strike(you, him, z.hit, { zone: z.name, whiff: true }); state = 'busy';
+    setTimeout(() => strike(him, you, 'Punch_Right', { zone: 'BODY', power: 0.7, react: 'HitRecieve', onImpact: () => { hurt('you', 6); setTimeout(() => { if (state === 'busy') { state = 'yours'; turnT = 0; } }, 700); } }), 550);
     progChips(); return;
   }
   // blocking
   if (s === z.string && pc === ask.pc) {
     blocks++; state = 'busy'; hintOn = false; $('timer').className = 'timer off';
     lightShape(z, ask, f, '#e8e0d0');
-    attack(him, z.hit, false); say('BLOCKED', `${ask.name} on the ${STRING_NAMES[s]} string`);
-    thud(0.35, 1800);
-    setTimeout(nextTurn, 1100); return;
+    strike(him, you, z.hit, { zone: z.name, guard: true, power: 0.6, onImpact: () => setTimeout(nextTurn, 800) }); say('BLOCKED', `${ask.name} on the ${STRING_NAMES[s]} string`);
+    return;
   }
   cellGlow(f, s, '#8a8494', 0.5, 0.6);
 }
@@ -416,11 +426,10 @@ function landHit(s, f) {
   streak++; step++;
   const finisher = streak > 0 && streak % 4 === 0;
   lightShape(z, ask, f, '#ffcc44');
-  attack(you, finisher ? 'Kick_Left' : z.hit, false);
-  setTimeout(() => { him.play(finisher ? 'HitRecieve' : 'HitRecieve_2', true); thud(finisher ? 1 : 0.7, finisher ? 300 : 500); hurt('him', dmg + (finisher ? 18 : 0)); }, 260);
+  strike(you, him, finisher ? 'Kick_Left' : z.hit, { zone: finisher ? 'BODY' : z.name, power: finisher ? 1.6 : speed < 2.5 ? 1.15 : 0.85, react: finisher ? 'HitRecieve' : 'HitRecieve_2',
+    onImpact: () => { hurt('him', dmg + (finisher ? 18 : 0)); if (state !== 'over') setTimeout(nextTurn, 950); } });
   say(finisher ? 'FINISHER' : speed < 2.5 ? 'CLEAN HIT' : 'HIT', finisher ? `The whole progression in ${keyName}` : `${ask.name} with the ${z.shape.toUpperCase()} shape`, 1200);
   progChips();
-  setTimeout(nextTurn, 1300);
 }
 function nextTurn() {
   if (state === 'over') return;
@@ -435,19 +444,100 @@ function lightShape(z, a, rootFret, col) {
   pts.forEach(([f, s]) => { const ff = f + shift; if (ff < 0 || ff > 15) return; cellGlow(ff, s, col, 1.3, 0.85); notes.push(OPEN_MIDI[s] + ff); });
   notes.sort((p, q) => p - q).forEach((m, i) => note(m, 0.05 + i * 0.035, 1.1, 0.06));
 }
-function attack(F, clip, landed) { F.play(clip, true); F.lungeT = 0.001; thud(0.25, 3000); }
+// ---- Contact ---------------------------------------------------------------------
+// Each attack is measured once: when in the clip the fist or foot is furthest forward, and how far.
+// A strike then steps the attacker in exactly far enough that the blow lands on the defender at that moment.
+const LIMB = { Punch_Right: 'WristR', Punch_Left: 'WristL', Kick_Right: 'FootR', Kick_Left: 'FootL' };
+const TARGET = { LEGS: ['UpperLegR', 0.1], BODY: ['Chest', 0.16], HEAD: ['Head', 0.12] };
+function measure(F) {
+  const v = new THREE.Vector3(); F.reach = {};
+  Object.entries(LIMB).forEach(([clip, bone]) => {
+    const a = F.mixer.clipAction(F.clips[clip]); F.mixer.stopAllAction(); a.reset().play();
+    let best = -1e9, bt = 0;
+    for (let t = 0; t <= F.clips[clip].duration; t += 1 / 60) { F.mixer.setTime(t); F.m.updateMatrixWorld(true); F.bones[bone].getWorldPosition(v); const fwd = (v.x - F.m.position.x) * F.dir; if (fwd > best) { best = fwd; bt = t; } }
+    F.reach[clip] = { d: best, t: bt, bone };
+  });
+  F.mixer.stopAllAction(); F.cur = null; F.play('Idle'); F.mixer.setTime(0.2); F.m.updateMatrixWorld(true);
+  F.off = {}; Object.values(TARGET).forEach(([b]) => { F.bones[b].getWorldPosition(v); F.off[b] = (v.x - F.m.position.x) * F.dir; });
+}
+// strike: attacker throws clip at defender's zone. power scales everything; onImpact fires at contact.
+function strike(A, D, clip, o) {
+  o = Object.assign({ power: 1, zone: 'BODY', react: 'HitRecieve_2', guard: false, whiff: false, onImpact: null }, o);
+  const R = A.reach[clip], [tb, depth] = TARGET[o.zone];
+  // where the blow should land: the front of the defender's chest, head or thigh
+  const targetX = D.home.x + D.dir * D.off[tb] + D.dir * (o.guard ? 0.32 : depth);
+  let L = (targetX - (A.home.x + A.dir * R.d)) * A.dir;
+  if (o.whiff) L = Math.min(L, 0) + 0.12;            // a swing at air stops short
+  A.strike = { t: 0, tImp: R.t, L: Math.max(0, Math.min(1.0, L)), fired: false, D, o, bone: R.bone, clip };
+  A.play(clip, true); whoosh(o.power);
+}
+const vtmp = new THREE.Vector3();
+let freeze = 0, slow = 0;
+function impact(A, s) {
+  const o = s.o, D = s.D, p = o.power;
+  A.bones[s.bone].getWorldPosition(vtmp); const at = vtmp.clone();
+  // the blow stops the clock for a beat, then the world shakes
+  freeze = 0.05 + 0.06 * p; trauma = Math.min(1, trauma + 0.35 + 0.3 * p); kickFov = 2 + 3 * p;
+  burst(at, A.dir, p, o.guard);
+  smack(p, o.guard);
+  try { if (navigator.vibrate) navigator.vibrate(o.guard ? 15 : p > 1.2 ? [40, 30, 70] : Math.round(25 + 25 * p)); } catch (e) {}
+  if (p >= 1 && !o.guard) flashScreen(0.35 * p);
+  // the one who's hit is thrown back and lights up for an instant
+  D.pushV += (o.guard ? 1.6 : 2.6 + 1.8 * p);
+  if (!o.guard) { D.flash = 1; D.play(o.react, true); }
+  if (o.onImpact) o.onImpact();
+}
+function flashScreen(a) { const f = $('flash'); f.style.transition = 'none'; f.style.opacity = Math.min(0.6, a); requestAnimationFrame(() => { f.style.transition = 'opacity 0.18s'; f.style.opacity = 0; }); }
+
+// sparks of light at the point of contact: a jagged white star, a ring that blows outward, and a spray thrown along the blow
+function starTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128); rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.18, 'rgba(255,246,220,0.95)'); rg.addColorStop(0.45, 'rgba(255,214,150,0.35)'); rg.addColorStop(1, 'rgba(255,200,120,0)');
+  g.fillStyle = rg; g.beginPath(); for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, r = i % 2 ? 34 + Math.random() * 18 : 90 + Math.random() * 38; g.lineTo(128 + Math.cos(a) * r, 128 + Math.sin(a) * r); } g.closePath(); g.fill();
+  return texOf(c, true);
+}
+function ringTex() { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.strokeStyle = 'rgba(255,248,232,0.9)'; g.lineWidth = 14; g.beginPath(); g.arc(128, 128, 104, 0, 7); g.stroke(); g.strokeStyle = 'rgba(255,248,232,0.35)'; g.lineWidth = 30; g.stroke(); return texOf(c, true); }
+function dotTex() { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32); rg.addColorStop(0, 'rgba(255,255,255,1)'); rg.addColorStop(0.4, 'rgba(255,236,200,0.8)'); rg.addColorStop(1, 'rgba(255,220,170,0)'); g.fillStyle = rg; g.fillRect(0, 0, 64, 64); return texOf(c, true); }
+const TX = { star: starTex(), ring: ringTex(), dot: dotTex() };
+const fx = [];
+function sprite(tex, at, size) { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false })); m.position.copy(at); m.scale.setScalar(size); m.renderOrder = 10; scene.add(m); return m; }
+function burst(at, dir, p, guard) {
+  const k = guard ? 0.6 : 1;
+  fx.push({ m: sprite(TX.star, at, 0.1), t: 0, life: 0.14, grow: (0.5 + 0.3 * p) * k, rot: Math.random() * 6 });
+  fx.push({ m: sprite(TX.ring, at, 0.1), t: 0, life: 0.22, grow: (0.65 + 0.35 * p) * k });
+  const n = Math.round((guard ? 8 : 14) + 10 * p);
+  for (let i = 0; i < n; i++) {
+    const sp = 2 + Math.random() * 4 * (0.6 + p), a = (Math.random() - 0.5) * 1.6, up = Math.random() * 2.2 - 0.4;
+    fx.push({ m: sprite(TX.dot, at, 0.05 + Math.random() * 0.07), t: 0, life: 0.35 + Math.random() * 0.35, v: new THREE.Vector3(dir * sp * Math.cos(a), up * sp * 0.5, sp * Math.sin(a) * 0.8), spark: true });
+  }
+}
+function stepFx(dt) {
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i]; f.t += dt; const k = f.t / f.life;
+    if (f.spark) { f.v.y -= 9 * dt; f.m.position.addScaledVector(f.v, dt); f.m.material.opacity = 1 - k; }
+    else { const e = 1 - Math.pow(1 - Math.min(1, k * 1.6), 3); f.m.scale.setScalar(0.1 + f.grow * e); f.m.material.opacity = 1 - k * k; if (f.rot !== undefined) f.m.material.rotation = f.rot; }
+    if (k >= 1) { scene.remove(f.m); f.m.material.dispose(); fx.splice(i, 1); }
+  }
+}
+// impact sound: a low body thump, a sharp crack on top, and a falling punch of pitch
+function smack(p, guard) {
+  thud(guard ? 0.45 : 0.8 + 0.3 * p, guard ? 900 : 260);
+  thud(guard ? 0.5 : 0.35 + 0.15 * p, 4200);
+  if (!soundOn || guard) return;
+  try { const a = ctxA(), t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(140 + 40 * p, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18); g.gain.setValueAtTime(0.5 + 0.2 * p, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 0.25); } catch (e) {}
+}
+function whoosh(p) { thud(0.12 + 0.06 * p, 2400); }
 function hurt(who, d) {
   if (who === 'him') { hpHim -= d; if (hpHim <= 0) return win(); }
-  else { hpYou -= d; you.play('HitRecieve', true); thud(0.7, 400); if (hpYou <= 0) return lose(); }
+  else { hpYou -= d; if (hpYou <= 0) return lose(); }
   bars();
 }
 function timeOut() {
   // too slow: his shot lands
   state = 'busy'; hintOn = false; $('timer').className = 'timer off';
-  attack(him, ask.zone.hit, true);
+  strike(him, you, ask.zone.hit, { zone: ask.zone.name, power: 1.1, react: 'HitRecieve', onImpact: () => { hurt('you', 14); if (state !== 'over') setTimeout(nextTurn, 900); } });
   say('HIT', `${ask.name} was on the ${STRING_NAMES[ask.zone.string]} string`);
   lightShape(ask.zone, ask, findFrets(GRIP_CONFIG[ask.zone.shape].anchor, ask.pc)[0], '#8a8494');
-  setTimeout(() => { hurt('you', 14); if (state !== 'over') setTimeout(nextTurn, 900); }, 280);
 }
 
 // ---- End of the fight --------------------------------------------------------
@@ -455,7 +545,7 @@ function times() { try { return JSON.parse(localStorage.getItem(HS_KEY)) || []; 
 function table(hi) { const t = times(); if (!t.length) return ''; return '<table>' + t.map((e, i) => `<tr class="${i === hi ? 'me' : ''}"><td>${i + 1}</td><td>${e.i}</td><td>${fmt(e.s)}</td></tr>`).join('') + '</table>'; }
 let finalT = 0;
 function win() {
-  state = 'over'; hpHim = 0; bars(); hintOn = false; him.play('Death', true); finalT = fightT;
+  state = 'over'; hpHim = 0; bars(); hintOn = false; him.play('Death', true); finalT = fightT; slow = 1.1; trauma = 1; freeze = 0.18;
   const t = times(), ok = t.length < 10 || finalT < t[t.length - 1].s;
   setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">KNOCKOUT IN THE KEY OF ${keyName}</div><h1>YOU WIN</h1><div class="big">${fmt(finalT)}</div>
     <p>${hits} ${hits === 1 ? 'hit' : 'hits'}, ${blocks} ${blocks === 1 ? 'block' : 'blocks'}, ${misses} ${misses === 1 ? 'miss' : 'misses'}.</p>
@@ -463,7 +553,7 @@ function win() {
     if (ok) { $('sign').onclick = sign; setTimeout(() => $('initials').focus(), 50); } else $('again').onclick = startFight; }, 1800);
 }
 function lose() {
-  state = 'over'; hpYou = 0; bars(); hintOn = false; you.play('Death', true);
+  state = 'over'; hpYou = 0; bars(); hintOn = false; you.play('Death', true); slow = 1.1; trauma = 1; freeze = 0.18;
   setTimeout(() => { $('hud').className = 'hud hidden'; overlay(`<div class="kick">THE KEY OF ${keyName}</div><h1>KNOCKED<br>DOWN</h1><p>Every root he calls sits in the first five frets of the string for the open zone. Count up from the kerb: open, 1, 2, 3, 4, with the brass stud on 3.</p><span class="go" id="again">GET UP</span>`); $('again').onclick = startFight; }, 1800);
 }
 function sign() {
@@ -493,12 +583,26 @@ cv.addEventListener('pointerup', e => { if (down && !down.moved) { const c = cel
 // ---- The loop -------------------------------------------------------------------
 const clock = new THREE.Clock();
 function frame() {
-  const dt = Math.min(0.05, clock.getDelta());
+  const real = Math.min(0.05, clock.getDelta());
+  // a frozen beat at each impact, slow motion on a knockout
+  let dt = real; if (freeze > 0) { freeze -= real; dt = 0; } else if (slow > 0) { slow -= real; dt = real * 0.3; }
   if (state === 'yours' || state === 'theirs' || state === 'busy') { fightT += dt; turnT += dt; $('clock').textContent = fmt(fightT).replace(/\.\d$/, ''); }
   if (state === 'theirs') { const left = 1 - turnT / ask.limit; $('timerBar').style.width = Math.max(0, left * 100) + '%'; if (left <= 0) timeOut(); }
   [you, him].forEach(F => { if (!F) return; F.mixer.update(dt);
-    // step in to throw, step back after
-    if (F.lungeT > 0) { F.lungeT += dt; const t = F.lungeT, k = t < 0.15 ? t / 0.15 : Math.max(0, 1 - (t - 0.15) / 0.4); F.m.position.x = F.home.x + F.dir * 0.42 * k; if (t > 0.6) { F.lungeT = 0; F.m.position.x = F.home.x; } } });
+    // step in so the blow lands at the moment the limb is fully out, hold through the impact, then step back
+    const s = F.strike;
+    if (s) { s.t += dt;
+      const ti = Math.max(0.08, s.tImp), k = s.t < ti ? 1 - Math.pow(1 - s.t / ti, 2) : Math.max(0, 1 - (s.t - ti) / 0.45);
+      F.lunge = s.L * k;
+      if (!s.fired && s.t >= ti) { s.fired = true; F.m.position.x = F.home.x + F.dir * F.lunge - F.dir * F.push; F.m.updateMatrixWorld(true); if (!s.o.whiff) impact(F, s); }
+      if (s.t > ti + 0.5) { F.strike = null; F.lunge = 0; } }
+    // thrown back by a blow: a stiff spring pulls them home
+    F.pushV += (-60 * F.push - 9 * F.pushV) * dt; F.push += F.pushV * dt;
+    F.m.position.x = F.home.x + F.dir * F.lunge - F.dir * Math.max(-0.05, F.push);
+    // the flash of being hit
+    if (F.flash > 0) { F.flash = Math.max(0, F.flash - real * 7); F.mats.forEach(mt => mt.emissive && mt.emissive.setScalar(F.flash * 0.7)); } });
+  stepFx(dt || real * 0.15);
+  trauma = Math.max(0, trauma - real * 1.6); kickFov *= Math.pow(0.002, real); placeCam();
   hintRow.material.opacity += ((hintOn ? 0.16 + 0.06 * Math.sin(performance.now() / 180) : 0) - hintRow.material.opacity) * 0.2;
   for (let i = glows.length - 1; i >= 0; i--) { const gl = glows[i]; gl.t += dt; const k = gl.t < 0.08 ? gl.t / 0.08 : Math.max(0, 1 - (gl.t - 0.08) / (gl.life - 0.08)); gl.m.material.opacity = k * gl.strength; if (gl.t >= gl.life) { scene.remove(gl.m); gl.m.geometry.dispose(); gl.m.material.dispose(); glows.splice(i, 1); } }
   const fr = camX > 1.45, fr2 = camX < X1 - 1.75; $('panL').style.visibility = fr ? 'visible' : 'hidden'; $('panR').style.visibility = fr2 ? 'visible' : 'hidden';
@@ -513,10 +617,10 @@ const look = {
   him: { main: '#9c6a4a', trim: '#9c6a4a', legs: '#151517', skin: '#9c6a4a', hair: '#1a1410' },
 };
 Promise.all([makeFighter(0.85, Math.PI / 2, look.you), makeFighter(2.0, -Math.PI / 2, look.him)]).then(([a, b]) => {
-  you = a; him = b; you.dir = 1; him.dir = -1; $('loading').remove(); showStart(); requestAnimationFrame(frame);
+  you = a; him = b; you.dir = 1; him.dir = -1; measure(you); measure(him); $('loading').remove(); showStart(); requestAnimationFrame(frame);
 });
 // for testing
-window.FF = { get state() { return state; }, get ask() { return ask; }, tapCell, cellAt, noteAt, get hp() { return [hpYou, hpHim]; }, rowZ, cellX, cam, startFight, findFrets, GRIP_CONFIG };
+window.FF = { get you() { return you; }, get him() { return him; }, get freeze() { return freeze; }, set freeze(v) { freeze = v; }, get state() { return state; }, get ask() { return ask; }, tapCell, cellAt, noteAt, get hp() { return [hpYou, hpHim]; }, rowZ, cellX, cam, startFight, findFrets, GRIP_CONFIG };
 </script>
 </body>
 </html>
