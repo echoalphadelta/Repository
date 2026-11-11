@@ -335,15 +335,17 @@ let hintOn = false;
 // One free animated character (CC0, by Quaternius), dressed two ways in neutral colours.
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const FZ = 1.55;
+const SKIN = '#f4f2ee';
 async function makeFighter(x, face, look) {
   const gl = await loader.loadAsync('fret-fighter/fighter.glb'), m = gl.scene, hide = [];
   m.traverse(o => {
     if (o.name.startsWith('Backpack')) hide.push(o);
     if (!o.isMesh) return; o.castShadow = true; o.frustumCulled = false;
+    // cartoon skin, so the fighters aren't any real person's colouring
     (Array.isArray(o.material) ? o.material : [o.material]).forEach(mt => {
       if (mt.name === 'Green') mt.color.set(look.main); if (mt.name === 'LightGreen') mt.color.set(look.trim);
-      if (mt.name === 'Brown' || mt.name === 'Brown2') mt.color.set(look.legs); if (mt.name === 'Hair') mt.color.set(look.hair);
-      if (mt.name === 'Skin') mt.color.set(look.skin); mt.roughness = mt.name === 'Skin' ? 0.55 : 0.75;
+      if (mt.name === 'Brown' || mt.name === 'Brown2') mt.color.set(look.legs); if (mt.name === 'Hair' || mt.name === 'Eyebrows') mt.color.set(look.hair);
+      if (mt.name === 'Skin') { mt.color.set(SKIN); mt.roughness = 0.6; } else mt.roughness = 0.8;
     });
   });
   hide.forEach(o => o.visible = false);
@@ -636,8 +638,8 @@ function frame() {
 // ---- Go --------------------------------------------------------------------------
 fit(); placeCam();
 const look = {
-  you: { main: '#d8d4cc', trim: '#3a3836', legs: '#2a2a2c', skin: '#a5714f', hair: '#241a14' },
-  him: { main: '#9c6a4a', trim: '#9c6a4a', legs: '#151517', skin: '#9c6a4a', hair: '#1a1410' },
+  you: { main: '#d8d4cc', trim: '#3a3836', legs: '#2a2a2c', hair: '#3a2a1e' },
+  him: { main: '#3a3836', trim: '#24231f', legs: '#7a7670', hair: '#1a1816' },
 };
 Promise.all([makeFighter(0.85, Math.PI / 2, look.you), makeFighter(2.0, -Math.PI / 2, look.him)]).then(([a, b]) => {
   you = a; him = b; you.dir = 1; him.dir = -1; measure(you); measure(him); $('loading').remove(); showStart(); requestAnimationFrame(frame);
