@@ -74,7 +74,6 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 <script type="module">
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -706,10 +705,22 @@ const PLACE = {
   ff: [RX1 - 0.03, -2.6, -Math.PI / 2], sl: [RX1 - 0.03, -0.6, -Math.PI / 2],
   ni: [0, 0.4, 0],
 };
-const half = Math.round(innerWidth * DPR * 0.5), halfH = Math.round(innerHeight * DPR * 0.5);
-const floorMirror = new Reflector(new THREE.PlaneGeometry(ROOM.W, ROOM.D), { textureWidth: half, textureHeight: halfH, color: '#3a3a40' });
-floorMirror.rotation.x = -Math.PI / 2; floorMirror.position.y = -0.001; scene.add(floorMirror);
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.W, ROOM.D), mat({ color: '#050506', roughness: 0.55, transparent: true, opacity: 0.84, envMapIntensity: 0.25 }));
+// carpet: charcoal pile with a band of blue, red and green stripes running round the room in front of the machines.
+// The stripes are dyed to glow a little, the way arcade carpet does under the lights.
+function carpet() {
+  const PX = 170, w = ROOM.W * PX, h = ROOM.D * PX;
+  const base = canvas(w, h), g = base.getContext('2d'), glow = canvas(w, h), k = glow.getContext('2d');
+  g.fillStyle = '#16161a'; g.fillRect(0, 0, w, h); k.fillStyle = '#000'; k.fillRect(0, 0, w, h);
+  // the loop of three stripes, its corners rounded
+  const loop = (ctx, inset, colr, lw) => { ctx.strokeStyle = colr; ctx.lineWidth = lw; ctx.beginPath(); ctx.roundRect(inset * PX, inset * PX, w - 2 * inset * PX, h - 2 * inset * PX, 0.9 * PX); ctx.stroke(); };
+  [['#4a9eff', 1.9], ['#ff4a4a', 2.02], ['#4aff7a', 2.14]].forEach(([colr, inset]) => { loop(g, inset, colr, 0.07 * PX); loop(k, inset, colr, 0.07 * PX); });
+  // pile: thousands of short fibres, lighter and darker, broken up over everything including the stripes
+  for (let i = 0; i < w * h / 6; i++) { const x = Math.random() * w, y = Math.random() * h, v = Math.random(); g.fillStyle = v < 0.5 ? `rgba(0,0,0,${0.25 + v * 0.4})` : `rgba(255,255,255,${(v - 0.5) * 0.08})`; g.fillRect(x, y, 1 + Math.random() * 1.5, 1 + Math.random() * 1.5); }
+  for (let i = 0; i < w * h / 14; i++) { k.fillStyle = 'rgba(0,0,0,0.45)'; k.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); }
+  const map = tex(base), em = tex(glow); map.anisotropy = em.anisotropy = 8;
+  return new THREE.MeshStandardMaterial({ map, emissive: '#ffffff', emissiveMap: em, emissiveIntensity: 0.28, roughness: 1, envMapIntensity: 0 });
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.W, ROOM.D), carpet());
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 // walls and ceiling: near black, just enough to catch the light round the machines
 {
@@ -776,6 +787,116 @@ const hung = [];
   const pl = new THREE.SpotLight('#dfe6ff', 4, 4, 0.7, 0.7, 1.4); pl.position.copy(toWorld(ck, 0.4, 3.1, 2.4)); pl.target.position.copy(toWorld(ck, 0, 2.5, 1.2)); scene.add(pl, pl.target);
 }
 
+// ---- neon: glass tubes bent into letters and shapes, mounted just off the wall ----
+// Each sign is drawn as tubes on a canvas: a wide soft halo that lights the wall behind, the coloured tube,
+// and the hot pale core running down its middle.
+const signs = [];
+function neonSign(w, h, colr, draw, at, ry, flicker = false) {
+  const PX = 400, c = canvas(Math.round(w * PX), Math.round(h * PX)), g = c.getContext('2d');
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const core = '#' + new THREE.Color(colr).lerp(new THREE.Color('#ffffff'), 0.6).getHexString();
+  const pass = (style, lw, blur, alpha) => { g.save(); g.globalAlpha = alpha; g.strokeStyle = style; g.lineWidth = lw; g.shadowColor = colr; g.shadowBlur = blur; draw(g, c.width, c.height); g.restore(); };
+  pass(colr, 14, 70, 0.55); pass(colr, 11, 22, 1); pass(core, 4, 0, 1);
+  const t = tex(c), m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  m.position.copy(at); m.rotation.y = ry; scene.add(m);
+  // the little standoffs that hold the tubes off the wall
+  signs.push({ m, flicker, next: 2 + Math.random() * 6, off: 0 });
+  return m;
+}
+// tube lettering: the outline of each letter is one bent tube
+const tubeText = (s, font, x, y) => (g) => { g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.strokeText(s, x, y); };
+// back wall: ARCADE in pink, an underline swept in cyan beneath it
+neonSign(3.2, 0.9, '#ff3fa4', (g, w, h) => tubeText('ARCADE', "italic 800 250px 'Kanit'", w / 2, h * 0.44)(g), new THREE.Vector3(0, 2.62, RZ0 + 0.03), 0, true);
+neonSign(2.6, 0.2, '#3fe8ff', (g, w, h) => { g.beginPath(); g.moveTo(40, h * 0.62); g.bezierCurveTo(w * 0.3, h * 0.2, w * 0.7, h * 0.95, w - 40, h * 0.38); g.stroke(); }, new THREE.Vector3(0.1, 2.14, RZ0 + 0.035), 0);
+// left wall: INSERT COIN in amber, above Dirt Track and Western World
+neonSign(2.4, 0.5, '#ffb43f', (g, w, h) => tubeText('INSERT COIN', "110px 'Zen Dots'", w / 2, h / 2)(g), new THREE.Vector3(RX0 + 0.03, 2.55, -1.6), Math.PI / 2);
+// right wall: a joystick and PLAY in green and pink, above Fret Fighter and Slalom
+neonSign(0.7, 0.8, '#5cff8a', (g, w, h) => {
+  g.beginPath(); g.roundRect(w * 0.12, h * 0.68, w * 0.76, h * 0.22, 18); g.stroke();
+  g.beginPath(); g.moveTo(w * 0.5, h * 0.68); g.lineTo(w * 0.58, h * 0.32); g.stroke();
+  g.beginPath(); g.arc(w * 0.6, h * 0.22, h * 0.1, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(w * 0.26, h * 0.6, h * 0.035, 0, Math.PI * 2); g.stroke();
+}, new THREE.Vector3(RX1 - 0.03, 2.5, -2.55), -Math.PI / 2);
+neonSign(1.3, 0.5, '#ff3fa4', (g, w, h) => tubeText('PLAY', "italic 800 150px 'Kanit'", w / 2, h / 2)(g), new THREE.Vector3(RX1 - 0.03, 2.5, -1.3), -Math.PI / 2, true);
+
+// ---- LED strips: a cool line round the top of the walls, and each machine casting its colour on the carpet ----
+{
+  const led = new THREE.MeshBasicMaterial({ color: '#3fb8d8', toneMapped: false });
+  [[ROOM.W, 0, RZ0 + 0.03, 0], [ROOM.W, 0, RZ1 - 0.03, 0], [ROOM.D, RX0 + 0.03, 0, Math.PI / 2], [ROOM.D, RX1 - 0.03, 0, Math.PI / 2]].forEach(([l, x, z, ry]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(l, 0.02, 0.02), led); b.position.set(x, ROOM.H - 0.06, z); b.rotation.y = ry; scene.add(b); });
+  // a soft wash of light on the wall just under the strip
+  const wc = canvas(16, 128), wg = wc.getContext('2d'), gr = wg.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(63,184,216,0.22)'); gr.addColorStop(1, 'rgba(63,184,216,0)'); wg.fillStyle = gr; wg.fillRect(0, 0, 16, 128);
+  const wash = new THREE.MeshBasicMaterial({ map: tex(wc), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  [[ROOM.W, 0, RZ0 + 0.02, 0], [ROOM.W, 0, RZ1 - 0.02, Math.PI], [ROOM.D, RX0 + 0.02, 0, Math.PI / 2], [ROOM.D, RX1 - 0.02, 0, -Math.PI / 2]].forEach(([l, x, z, ry]) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(l, 0.45), wash); p.position.set(x, ROOM.H - 0.3, z); p.rotation.y = ry; scene.add(p); });
+  // under each machine, a glow on the carpet in its coin-light colour
+  const gc = canvas(256, 256), gg = gc.getContext('2d'); gg.filter = 'blur(26px)'; gg.fillStyle = '#ffffff'; gg.beginPath(); gg.roundRect(54, 54, 148, 148, 30); gg.fill();
+  const glowTex = tex(gc);
+  MACHINES.forEach(m => {
+    const f = m.foot, w = f.x1 - f.x0 + 0.6, d = f.z1 - f.z0 + 0.6;
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: glowTex, color: m.coin, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+    p.rotation.x = -Math.PI / 2; const c = toWorld(m, (f.x0 + f.x1) / 2, 0.004, (f.z0 + f.z1) / 2); p.position.copy(c); p.rotation.z = m.ry; scene.add(p);
+    // and a thin strip of the same colour along the toe of the uprights
+    if (m.kind === 'upright') { const S = m.shape, s = new THREE.Mesh(new THREE.BoxGeometry((S.cw || CW) - 0.04, 0.012, 0.012), new THREE.MeshBasicMaterial({ color: m.coin, toneMapped: false })); s.position.set(0, 0.012, S.toe + 0.004); m.group.add(s); }
+  });
+}
+
+// ---- seating: stools at some of the machines, and a bar along the right wall by the door ----
+const PROPS = [];
+const prop = (g, foot, ry = 0) => { g.rotation.y = ry; scene.add(g); g.updateMatrixWorld(true); PROPS.push({ group: g, ry, foot }); return g; };
+const chromeM = mat({ color: '#d0d0d6', metalness: 1, roughness: 0.18 });
+function stool(x, z, seatH, vinyl) {
+  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const part = (geo, m, y, rx = 0) => { const p = new THREE.Mesh(geo, m); p.position.y = y; p.rotation.x = rx; p.castShadow = true; g.add(p); return p; };
+  part(new THREE.CylinderGeometry(0.2, 0.22, 0.025, 32), chromeM, 0.0125);
+  part(new THREE.CylinderGeometry(0.024, 0.024, seatH - 0.05, 16), chromeM, (seatH - 0.05) / 2);
+  part(new THREE.TorusGeometry(0.16, 0.009, 10, 40), chromeM, seatH * 0.42, Math.PI / 2);
+  part(new THREE.CylinderGeometry(0.19, 0.18, 0.075, 32), mat({ color: vinyl, roughness: 0.45 }), seatH);
+  part(new THREE.TorusGeometry(0.185, 0.008, 8, 40), chromeM, seatH - 0.035, Math.PI / 2);
+  return prop(g, { x0: -0.22, x1: 0.22, z0: -0.22, z1: 0.22 });
+}
+// a stool in front of a machine, so far out from it and so far across, in its own frame
+const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key === key); return toWorld(m, across, 0, m.foot.z1 + out); };
+[['ff', -0.24], ['ff', 0.24], ['ww', 0], ['nb', 0], ['tn', 0]].forEach(([k, a]) => { const p = atMachine(k, a, 0.38); stool(p.x, p.z, 0.64, '#141416'); });
+// the bar: a counter with a black top, a cyan strip under its lip, a back bar of lit shelves and bottles
+{
+  const bx = RX1 - 1.15, z0 = 1.75, z1 = RZ1, len = z1 - z0, H = 1.06, D = 0.5;
+  const g = new THREE.Group(); g.position.set(bx, 0, (z0 + z1) / 2);
+  const add = (geo, m, x, y, z) => { const p = new THREE.Mesh(geo, m); p.position.set(x, y, z); p.castShadow = p.receiveShadow = true; g.add(p); return p; };
+  const front = mat({ color: '#121216', roughness: 0.7 }), top = mat({ color: '#0a0a0c', roughness: 0.25, metalness: 0.3 });
+  // the front, with vertical slats in it
+  add(new THREE.BoxGeometry(D, H - 0.05, len), front, 0, (H - 0.05) / 2, 0);
+  for (let k = 0; k < Math.floor(len / 0.12); k++) add(new THREE.BoxGeometry(0.012, H - 0.2, 0.05), mat({ color: '#1e1e24', roughness: 0.6 }), -D / 2 - 0.006, (H - 0.05) / 2, -len / 2 + 0.08 + k * 0.12);
+  add(new THREE.BoxGeometry(D + 0.14, 0.05, len + 0.04), top, -0.04, H, 0);
+  add(new THREE.BoxGeometry(0.01, 0.012, len), new THREE.MeshBasicMaterial({ color: '#3fe8ff', toneMapped: false }), -D / 2 - 0.1, H - 0.03, 0);
+  add(new THREE.BoxGeometry(0.03, 0.03, len), chromeM, -D / 2 - 0.12, 0.22, 0);   // a foot rail
+  // the short return at the end, closing it off to the wall
+  add(new THREE.BoxGeometry(RX1 - bx - D / 2 + 0.02, H - 0.05, 0.06), front, (RX1 - bx + D / 2) / 2, (H - 0.05) / 2, -len / 2 + 0.03);
+  scene.add(g);
+  PROPS.push({ group: g, ry: 0, foot: { x0: -D / 2 - 0.14, x1: RX1 - bx, z0: -len / 2 - 0.04, z1: len / 2 } });
+  // back bar: two shelves on the wall, each lit warm from beneath, with bottles
+  const shelfM = mat({ color: '#1a1a1e', roughness: 0.4, metalness: 0.5 }), glassCols = ['#3a7a3a', '#7a4a1a', '#2a4a8a', '#c8b070', '#8a1a2a', '#e8e8f0', '#5a3a6a'];
+  [1.32, 1.72].forEach(y => {
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.025, len - 0.6), shelfM); sh.position.set(RX1 - 0.13, y, (z0 + z1) / 2 + 0.1); scene.add(sh);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, len - 0.6), new THREE.MeshBasicMaterial({ color: '#ffb46a', toneMapped: false })); strip.position.set(RX1 - 0.24, y - 0.018, (z0 + z1) / 2 + 0.1); scene.add(strip);
+    for (let zz = z0 + 0.5; zz < z1 - 0.35; zz += 0.11 + Math.random() * 0.06) {
+      const col = glassCols[Math.floor(Math.random() * glassCols.length)], hgt = 0.2 + Math.random() * 0.12, glass = new THREE.MeshStandardMaterial({ color: col, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.82, emissive: col, emissiveIntensity: 0.35 });
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, hgt, 16), glass); b.position.set(RX1 - 0.12, y + 0.013 + hgt / 2, zz); scene.add(b);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.024, 0.09, 12), glass); neck.position.set(RX1 - 0.12, y + 0.013 + hgt + 0.045, zz); scene.add(neck);
+    }
+  });
+  // a warm light over the counter
+  const bl = new THREE.SpotLight('#ffd8a8', 4, 5, 0.75, 0.9, 1.5); bl.position.set(bx - 0.3, ROOM.H - 0.1, (z0 + z1) / 2); bl.target.position.set(bx, 0.8, (z0 + z1) / 2); scene.add(bl, bl.target);
+  // stools along the front
+  for (let k = 0; k < 3; k++) stool(bx - D / 2 - 0.42, z0 + 0.55 + k * 0.78, 0.76, '#141416');
+  // neon over the back bar: DRINKS in cyan, a cocktail glass in green and pink
+  neonSign(1.7, 0.5, '#3fe8ff', (g2, w, h) => tubeText('Drinks', "italic 800 170px 'Kanit'", w / 2, h / 2)(g2), new THREE.Vector3(RX1 - 0.03, 2.35, (z0 + z1) / 2 + 0.55), -Math.PI / 2, true);
+  neonSign(0.55, 0.7, '#5cff8a', (g2, w, h) => {
+    g2.beginPath(); g2.moveTo(w * 0.12, h * 0.14); g2.lineTo(w * 0.88, h * 0.14); g2.lineTo(w * 0.5, h * 0.52); g2.closePath(); g2.stroke();
+    g2.beginPath(); g2.moveTo(w * 0.5, h * 0.52); g2.lineTo(w * 0.5, h * 0.84); g2.stroke(); g2.beginPath(); g2.moveTo(w * 0.28, h * 0.86); g2.lineTo(w * 0.72, h * 0.86); g2.stroke();
+    g2.strokeStyle = '#ff3fa4'; g2.shadowColor = '#ff3fa4'; g2.beginPath(); g2.arc(w * 0.66, h * 0.24, h * 0.06, 0, Math.PI * 2); g2.stroke();
+  }, new THREE.Vector3(RX1 - 0.03, 2.35, z0 + 0.45), -Math.PI / 2);
+}
+const SOLIDS = [...MACHINES, ...PROPS];
+
 // ---- light: four soft spots from the ceiling follow you round, lighting the machines nearest you ----
 const spots = [0, 1, 2, 3].map(k => { const s = new THREE.SpotLight('#fff1dc', 6, 7, 0.42, 0.8, 1.5); if (!k) { s.castShadow = true; s.shadow.mapSize.set(1024, 1024); s.shadow.bias = -0.0005; } scene.add(s, s.target); return s; });
 function aimSpot(s, m) {
@@ -804,7 +925,7 @@ function faceTo(p, from = { x: me.x, z: me.z }) { const dx = p.x - from.x, dz = 
 // keep out of walls and machines: push a circle out of each footprint
 function collide() {
   me.x = Math.max(RX0 + R, Math.min(RX1 - R, me.x)); me.z = Math.max(RZ0 + R, Math.min(RZ1 - R, me.z));
-  for (const m of MACHINES) {
+  for (const m of SOLIDS) {
     const dx = me.x - m.group.position.x, dz = me.z - m.group.position.z, c = Math.cos(m.ry), s = Math.sin(m.ry);
     let lx = dx * c - dz * s, lz = dx * s + dz * c; const f = m.foot;
     const qx = Math.max(f.x0, Math.min(f.x1, lx)), qz = Math.max(f.z0, Math.min(f.z1, lz));
@@ -865,10 +986,43 @@ function findFocus() {
 // walk over to a machine on your own
 // walking on your own, round things rather than through them: to a machine, ending up facing its screen,
 // or to a spot on the floor, facing the way you walked
-function walkTo(m) { auto = { m, x: m.stand.x, z: m.stand.z, ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
+// a route round the machines: a grid over the floor with the machines' footprints blocked, searched for the
+// shortest way, then straightened wherever you can see along it
+const CELL = 0.2, GW = Math.round(ROOM.W / CELL), GD = Math.round(ROOM.D / CELL);
+const inFoot = (m, x, z, pad) => { const dx = x - m.group.position.x, dz = z - m.group.position.z, c = Math.cos(m.ry), s = Math.sin(m.ry), lx = dx * c - dz * s, lz = dx * s + dz * c, f = m.foot; return lx > f.x0 - pad && lx < f.x1 + pad && lz > f.z0 - pad && lz < f.z1 + pad; };
+const clear = (x, z, pad = R + 0.04) => x > RX0 + pad && x < RX1 - pad && z > RZ0 + pad && z < RZ1 - pad && !SOLIDS.some(m => inFoot(m, x, z, pad));
+const blocked = new Uint8Array(GW * GD);
+for (let j = 0; j < GD; j++) for (let i = 0; i < GW; i++) blocked[j * GW + i] = clear(RX0 + (i + 0.5) * CELL, RZ0 + (j + 0.5) * CELL) ? 0 : 1;
+const sees = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.08); for (let k = 1; k < n; k++) { const t = k / n; if (!clear(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, R)) return false; } return true; };
+function route(x, z) {
+  const to = { x, z }, from = { x: me.x, z: me.z };
+  if (sees(from, to)) return [to];
+  const cell = p => [Math.max(0, Math.min(GW - 1, Math.floor((p.x - RX0) / CELL))), Math.max(0, Math.min(GD - 1, Math.floor((p.z - RZ0) / CELL)))];
+  const [si, sj] = cell(from), [ti, tj] = cell(to), S = sj * GW + si, Tt = tj * GW + ti;
+  const g = new Float32Array(GW * GD).fill(Infinity), prev = new Int32Array(GW * GD).fill(-1), done = new Uint8Array(GW * GD), open = [S]; g[S] = 0;
+  const h = c => Math.hypot(c % GW - ti, Math.floor(c / GW) - tj);
+  while (open.length) {
+    let bi = 0; for (let k = 1; k < open.length; k++) if (g[open[k]] + h(open[k]) < g[open[bi]] + h(open[bi])) bi = k;
+    const c = open.splice(bi, 1)[0]; if (c === Tt) break; if (done[c]) continue; done[c] = 1;
+    const ci = c % GW, cj = Math.floor(c / GW);
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue; const ni = ci + di, nj = cj + dj; if (ni < 0 || nj < 0 || ni >= GW || nj >= GD) continue;
+      const n = nj * GW + ni; if (blocked[n] && n !== Tt) continue; if (di && dj && (blocked[cj * GW + ni] || blocked[nj * GW + ci])) continue;
+      const ng = g[c] + Math.hypot(di, dj); if (ng < g[n]) { g[n] = ng; prev[n] = c; open.push(n); }
+    }
+  }
+  if (prev[Tt] < 0) return [to];
+  const pts = []; for (let c = Tt; c !== S && c >= 0; c = prev[c]) pts.unshift({ x: RX0 + (c % GW + 0.5) * CELL, z: RZ0 + (Math.floor(c / GW) + 0.5) * CELL });
+  pts[pts.length - 1] = to;
+  // straighten: from each point, jump to the furthest one you can walk to directly
+  const out = []; let at = from, k = 0;
+  while (k < pts.length) { let far = k; for (let q = pts.length - 1; q > k; q--) if (sees(at, pts[q])) { far = q; break; } out.push(pts[far]); at = pts[far]; k = far + 1; }
+  return out;
+}
+function walkTo(m) { auto = { m, x: m.stand.x, z: m.stand.z, path: route(m.stand.x, m.stand.z), ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
 function walkToSpot(x, z) {
   x = Math.max(RX0 + R, Math.min(RX1 - R, x)); z = Math.max(RZ0 + R, Math.min(RZ1 - R, z));
-  auto = { m: null, x, z, yaw: Math.atan2(-(x - me.x), -(z - me.z)), pitch: -0.06, best: Infinity, stuck: 0 };
+  auto = { m: null, x, z, path: route(x, z), yaw: Math.atan2(-(x - me.x), -(z - me.z)), pitch: -0.06, best: Infinity, stuck: 0 };
   marker.position.set(x, 0.005, z); marker.visible = true; marker.material.opacity = 0.6;
 }
 // a ring on the floor where you are headed
@@ -962,10 +1116,13 @@ function frame(now) {
     me.x += (-Math.sin(me.yaw) * f + Math.cos(me.yaw) * sd) * SPEED * dt;
     me.z += (-Math.cos(me.yaw) * f - Math.sin(me.yaw) * sd) * SPEED * dt;
     if (auto) {
+      // head for the next point on the route; slow down only for the last one
+      while (auto.path.length > 1 && Math.hypot(auto.path[0].x - me.x, auto.path[0].z - me.z) < 0.15) auto.path.shift();
+      const wp = auto.path[0], wx = wp.x - me.x, wz = wp.z - me.z, wd = Math.hypot(wx, wz), last = auto.path.length === 1;
       const dx = auto.x - me.x, dz = auto.z - me.z, d = Math.hypot(dx, dz), k = 1 - Math.exp(-dt * 4);
-      if (d > 0.01) { const st = Math.min(d, 2.0 * dt * Math.min(1, d / 0.4 + 0.3)); me.x += dx / d * st; me.z += dz / d * st; }
+      if (wd > 0.01) { const st = Math.min(wd, 2.0 * dt * (last ? Math.min(1, wd / 0.4 + 0.3) : 1)); me.x += wx / wd * st; me.z += wz / wd * st; }
       // face where you are going until the last stretch, then turn to the machine
-      const yaw = auto.m && d < 1.0 ? auto.yaw : d > 0.2 ? Math.atan2(-dx, -dz) : auto.yaw;
+      const yaw = auto.m && d < 1.0 ? auto.yaw : wd > 0.2 ? Math.atan2(-wx, -wz) : auto.yaw;
       me.yaw += wrap(yaw - me.yaw) * k; me.pitch += ((auto.m && d < 1.0 ? auto.pitch : -0.06) - me.pitch) * k;
       collide();
       // give up if something is in the way and you have stopped getting closer
@@ -988,6 +1145,9 @@ function frame(now) {
   if (focus >= 0) { const m = MACHINES[focus], s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
+  // now and then a tube stutters, the way old neon does
+  signs.forEach(sg => { if (!sg.flicker) return; sg.next -= dt; if (sg.next < 0) { sg.off = 0.12 + Math.random() * 0.25; sg.next = 4 + Math.random() * 9; }
+    if (sg.off > 0) { sg.off -= dt; sg.m.material.opacity = Math.random() < 0.5 ? 0.25 : 1; } else sg.m.material.opacity = 1; });
   comp.render();
   requestAnimationFrame(frame);
 }
