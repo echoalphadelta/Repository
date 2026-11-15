@@ -98,6 +98,9 @@ canvas { display: block; touch-action: none; cursor: none; border: 3px solid #12
 .ini input { width: 110px; font-family: 'Rye', serif; font-size: 34px; letter-spacing: 4px; text-transform: uppercase; background: rgba(20,8,2,0.12); color: #160a02; border: none; border-bottom: 3px solid #160a02; border-radius: 0; padding: 0 0 0 4px; }
 .ini input:focus { outline: none; }
 .ini button { background: linear-gradient(#3a3430, #1c1814); color: #d8ccb4; border: none; padding: 6px 12px; font-family: 'Rye', serif; cursor: pointer; }
+.saloon { position: absolute; inset: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: center; background: #1c120a; touch-action: manipulation; }
+.saloon.hidden { display: none; }
+#sal { display: block; image-rendering: pixelated; cursor: pointer; }
 .hint { text-align: center; font-size: 13px; color: #c8a878; margin-top: 6px; }
 </style>
 </head>
@@ -115,9 +118,10 @@ canvas { display: block; touch-action: none; cursor: none; border: 3px solid #12
       <div class="side r">TIME<b id="time">0:00.0</b></div>
     </div>
     <div class="post hidden" id="post"></div>
+    <div class="saloon hidden" id="saloon"><canvas id="sal" aria-label="The Saloon: the piano player asks for a chord; tell him which one"></canvas></div>
     <div class="over hidden" id="over"></div>
   </div>
-  <div class="hint">Tap a pan to fire</div>
+  <div class="hint" id="hint">Tap a pan to fire</div>
 </div>
 
 <script>
@@ -675,6 +679,7 @@ function updateHud() {
 }
 function frame(t) {
   const dt = lastT ? Math.min(0.04, (t - lastT) / 1000) : 0; lastT = t;
+  if (Saloon.on) { Saloon.frame(dt); requestAnimationFrame(frame); return; }
   if (state === 'playing') {
     if (betweenT <= 0) { time += dt; roundT += dt; }
     if (reloadT > 0) { reloadT -= dt; if (reloadT <= 0) { shots = 0; tone(600, 0.06, 'square', 0, 0.04); } }
@@ -696,6 +701,349 @@ function frame(t) {
   if (PIXEL_LOOK) pixelate();
   requestAnimationFrame(frame);
 }
+
+
+// ---- The Saloon: the piano player's numbers game ------------------------------
+// He plays a progression in Roman numerals and stops at a blank; you tell him the chord.
+const Saloon = (() => {
+const { P, big, small, canvas } = Pix;
+const RGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const T = []; P.forEach((h, i) => { T.push(RGB(h)); if (i < P.length - 1) { const a = RGB(h), b2 = RGB(P[i + 1]); T.push(a.map((v, k) => Math.round((v + b2[k]) / 2))); } });
+const ramp = i => T[Math.max(0, Math.min(16, Math.round(i)))];
+const col = t => `rgb(${ramp(t).join(',')})`;
+const W = 195, H = 422, BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+let img = new Uint8ClampedArray(W * H * 4);
+function put(x, y, t) { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const c = ramp(t), i = (y * W + x) * 4; img[i] = c[0]; img[i + 1] = c[1]; img[i + 2] = c[2]; img[i + 3] = 255; }
+function putF(x, y, t) { const lo = Math.floor(t), f = t - lo; put(x, y, f * 16 > BAY[(y & 3) * 4 + (x & 3)] + 0.5 ? lo + 1 : lo); }
+function get(x, y) { const i = (y * W + x) * 4; return [img[i], img[i + 1], img[i + 2]]; }
+// shapes are laid into a label map, then shaded: lit on the edges facing the lamp, dark on the far edges, outlined
+function shape(ox, oy, w, h, parts, opt) {
+  opt = Object.assign({ outline: 1, lit: 2, shade: 2, sc: 1, dy: 0, inner: false }, opt || {});
+  const lab = new Int16Array(w * h).fill(-1), m = canvas(w, h), g = m.getContext('2d', { willReadFrequently: true });
+  parts.forEach((pt, k) => {
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.setTransform(opt.sc, 0, 0, opt.sc, 0, opt.dy * opt.sc); g.fillStyle = '#000'; g.beginPath();
+    if (pt.e) g.ellipse(pt.e[0], pt.e[1], pt.e[2], pt.e[3], 0, 0, Math.PI * 2);
+    else if (pt.r) g.rect(pt.r[0], pt.r[1], pt.r[2], pt.r[3]);
+    else { pt.p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
+    g.fill(); const d = g.getImageData(0, 0, w, h).data;
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] > 127) lab[i] = k;
+  });
+  const at = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? -1 : lab[y * w + x];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const k = at(x, y); if (k < 0) continue; const pt = parts[k];
+    if (opt.outline && (at(x - 1, y) < 0 || at(x + 1, y) < 0 || at(x, y - 1) < 0 || at(x, y + 1) < 0)) { put(ox + x, oy + y, opt.outline); continue; }
+    if (opt.inner) { const nb = [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)]; if (nb.some(j => j >= 0 && j < k && Math.abs(parts[j].t - pt.t) > 1.5)) { put(ox + x, oy + y, Math.max(1, Math.min(pt.t, 4) - 2)); continue; } }
+    let t = pt.t;
+    if (pt.grad) t += pt.grad * (y / h - 0.5);
+    if (at(x, y - 1) !== k || at(x - 1, y) !== k) t += pt.lit ?? opt.lit;
+    else if (at(x, y + 1) !== k || at(x + 1, y) !== k) t -= pt.shade ?? opt.shade;
+    putF(ox + x, oy + y, t);
+  }
+}
+const glow = (cx, cy, r, amt) => { for (let y = cy - r; y < cy + r; y++) for (let x = cx - r; x < cx + r; x++) { if (x < 0 || y < 0 || x >= W || y >= H) continue; const d = Math.hypot(x - cx, y - cy) / r; if (d >= 1) continue; const c = get(x, y); let best = 0, bd = 1e9; T.forEach((q, i) => { const dd = Math.abs(q[0] - c[0]) + Math.abs(q[1] - c[1]); if (dd < bd) { bd = dd; best = i; } }); putF(x, y, Math.min(16, best + amt * (1 - d) * (1 - d))); } };
+const toCanvas = () => { const c = canvas(W, H), g = c.getContext('2d'), d = g.createImageData(W, H); d.data.set(img); g.putImageData(d, 0, 0); return c; };
+
+// ---- painted once: the room and the piano, the pianist on his own, the card table
+const DY = 30, TY = 292;
+let base = null, man = null;
+function paint() {
+  img = new Uint8ClampedArray(W * H * 4);
+// ---- the back wall: vertical boards with grain, a dado rail, panelled wainscot
+let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+for (let x = 0; x < W; x += 12) { const base = 4 + (rnd() < 0.5 ? 0 : 1); for (let y = 0; y < 196; y++) for (let xx = 0; xx < 12; xx++) { let t = base; if (xx === 11) t = 1; else if (xx === 0) t = base + 1.5; put(x + xx, y, t); }
+  for (let k = 0; k < 14; k++) { const gx = x + 2 + Math.floor(rnd() * 8), gy = Math.floor(rnd() * 190), gl = 4 + Math.floor(rnd() * 14); for (let y = gy; y < gy + gl && y < 196; y++) put(gx, y, base - 1.5); }
+  if (rnd() < 0.5) { const ky = 20 + Math.floor(rnd() * 160), kx = x + 4 + Math.floor(rnd() * 4); put(kx, ky, base - 2); put(kx + 1, ky, base - 2); put(kx, ky + 1, base - 1); } }
+shape(0, 192, W, 6, [{ r: [0, 0, W, 6], t: 8 }]);
+for (let y = 198; y < 236; y++) for (let x = 0; x < W; x++) put(x, y, 3);
+for (let x = 2; x < W; x += 24) shape(x, 202, 21, 28, [{ r: [0, 0, 21, 28], t: 4, lit: -1.5, shade: -2.5 }, { r: [3, 3, 15, 22], t: 4.5 }]);
+
+// ---- the bar on the right: a back-bar with shelves of bottles and a mirror, the counter in front
+shape(118, 58, 77, 120, [{ r: [0, 0, 77, 120], t: 2 }, { r: [6, 6, 71, 50], t: 7, grad: -3 }]);   // back-bar and mirror
+for (let k = 0; k < 7; k++) { const x = 126 + k * 9; for (let y = 64; y < 104; y++) if ((y + k * 3) % 13 === 0) put(x + 3, y, 9); }   // streaks in the mirror
+[112, 138, 162].forEach((y, row) => { shape(118, y, 77, 5, [{ r: [0, 0, 77, 5], t: 7 }]);
+  for (let x = 122 + row * 2; x < 190; x += 7 + (row % 2)) { const hgt = 13 + ((x * 7 + row * 5) % 7), kind = (x + row) % 3;
+    shape(x, y - hgt, 6, hgt + 1, kind === 0 ? [{ r: [1, 0, 4, hgt], t: 3 }, { r: [0, 5, 6, hgt - 5], t: 3 }] : kind === 1 ? [{ r: [2, 0, 2, 4], t: 9 }, { e: [3, 4 + (hgt - 4) / 2, 3, (hgt - 4) / 2], t: 6 }] : [{ r: [1, 0, 4, hgt], t: 10 }, { r: [0, 4, 6, hgt - 4], t: 8 }], { lit: 3 }); } });
+shape(108, 178, 87, 58, [{ r: [0, 0, 87, 7], t: 8 }, { r: [3, 7, 84, 51], t: 4 }]);   // counter top and front
+for (let x = 114; x < 195; x += 20) shape(x, 190, 16, 40, [{ r: [0, 0, 16, 40], t: 4, lit: -1.5, shade: -2.5 }, { r: [3, 4, 10, 32], t: 5 }]);
+shape(112, 232, 83, 3, [{ r: [0, 0, 83, 3], t: 9 }]);   // brass foot rail
+// glasses on the counter
+[[140, 168], [150, 170], [176, 167]].forEach(([x, y]) => shape(x, y, 6, 10, [{ r: [0, 0, 6, 10], t: 11 }, { r: [1, 5, 4, 5], t: 9 }], { lit: 3 }));
+
+// ---- wall lamps: brass bracket, glass chimney, flame, and the light they throw
+[[182, 126]].forEach(([x, y]) => { shape(x - 1, y + 12, 4, 10, [{ r: [0, 0, 4, 10], t: 7 }]); shape(x - 5, y + 9, 12, 5, [{ e: [6, 2.5, 6, 2.5], t: 8 }]); shape(x - 3, y - 4, 8, 14, [{ e: [4, 8, 4, 6], t: 15 }, { r: [2, 0, 4, 5], t: 13 }], { lit: 1, shade: 1 }); glow(x + 1, y + 4, 46, 3.2); put(x + 1, y + 3, 16); put(x + 1, y + 4, 16); });
+glow(157, 140, 40, 1.4);
+
+// ---- floor: boards running away from you
+for (let y = 236; y < 262; y++) for (let x = 0; x < W; x++) { const row = Math.floor((y - 236) / 6.5); put(x, y, (y - 236) % 6.5 < 1 ? 2 : 5 + (row % 2) * 0.8 + ((x * 13 + row * 41) % 97 < 3 ? -2 : 0)); }
+
+// ---- the upright piano, square to you, against the wall
+const PX = 22, PY = 112, PW = 150;
+shape(PX - 4, PY, PW + 8, 7, [{ r: [0, 0, PW + 8, 7], t: 6 }, { r: [2, 5, PW + 4, 2], t: 3 }]);                 // lid with a moulded edge
+shape(PX, PY + 7, PW, 116, [
+  { r: [0, 0, PW, 116], t: 3, grad: -1.5 },                                                                  // case
+  { r: [6, 4, PW - 12, 36], t: 2 },                                                                            // the fretwork panel
+  { r: [-3, 48, PW + 6, 10], t: 4 },                                                                           // keybed
+  { r: [8, 64, PW - 16, 38], t: 3.5 }, { r: [12, 68, (PW - 30) / 2, 30], t: 4.5 }, { r: [PW / 2 + 3, 68, (PW - 30) / 2, 30], t: 4.5 },   // lower panels
+]);
+// fretwork: a row of carved arches with light behind them
+const NA = Math.floor((PW - 20) / 14), AX = PX + (PW - (NA * 14 - 3)) / 2;
+for (let k = 0; k < NA; k++) { const ax = AX + k * 14, ay = PY + 14; shape(ax, ay, 11, 26, [{ p: [[0, 26], [0, 6], [5.5, 0], [11, 6], [11, 26]], t: 6.5, lit: 2, shade: 1 }], { outline: 1 }); }
+shape(PX + 6, PY + 9, PW - 12, 4, [{ r: [0, 0, PW - 12, 4], t: 5 }]);
+// the music desk and the sheet on it
+shape(PX + 24, PY + 42, PW - 48, 6, [{ r: [0, 0, PW - 48, 6], t: 5 }]);
+shape(PX + PW / 2 - 25, PY + 22, 50, 22, [{ p: [[1, 0], [49, 0], [50, 22], [0, 22]], t: 15, lit: 1 }]);
+for (let k = 0; k < 4; k++) for (let x = PX + PW / 2 - 21; x < PX + PW / 2 + 21; x++) put(x, PY + 26 + k * 4, 11);
+[[-15, 27], [-7, 31], [1, 25], [9, 29], [16, 33]].forEach(([x, y]) => { const xx = PX + PW / 2 + x; put(xx, PY + y, 2); put(xx + 1, PY + y, 2); for (let k = 1; k < 5; k++) put(xx + 2, PY + y - k, 2); });
+// keys, seen past his elbows
+// a real keyboard, seen across at a low angle from behind him: a thin strip of ivory tops,
+// the black keys standing up at the back in twos and threes, and the front faces of the white keys below.
+// Like a real piano it starts on an A and ends on a C, boxed in by a wooden cheek block at each end.
+{ const NK = 45, KW = 3, CHEEK = (PW + 6 - NK * KW) / 2, KX0 = PX - 3 + CHEEK, KX1 = KX0 + NK * KW, KY = PY + 58;
+  for (let x = KX0; x < KX1; x++) {
+    put(x, KY - 2, 1); put(x, KY - 1, 2);
+    put(x, KY, 15); put(x, KY + 1, 16);
+    put(x, KY + 2, 13); put(x, KY + 3, 12); put(x, KY + 4, 11);
+    put(x, KY + 5, 2); put(x, KY + 6, 1);
+  }
+  for (let k = 0; k < NK; k++) {
+    const x = KX0 + k * KW, note = (k + 5) % 7;                                 // first key is A (5); C is 0
+    if (k > 0) { put(x, KY + 1, 13); for (let y = KY + 2; y < KY + 5; y++) put(x, y, 7); }
+    if (k > 0 && [1, 2, 4, 5, 6].includes(note)) {                             // black keys sit on the cracks before D, E, G, A, B
+      for (let y = KY - 2; y <= KY; y++) { put(x - 1, y, 0); put(x, y, 0); }
+      put(x - 1, KY - 2, 3); put(x, KY - 2, 2); put(x - 1, KY, 2); put(x, KY, 1);
+    }
+  }
+  // cheek blocks: chunky wooden ends, rounded at the front, a little higher than the keys
+  [[KX0 - CHEEK, false], [KX1, true]].forEach(([x, right]) => shape(Math.round(x), KY - 5, Math.round(CHEEK), 12, [
+    { p: right ? [[0, 2], [CHEEK - 4, 0], [CHEEK, 3], [CHEEK, 12], [0, 12]] : [[0, 3], [4, 0], [CHEEK, 2], [CHEEK, 12], [0, 12]], t: 5.5, lit: 2.5, shade: 2 },
+    { r: [2, 7, CHEEK - 4, 1], t: 4 },
+  ]));
+}
+// turned legs and toe blocks, and the pedals
+[PX + 2, PX + PW - 9].forEach(x => shape(x, PY + 64, 7, 59, [{ p: [[2, 0], [5, 0], [7, 8], [5, 16], [6, 50], [7, 59], [0, 59], [1, 50], [2, 16], [0, 8]], t: 5, lit: 2.5 }]));
+[PX + PW / 2 - 9, PX + PW / 2 - 2, PX + PW / 2 + 5].forEach(x => shape(x, PY + 112, 4, 7, [{ r: [0, 0, 4, 7], t: 10 }], { lit: 3 }));
+// candle sconces on swing arms, one each side, lit
+[[PX - 6, 1], [PX + PW + 6, -1]].forEach(([x, d]) => {
+  shape(Math.min(x, x + d * 10) - 1, PY + 40, 12, 3, [{ r: [0, 0, 12, 3], t: 9 }], { lit: 3 });
+  shape(x - 4, PY + 36, 9, 5, [{ e: [4.5, 2.5, 4.5, 2.5], t: 9 }], { lit: 3 });
+  shape(x - 2, PY + 22, 4, 15, [{ r: [0, 0, 4, 15], t: 14 }], { lit: 2 });
+  glow(x, PY + 18, 30, 3.4); put(x, PY + 19, 16); put(x, PY + 20, 16); put(x - 1, PY + 20, 15); put(x, PY + 18, 15);
+});
+// a beer mug left on the lid
+shape(PX + PW - 30, PY - 12, 12, 13, [{ r: [0, 3, 9, 10], t: 9 }, { r: [0, 0, 9, 4], t: 15 }, { e: [10, 7, 2.5, 3], t: 8 }], { lit: 3 });
+
+
+  const roomC = toCanvas();
+  img = new Uint8ClampedArray(W * H * 4);
+const SC = 1.12, ox = 61, oy = 120;
+shape(ox, oy, Math.ceil(64 * SC), Math.ceil(104 * SC), [
+  // stool: round seat on three legs, a stretcher
+  { r: [13, 76, 3, 20], t: 4 }, { r: [47, 76, 3, 20], t: 4 }, { r: [30, 78, 3, 18], t: 3 }, { r: [14, 86, 36, 2], t: 3.5 },
+  { e: [32, 74, 21, 4.5], t: 7 },
+  // boots tucked under the stool
+  { e: [22, 92, 5, 3.5], t: 1.5 }, { e: [42, 92, 5, 3.5], t: 1.5 },
+  // seat of the trousers on the stool
+  { p: [[14, 58], [50, 58], [53, 72], [11, 72]], t: 2.5 },
+  // arms: shirt sleeves out to the elbows, then in toward the keys; garters on the upper arms
+  { p: [[14, 30], [20, 32], [11, 46], [5, 47], [4, 43]], t: 13 }, { p: [[4, 42], [10, 45], [19, 40], [17, 36]], t: 12.5 },
+  { p: [[50, 30], [44, 32], [53, 46], [59, 47], [60, 43]], t: 13 }, { p: [[60, 42], [54, 45], [45, 40], [47, 36]], t: 12.5 },
+  { p: [[9, 38], [15, 40], [14, 43], [8, 41]], t: 4 }, { p: [[55, 38], [49, 40], [50, 43], [56, 41]], t: 4 },
+  // back of the shirt at the shoulders, then the waistcoat back with its strap and buckle
+  { p: [[16, 26], [48, 26], [52, 34], [12, 34]], t: 13.5 },
+  { p: [[18, 27], [46, 27], [48, 60], [16, 60]], t: 3.5, grad: 2 },
+  { r: [20, 50, 24, 2], t: 6 }, { r: [30, 49, 4, 4], t: 9 },
+  // collar and neck
+  { r: [26, 20, 12, 8], t: 10.5 }, { p: [[23, 24], [41, 24], [40, 28], [24, 28]], t: 15 },
+  // back of the head, hair, an ear, and the tip of his moustache as he looks round
+  { e: [32, 13, 9, 9.5], t: 3 }, { e: [41, 14, 2.5, 3.5], t: 10.5 }, { p: [[40, 18], [47, 17], [45, 20], [40, 20]], t: 5 },
+  // bowler: brim, crown, band
+  { e: [32, 0, 10, 10], t: 2.8 }, { r: [22, 3, 20, 3], t: 5.5 }, { p: [[15, 6], [20, 7], [44, 7], [49, 6], [47, 9.5], [17, 9.5]], t: 2 },
+], { sc: SC, dy: 10, inner: true, lit: 2, shade: 2 });
+
+  man = toCanvas();
+  img = new Uint8ClampedArray(W * H * 4);
+for (let y = TY; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.hypot((x - W / 2) / W, (y - 380) / 130); putF(x, y, 3.2 - d * 1.6 + ((x * 7 + y * 13) % 29 === 0 ? -0.8 : 0)); }
+  const feltC = toCanvas();
+  base = canvas(W, H); const cg = base.getContext('2d');
+  cg.fillStyle = col(1); cg.fillRect(0, 0, W, H); cg.drawImage(roomC, 0, DY);
+  cg.drawImage(feltC, 0, TY, W, H - TY, 0, TY, W, H - TY);
+  for (let y = 0; y < 14; y++) { const t = 4 + Math.sin(y / 13 * Math.PI) * 4 - (y > 10 ? 2 : 0); cg.fillStyle = col(t); cg.fillRect(0, TY - 6 + y, W, 1); }
+  cg.fillStyle = col(1); cg.fillRect(0, TY + 8, W, 1);
+  [[150, 412, 4], [138, 414, 2]].forEach(([x, y, n]) => { for (let k = 0; k < n; k++) { const yy = y - k * 3; cg.fillStyle = col(1); cg.fillRect(x - 6, yy - 2, 13, 5); cg.fillStyle = col(k % 2 ? 14 : 10); cg.fillRect(x - 5, yy - 2, 11, 3); cg.fillStyle = col(k % 2 ? 11 : 7); cg.fillRect(x - 5, yy + 1, 11, 1); } });
+  cg.fillStyle = col(1); cg.fillRect(168, 398, 16, 20); cg.fillStyle = col(12); cg.fillRect(169, 399, 14, 18); cg.fillStyle = col(7); cg.fillRect(169, 408, 14, 9); cg.fillStyle = col(16); cg.fillRect(170, 400, 2, 13);
+}
+// ---- music: keys spelled properly, chords by scale degree ----------------------
+const LET = 'CDEFGAB', NAT = [0, 2, 4, 5, 7, 9, 11], STEP = [0, 2, 4, 5, 7, 9, 11];
+const NUM = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'], QUAL = ['major', 'minor', 'minor', 'major', 'major', 'minor', 'dim.'];
+const SHORT = { major: '', minor: 'm', 'dim.': '°' };
+const pcOfName = n => (NAT[LET.indexOf(n[0])] + (n.includes('#') ? 1 : n.includes('b') ? -1 : 0) + 12) % 12;
+function spell(key, d) { const li = LET.indexOf(key[0]), letter = LET[(li + d) % 7], want = (pcOfName(key) + STEP[d]) % 12, acc = (want - NAT[LET.indexOf(letter)] + 12) % 12; return letter + ({ 0: '', 1: '#', 2: '##', 11: 'b', 10: 'bb' }[acc]); }
+const chordOf = (key, d) => ({ root: spell(key, d), kind: QUAL[d], d });
+const KEYS = [['C', 'G', 'D', 'F'], ['A', 'E', 'Bb', 'Eb'], ['Ab', 'B', 'Db', 'F#']];
+const PROGS = [[0, 3, 4, 0], [0, 4, 5, 3], [0, 5, 3, 4], [1, 4, 0, 5], [0, 5, 1, 4], [0, 3, 1, 4], [5, 3, 0, 4], [0, 2, 5, 3], [0, 4, 5, 2], [3, 6, 2, 5], [0, 3, 6, 2]];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const SONGS = 10, PENALTY = 3;
+function makeSong(n) {
+  const keys = n < 3 ? KEYS[0] : n < 6 ? KEYS[0].concat(KEYS[1]) : n < 8 ? KEYS[1].concat(KEYS[2]) : KEYS.flat();
+  // never the I: he knows his home chord. Easy songs ask the IV or V, then the minors, then anything
+  const want = n < 3 ? [3, 4] : n < 6 ? [1, 2, 5] : n < 8 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4, 5, 6];
+  const two = n >= 8;
+  for (let tries = 0; tries < 200; tries++) {
+    const key = pick(keys), prog = pick(PROGS), pos = [];
+    prog.forEach((d, i) => { if (want.includes(d) && !prog.slice(0, i).includes(d)) pos.push(i); });
+    if (!pos.length || (two && pos.length < 2)) continue;
+    pos.sort(() => Math.random() - 0.5);
+    const blanks = pos.slice(0, two ? 2 : 1).sort((a, b) => a - b);
+    return { key, prog, blanks, filled: [] };
+  }
+  return { key: 'C', prog: [0, 3, 4, 0], blanks: [2], filled: [] };
+}
+// four cards: the right chord and the usual slips (wrong quality, the chord either side)
+function handFor(key, d) {
+  const right = chordOf(key, d), out = [right], same = (a, b) => a.root === b.root && a.kind === b.kind;
+  const add = c => { if (!out.some(o => same(o, c))) out.push(c); };
+  add({ root: right.root, kind: right.kind === 'major' ? 'minor' : 'major', d: -1 });
+  [1, 6, 2, 5].forEach(k => { if (out.length < 4) add(chordOf(key, (d + k) % 7)); });
+  return out.sort(() => Math.random() - 0.5).map(c => ({ ...c, right: same(c, right), gone: false }));
+}
+
+// ---- sound: a honky-tonk upright, a little out of tune ---------------------------------
+function chordPcs(key, d) { const r = (pcOfName(key) + STEP[d]) % 12, q = QUAL[d]; return [r, (r + (q === 'major' ? 4 : 3)) % 12, (r + (q === 'dim.' ? 6 : 7)) % 12]; }
+function strike(pcs, vol) {
+  if (!soundOn) return;
+  const f = (pc, oct) => 261.63 * Math.pow(2, (pc + (oct - 4) * 12) / 12);
+  tone(f(pcs[0], 3), 1.1, 'triangle', 0, (vol || 1) * 0.05);
+  pcs.forEach((pc, i) => { const hz = f(pc, 4 + (pc < pcs[0] ? 1 : 0)); tone(hz, 0.9, 'triangle', 0, (vol || 1) * 0.03, 0.01 * i); tone(hz * 1.004, 0.7, 'sine', 0, (vol || 1) * 0.015, 0.01 * i); });
+}
+function sour() { if (!soundOn) return; [0, 1, 6].forEach((k, i) => tone(196 * Math.pow(2, k / 12), 0.5, 'sawtooth', 0, 0.018, i * 0.02)); tone(98, 0.6, 'triangle', 60, 0.05); }
+
+// ---- the round ----------------------------------------------------------------
+let cv = null, cx = null, on = false, song = null, songN = 0, ask = 0, hand = [], phase = 'play', phaseT = 0, playAt = 0, playing = -1, time = 0, penalties = 0, wrongs = 0, line = null, pressed = -1, bob = 0;
+const LINES_ASK = [n => [`What's that ${n},`, 'partner?'], (n, k) => [`Quick now, the ${n}`, `in ${k}?`], (n, k) => ['Help me out:', `the ${n} in ${k}?`]];
+const LINES_RIGHT = [['Much obliged!', ''], ["That's the one.", ''], ['Sweet as pie.', ''], ['Now we\'re cookin\'.', '']];
+function lineFor(kind) {
+  const d = song.prog[song.blanks[ask]], n = NUM[d];
+  if (kind === 'ask') return pick(LINES_ASK)(n, song.key);
+  if (kind === 'right') return pick(LINES_RIGHT);
+  return ['Not that one.', `${n} is ${QUAL[d] === 'dim.' ? 'diminished' : QUAL[d]}.`];
+}
+function start() {
+  if (!base) paint();
+  on = true; songN = 0; time = 0; penalties = 0; wrongs = 0;
+  document.getElementById('saloon').className = 'saloon'; fitCanvas(); nextSong();
+}
+function nextSong() { song = makeSong(songN); ask = 0; beginPlay(); }
+function beginPlay() { phase = 'play'; playing = -1; playAt = 0.25; line = null; hand = []; pressed = -1; }
+// he plays from the top (or from the last blank you filled) up to the next blank
+function stepPlay(dt) {
+  playAt -= dt; if (playAt > 0) return;
+  playing++;
+  const stopAt = ask < song.blanks.length ? song.blanks[ask] : song.prog.length;
+  if (playing >= stopAt) {
+    if (ask < song.blanks.length) { phase = 'ask'; line = lineFor('ask'); hand = handFor(song.key, song.prog[song.blanks[ask]]); playing = -1; }
+    else { phase = 'done'; phaseT = 1.1; playing = -1; }
+    return;
+  }
+  strike(chordPcs(song.key, song.prog[playing]), 1); playAt = 0.55; bob = 0.15;
+}
+function choose(i) {
+  if (phase !== 'ask' || !hand[i] || hand[i].gone) return;
+  const c = hand[i];
+  if (c.right) {
+    song.filled.push(song.blanks[ask]); ask++; line = lineFor('right'); hand = [];
+    phase = 'play'; playing = song.blanks[ask - 1] - 1; playAt = 0.3;
+    if (ask >= song.blanks.length) playing = -1;          // the last blank filled: play the whole song through
+  } else {
+    c.gone = true; penalties += PENALTY; wrongs++; sour(); line = lineFor('wrong'); phase = 'wrong'; phaseT = 1.4;
+  }
+}
+function frame(dt) {
+  if (!on) return;
+  if (phase === 'ask' || phase === 'play' || phase === 'wrong' || phase === 'done') time += dt;
+  bob = Math.max(0, bob - dt);
+  if (phase === 'play') stepPlay(dt);
+  else if (phase === 'wrong') { phaseT -= dt; if (phaseT <= 0) { phase = 'ask'; line = lineFor('ask'); } }
+  else if (phase === 'done') { phaseT -= dt; if (phaseT <= 0) { songN++; if (songN >= SONGS) return end(); nextSong(); } }
+  render();
+}
+function end() {
+  on = false; phase = 'over'; document.getElementById('saloon').className = 'saloon hidden';
+  saloonFinished(time + penalties, wrongs);
+}
+
+// ---- drawing a frame ------------------------------------------------------------
+function render() {
+  const g = cx; g.imageSmoothingEnabled = false;
+  g.drawImage(base, 0, 0);
+  // the pianist bobs a pixel as he strikes each chord; candles flicker
+  g.drawImage(man, 0, DY + (bob > 0.07 ? 1 : 0));
+  // the sheet of music pinned to the wall
+  g.fillStyle = col(1); g.fillRect(12, 14, W - 24, 66); g.fillStyle = col(15); g.fillRect(13, 15, W - 26, 64); g.fillStyle = col(16); g.fillRect(13, 15, W - 26, 1); g.fillStyle = col(12); g.fillRect(13, 77, W - 26, 2);
+  for (let k = 0; k < 5; k++) { g.fillStyle = col(12); g.fillRect(18, 40 + k * 5, W - 36, 1); }
+  [[20, 15], [W - 22, 15]].forEach(([x, y]) => { g.fillStyle = col(2); g.fillRect(x - 1, y - 2, 3, 3); g.fillStyle = col(8); g.fillRect(x - 1, y - 2, 1, 1); });
+  g.fillStyle = col(1); g.fillRect(0, 0, W, 11);
+  small(g, `SONG ${Math.min(songN + 1, SONGS)} OF ${SONGS}`, 36, 3, P[6]); small(g, fmt(time + penalties), W - 18, 3, P[6]);
+  big(g, `Key of ${song.key}`, W / 2, 32, 12, P[1], null);
+  const cols = [38, 78, 118, 158], cur = ask < song.blanks.length ? song.blanks[ask] : -1;
+  song.prog.forEach((d, i) => {
+    const blank = song.blanks.includes(i) && !song.filled.includes(i), asking = i === cur && (phase === 'ask' || phase === 'wrong');
+    if (blank) { g.fillStyle = col(2); g.fillRect(cols[i] - 16, 36, 32, 38); g.fillStyle = col(asking ? 13 : 14); g.fillRect(cols[i] - 15, 37, 30, 36); g.fillStyle = col(2); g.fillRect(cols[i] - 7, 70, 14, 1); }
+    if (i === playing) { g.fillStyle = col(10); g.fillRect(cols[i] - 14, 36, 28, 2); }
+    big(g, NUM[d], cols[i], 59, NUM[d].length > 3 ? 15 : 19, P[0], null);
+    if (!blank) { const c = chordOf(song.key, d); big(g, c.root + SHORT[c.kind], cols[i], 73, 9, P[3], null); }
+  });
+  // his line
+  if (line) {
+    const bx = 4, by = 100, bw = 112, bh = line[1] ? 32 : 20;
+    g.fillStyle = col(1); g.fillRect(bx, by, bw, bh); g.fillStyle = col(16); g.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+    for (let k = 0; k < 8; k++) { g.fillStyle = col(1); g.fillRect(bx + 82 + k, by + bh - 1 + k, 8 - k * 0.6, 1); g.fillStyle = col(16); g.fillRect(bx + 83 + k, by + bh - 1 + k, 6 - k * 0.6, 1); }
+    big(g, line[0], bx + bw / 2, by + 14, 10, P[0], null); if (line[1]) big(g, line[1], bx + bw / 2, by + 27, 10, P[0], null);
+  }
+  // your side of the conversation: a framed dialogue box with the replies you could give
+  if (hand.length) {
+    const x0 = BOX.x, y0 = BOX.y, w = BOX.w, h = BOX.h;
+    g.fillStyle = col(0); g.fillRect(x0 + 3, y0 + 4, w, h);
+    g.fillStyle = col(1); g.fillRect(x0, y0, w, h); g.fillStyle = col(7); g.fillRect(x0 + 1, y0 + 1, w - 2, h - 2); g.fillStyle = col(4); g.fillRect(x0 + 2, y0 + 2, w - 4, h - 4);
+    g.fillStyle = col(15); g.fillRect(x0 + 4, y0 + 4, w - 8, h - 8); g.fillStyle = col(16); g.fillRect(x0 + 4, y0 + 4, w - 8, 1); g.fillStyle = col(13); g.fillRect(x0 + 4, y0 + h - 6, w - 8, 2);
+    [[x0 + 2, y0 + 2], [x0 + w - 4, y0 + 2], [x0 + 2, y0 + h - 4], [x0 + w - 4, y0 + h - 4]].forEach(([x, y]) => { g.fillStyle = col(9); g.fillRect(x, y, 2, 2); });
+    small(g, 'YOU SAY', x0 + 26, y0 + 9, P[3]);
+    hand.forEach((c, i) => {
+      const ly = y0 + BOX.top + i * BOX.row, word = c.kind === 'dim.' ? 'diminished' : c.kind, text = `That's ${c.root} ${word}.`;
+      if (i === pressed && !c.gone) { g.fillStyle = col(13); g.fillRect(x0 + 6, ly - 15, w - 12, BOX.row - 2); }
+      // big() centres its text, so centre each reply on half its own width to line them up on the left
+      g.font = '12px Rye, serif'; const tw = g.measureText(text).width;
+      big(g, text, x0 + 26 + tw / 2, ly, 12, c.gone ? P[5] : P[0], null);
+      if (c.gone) { g.fillStyle = col(2); g.fillRect(x0 + 26, ly - 5, Math.round(tw), 1); }
+      if (i === pressed && !c.gone) pointer(g, x0 + 10, ly - 10);
+    });
+  }
+
+}
+const BOX = { x: 8, y: 300, w: 179, h: 114, top: 34, row: 22 };
+// a pointing hand in a white glove, eight pixels across
+function pointer(g, x, y) {
+  const M = ['........', '..##....', '.#00####', '#00#0#0#', '#0000000', '#000000#', '.#0000#.', '..####..'];
+  M.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === '.') return; g.fillStyle = col(ch === '#' ? 1 : 16); g.fillRect(x + i, y + j, 1, 1); }));
+}
+// the canvas keeps its 195 x 422 art pixels and is scaled up whole to fit the stage
+function fitCanvas() {
+  const st = document.getElementById('saloon'), w = st.clientWidth, h = st.clientHeight, k = Math.min(w / W, h / H);
+  cv.style.width = Math.floor(W * k) + 'px'; cv.style.height = Math.floor(H * k) + 'px';
+}
+function cardAt(clientX, clientY) {
+  const r = cv.getBoundingClientRect(), x = (clientX - r.left) / r.width * W, y = (clientY - r.top) / r.height * H;
+  if (x < BOX.x || x > BOX.x + BOX.w) return -1;
+  const i = Math.floor((y - (BOX.y + BOX.top - 16)) / BOX.row);
+  return i >= 0 && i < hand.length ? i : -1;
+}
+function init() {
+  cv = document.getElementById('sal'); cv.width = W; cv.height = H; cx = cv.getContext('2d');
+  cv.addEventListener('pointerdown', e => { pressed = cardAt(e.clientX, e.clientY); });
+  cv.addEventListener('pointerup', e => { const i = cardAt(e.clientX, e.clientY); if (i >= 0 && i === pressed) choose(i); pressed = -1; });
+  window.addEventListener('resize', () => { if (on) fitCanvas(); });
+}
+return { init, start, frame, get on() { return on; }, get phase() { return phase; }, get hand() { return hand; }, choose, get song() { return song; }, get songN() { return songN; } };
+})();
 
 // ---- Screens -------------------------------------------------------------
 function overlay(html) { const o = document.getElementById('over'); o.className = 'over'; o.innerHTML = html; document.getElementById('hud').style.visibility = 'hidden'; }
@@ -723,16 +1071,17 @@ function trailArt(el) {
     return scale(c, 2).toDataURL(); } };
 }
 function showStart() {
-  state = 'start';
+  state = 'start'; document.getElementById('hint').textContent = 'Pick a trail';
   document.getElementById('over').className = 'over hidden';
   document.getElementById('hud').style.visibility = 'hidden';
-  const best = (times().range || [])[0];
+  const best = (times().range || [])[0], bestS = (times().saloon || [])[0];
   const el = document.getElementById('post'); el.className = 'post pix';
   const draw = () => {
     const art = trailArt(el);
     el.innerHTML = `<img class="title" src="${art.title}" alt="Western World"><div class="pole">${PLACES.map(([id, name], i) => {
-      const open = id === 'range', sub = open ? (best ? `best ${fmt(best.s)} ${best.i}` : '') : 'coming soon';
-      return `<button class="sign ${i % 2 ? 'l' : 'r'}${open ? '' : ' shut'}" ${open ? `onclick="startStage()"` : 'aria-disabled="true"'} aria-label="${name}"><img src="${art.sign(name, sub, i % 2 ? -1 : 1, 101 + i * 17, !open)}" alt=""></button>`;
+      const open = id === 'range' || id === 'saloon', b = id === 'range' ? best : bestS, sub = open ? (b ? `best ${fmt(b.s)} ${b.i}` : '') : 'coming soon';
+      const go = id === 'range' ? 'startStage()' : 'startSaloon()';
+      return `<button class="sign ${i % 2 ? 'l' : 'r'}${open ? '' : ' shut'}" ${open ? `onclick="${go}"` : 'aria-disabled="true"'} aria-label="${name}"><img src="${art.sign(name, sub, i % 2 ? -1 : 1, 101 + i * 17, !open)}" alt=""></button>`;
     }).join('')}</div>`;
   };
   (document.fonts ? document.fonts.load('22px Rye').catch(() => {}) : Promise.resolve()).then(draw);
@@ -740,8 +1089,39 @@ function showStart() {
 function startStage() {
   layout();
   round = 0; time = 0; penalties = 0; hits = 0; misses = 0; shots = 0; reloadT = 0; betweenT = 0; holes = []; fx = []; words = []; smoke = [];
-  newRound(); document.getElementById('post').className = 'post hidden'; hideOverlay(); state = 'playing';
+  newRound(); document.getElementById('post').className = 'post hidden'; hideOverlay(); state = 'playing'; document.getElementById('hint').textContent = 'Tap a pan to fire';
   tone(220, 0.15, 'triangle', 0, 0.05); tone(330, 0.2, 'triangle', 0, 0.05, 0.15);
+}
+// ---- The Saloon's door ---------------------------------------------------
+function startSaloon() {
+  document.getElementById('post').className = 'post hidden'; document.getElementById('over').className = 'over hidden'; document.getElementById('hud').style.visibility = 'hidden';
+  document.getElementById('hint').textContent = 'Tell him the chord';
+  state = 'saloon'; Saloon.start();
+}
+let saloonTime = 0, saloonWrongs = 0;
+function saloonFinished(total, wrongs) {
+  state = 'over'; saloonTime = total; saloonWrongs = wrongs;
+  const per = total / 10, rank = per < 4 ? 'Piano Man' : per < 7 ? 'Regular' : per < 11 ? 'Greenhorn' : null;
+  const list = times().saloon || [], qualifies = list.length < 10 || total < list[list.length - 1].s;
+  overlay(`<div class="kick">LAST ORDERS</div><h2>Time</h2><div class="big">${fmt(total)}</div>
+    ${rank ? `<div class="medal">Rated ${rank}</div>` : ''}
+    <div class="lbl">Ten songs. ${wrongs ? `${wrongs} wrong card${wrongs > 1 ? 's' : ''}, +${wrongs * 3}s.` : 'Not one wrong card.'}</div>
+    ${qualifies
+      ? `<p style="text-align:center">Sign the book, partner:</p><div class="ini"><input id="initials" maxlength="3" autocomplete="off" autocapitalize="characters" spellcheck="false"><button onclick="saloonSave()">SIGN</button></div>`
+      : `<div class="btns"><span class="go" onclick="startSaloon()">Again</span><span class="go alt" onclick="showStart()">Signpost</span></div>` + saloonTable(-1)}`);
+  setTimeout(() => { const i = document.getElementById('initials'); if (i) i.focus(); }, 50);
+}
+function saloonTable(hi) {
+  const list = times().saloon || []; if (!list.length) return '';
+  return `<div class="hs-h">FASTEST AT THE PIANO</div><div class="hs">` + list.map((e, i) => { const k = i === hi ? ' class="me"' : ''; return `<span${k}>${i + 1}</span><span${k}>${e.i}</span><span${k}>${fmt(e.s)}</span>`; }).join('') + '</div>';
+}
+function saloonSave() {
+  const raw = (document.getElementById('initials').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const entry = { i: (raw || 'AAA').slice(0, 3).padEnd(3, 'A'), s: +saloonTime.toFixed(1) };
+  const all = times(); const list = all.saloon || []; list.push(entry); list.sort((a, b) => a.s - b.s);
+  all.saloon = list.slice(0, 10); store(HS_KEY, JSON.stringify(all));
+  overlay(`<div class="kick">LAST ORDERS</div><h2>Time</h2><div class="big">${fmt(saloonTime)}</div><div class="lbl">Your name is in the book.</div>
+    <div class="btns"><span class="go" onclick="startSaloon()">Again</span><span class="go alt" onclick="showStart()">Signpost</span></div>${saloonTable(all.saloon.indexOf(entry))}`);
 }
 let finalTime = 0;
 function finish() {
@@ -771,7 +1151,7 @@ function saveTime() {
   overlay(`<div class="kick">RANGE CLOSED</div><h2>Time</h2><div class="big">${fmt(finalTime)}</div><div class="lbl">Your name is in the book.</div>
     <div class="btns"><span class="go" onclick="startStage()">Again</span><span class="go alt" onclick="showStart()">Signpost</span></div>${table(all.range.indexOf(entry))}`);
 }
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('initials')) saveTime(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('initials')) document.querySelector('.ini button').click(); });
 
 // ---- Setup ---------------------------------------------------------------
 function fit() {
@@ -817,6 +1197,7 @@ window.addEventListener('resize', fit);
 
 soundOn = load(SOUND_KEY) !== '0';
 document.getElementById('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+Saloon.init();
 fit();
 newRound();
 document.fonts && document.fonts.ready.then(fit);
