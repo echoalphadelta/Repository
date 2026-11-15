@@ -32,6 +32,9 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 .step { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom)); width: 52px; height: 64px; font-size: 18px; color: var(--ink); z-index: 3; }
 .step:active { color: var(--dim); }
 .step.l { left: 4px; } .step.r { right: 4px; }
+.sip { position: fixed; right: 10px; bottom: calc(98px + env(safe-area-inset-bottom)); font-size: 9px; padding: 10px 8px; color: var(--ink); z-index: 3; display: none; }
+.sip.on { display: block; }
+.sip:active { color: var(--dim); }
 .menu { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(calc(100% - 32px), 360px); background: rgba(0,0,0,0.88); border: 2px solid #2a2a30; padding: 14px 14px 8px; z-index: 4; display: none; }
 .menu.on { display: block; }
 .menu .mh { font-size: 10px; color: var(--dim); margin-bottom: 10px; }
@@ -68,11 +71,12 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
   <button class="coin" id="coin">INSERT COIN</button>
 </div>
 <div class="help" id="help"></div>
+<button class="sip" id="sip">DRINK</button>
 <div class="menu" id="menu">
   <div class="mh">WHAT'LL IT BE?</div>
   <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL, LIME AND A CHERRY</span></button>
   <button data-d="alpha"><b style="color:#ff4a4a">ALPHA</b><span>SPARKLING RED</span></button>
-  <button data-d="delta"><b style="color:#4aff7a">DELTA</b><span>GREEN BEER, ICE COLD</span></button>
+  <button data-d="delta"><b style="color:#4aff7a">DELTA</b><span>GREEN BREW, ICE COLD</span></button>
   <button class="no" id="nope">NOTHING, THANKS</button>
 </div>
 <button class="step l" id="prev" aria-label="Previous machine">&lt;</button><button class="step r" id="next" aria-label="Next machine">&gt;</button>
@@ -167,7 +171,7 @@ function cabinet(o) {
   geo.rotateY(-Math.PI / 2);                                      // shape x -> forward z; extrusion -> -x
   const tmold = mat({ color: o.tmold, roughness: 0.55, metalness: o.tmoldMetal || 0 });
   [-1, 1].forEach(side => {
-    const art = o.sideArt.clone(); art.needsUpdate = true; art.wrapS = art.wrapT = THREE.ClampToEdgeWrapping;
+    const own = side < 0 && o.sideArtL, art = (own ? o.sideArtL : o.sideArt).clone(); art.needsUpdate = true; art.wrapS = art.wrapT = THREE.ClampToEdgeWrapping;
     // map the art across the panel; mirror it on the right so it reads the right way round from outside
     art.repeat.set((side > 0 ? -1 : 1) / SPAN[0], 1 / SPAN[1]); art.offset.set(side > 0 ? 1 : 0, 0);
     const m = new THREE.Mesh(geo, [mat({ map: art, roughness: 0.55 }), tmold]); m.castShadow = m.receiveShadow = true;
@@ -292,7 +296,13 @@ function pill(cp, x, z) { const p = new THREE.Mesh(new THREE.CapsuleGeometry(0.0
 function sideCanvas() { return canvas(512, 1184); }
 const SX = z => z / SPAN[0] * 512, SY = y => 1184 - y / SPAN[1] * 1184;
 // the panel you see from the aisle is the right-hand one, where the back of the cabinet is on the right of the art
-const RX = z => 512 - SX(z);
+const RX = z => SIDE === 'R' ? 512 - SX(z) : SX(z);
+// a machine can have a painting for each side, each laid out for its own panel, so nothing falls off the front edge:
+// on the left-hand panel the back of the cabinet is on the left of the art, on the right-hand panel it is on the right
+let SIDE = 'R';
+const bothSides = fn => { SIDE = 'R'; const sideArt = fn(); SIDE = 'L'; const sideArtL = fn(); SIDE = 'R'; return { sideArt, sideArtL }; };
+// lettering sized to fit a given width
+const fitPx = (g, s, face, px, room) => { g.font = `${px}px ${face}`; const w = g.measureText(s).width; return w > room ? Math.floor(px * room / w) : px; };
 const text = (g, s, x, y, font, fill, o = {}) => { g.save(); g.translate(x, y); if (o.rot) g.rotate(o.rot); g.font = font; g.textAlign = o.align || 'center'; g.textBaseline = o.base || 'middle'; if (o.ls) g.letterSpacing = o.ls;
   if (o.shadow) { g.fillStyle = o.shadow; g.fillText(s, o.sx ?? 6, o.sy ?? 6); } if (o.stroke) { g.strokeStyle = o.stroke; g.lineWidth = o.lw || 8; g.lineJoin = 'round'; g.strokeText(s, 0, 0); } g.fillStyle = fill; g.fillText(s, 0, 0); g.restore(); };
 
@@ -407,12 +417,13 @@ function parchment(w, h) { const c = canvas(w, h), g = c.getContext('2d'); g.fil
 function tnArt() {
   const c = parchment(512, 1184), g = c.getContext('2d');
   // the rope and pennants across the top
-  g.strokeStyle = '#6a4a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(512, SY(1.72)); g.quadraticCurveTo(RX(0.25), SY(1.6), RX(0.53), SY(1.7)); g.stroke();
-  ['#a8261f', '#23407a', '#c99a2e', '#a8261f', '#23407a'].forEach((colr, i) => { const t = (i + 0.5) / 5, x = 512 - SX(0.53) * t, y = SY(1.72) + (SY(1.6) - SY(1.72)) * 4 * t * (1 - t) * 0.9; g.fillStyle = colr; g.beginPath(); g.moveTo(x - 22, y); g.lineTo(x + 22, y); g.lineTo(x, y + 70); g.fill(); });
+  g.strokeStyle = '#6a4a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(RX(0), SY(1.72)); g.quadraticCurveTo(RX(0.25), SY(1.6), RX(0.53), SY(1.7)); g.stroke();
+  ['#a8261f', '#23407a', '#c99a2e', '#a8261f', '#23407a'].forEach((colr, i) => { const t = (i + 0.5) / 5, x = RX(0.53 * t), y = SY(1.72) + (SY(1.6) - SY(1.72)) * 4 * t * (1 - t) * 0.9; g.fillStyle = colr; g.beginPath(); g.moveTo(x - 22, y); g.lineTo(x + 22, y); g.lineTo(x, y + 70); g.fill(); });
   shield(g, RX(0.24), SY(1.22), 190, 230, '#a8261f', '#23407a');
-  text(g, 'The', RX(0.54), SY(0.64), "70px 'UnifrakturMaguntia'", '#a8261f', { align: 'left' });
-  text(g, 'Tournament', RX(0.54), SY(0.5), "66px 'UnifrakturMaguntia'", '#a8261f', { align: 'left' });
-  g.fillStyle = '#c99a2e'; g.fillRect(RX(0.56), SY(0.36), SX(0.56), 6); g.fillRect(RX(0.56), SY(0.79), SX(0.56), 6);
+  const mid = (RX(0.02) + RX(0.54)) / 2, room = SX(0.52) - 36, face = "'UnifrakturMaguntia'", px = fitPx(g, 'Tournament', face, 70, room);
+  text(g, 'The', mid, SY(0.65), `${px}px ${face}`, '#a8261f');
+  text(g, 'Tournament', mid, SY(0.51), `${px}px ${face}`, '#a8261f');
+  g.fillStyle = '#c99a2e'; g.fillRect(Math.min(RX(0), RX(0.56)), SY(0.36), SX(0.56), 6); g.fillRect(Math.min(RX(0), RX(0.56)), SY(0.79), SX(0.56), 6);
   g.fillStyle = '#5a7a3a'; g.fillRect(0, SY(0.14), 512, SY(0) - SY(0.14));
   return tex(c);
 }
@@ -470,7 +481,7 @@ function brickCanvas(w, h, rows) {
 }
 // A piece painted the way a writer does it with cans: every edge soft and speckled. Flat blue fill with pink
 // sprayed over the bottom, the outline cut in round it, white shines flicked on, a little overspray, one drip.
-function spray(g, text, x, y, size, rot, drips = 1) {
+function spray(g, text, x, y, size, rot, drips = 1, one = null) {
   const pad = size, cw = Math.ceil(size * text.length * 0.62 + pad * 2), ch = Math.ceil(size * 2.4);
   const mk = () => { const c = document.createElement('canvas'); c.width = cw; c.height = ch; const k = c.getContext('2d', { willReadFrequently: true }); k.font = `${size}px 'Sedgwick Ave Display'`; k.textAlign = 'center'; k.textBaseline = 'middle'; k.lineJoin = 'round'; return [c, k]; };
   const [fm, fk] = mk(); fk.fillText(text, cw / 2, ch / 2);
@@ -487,9 +498,12 @@ function spray(g, text, x, y, size, rot, drips = 1) {
   pk.globalCompositeOperation = 'source-in'; pk.fillStyle = '#0c0a24'; pk.fillRect(0, 0, cw, ch); pk.globalCompositeOperation = 'source-over';
   const solid = (colr, test) => { pk.save(); pk.filter = `blur(${size * 0.008}px)`; const [tc, tk] = mk(); const id = tk.createImageData(cw, ch); const rgb = [1, 3, 5].map(i => parseInt(colr.slice(i, i + 2), 16)); for (let py = 0; py < ch; py++) for (let px = 0; px < cw; px++) if (test(px, py)) { const j = (py * cw + px) * 4; id.data[j] = rgb[0]; id.data[j + 1] = rgb[1]; id.data[j + 2] = rgb[2]; id.data[j + 3] = 255; } tk.putImageData(id, 0, 0); pk.drawImage(tc, 0, 0); pk.restore(); };
   const split = top + (bot - top) * 0.58;
-  solid('#38b6ff', inF);
-  solid('#ff4fa8', (px, py) => inF(px, py) && py > split + size * 0.04);
-  can(area * 0.1, '#ff4fa8', (px, py) => inF(px, py) && py > split - size * 0.07 && py <= split + size * 0.05 && Math.random() < (py - (split - size * 0.07)) / (size * 0.12), 1, 2, 0.7, 1);
+  if (one) solid(one, inF);
+  else {
+    solid('#38b6ff', inF);
+    solid('#ff4fa8', (px, py) => inF(px, py) && py > split + size * 0.04);
+    can(area * 0.1, '#ff4fa8', (px, py) => inF(px, py) && py > split - size * 0.07 && py <= split + size * 0.05 && Math.random() < (py - (split - size * 0.07)) / (size * 0.12), 1, 2, 0.7, 1);
+  }
   can(area * 0.025, '#ffffff', (px, py) => inF(px, py) && !inF(px - size * 0.045, py - size * 0.045) && inF(px + size * 0.04, py + size * 0.04) && py < top + (bot - top) * 0.45, 0.9, 1.6, 0.75, 1);
   const glint = (gx, gy) => { pk.fillStyle = '#ffffff'; for (let i = 0; i < 260; i++) { const a = Math.floor(Math.random() * 4) * Math.PI / 2 + (Math.random() - 0.5) * 0.12, d = Math.pow(Math.random(), 1.6) * size * 0.13; pk.globalAlpha = 0.85 * (1 - d / (size * 0.13)); pk.beginPath(); pk.arc(gx + Math.cos(a) * d, gy + Math.sin(a) * d, 1 + Math.random(), 0, 7); pk.fill(); } pk.globalAlpha = 1; };
   for (let k = 0, found = 0; k < 400 && found < 2; k++) { const px = cw * (0.25 + Math.random() * 0.5), py = top + (bot - top) * 0.2; if (inF(px, py)) { glint(px, py); found++; } }
@@ -499,12 +513,19 @@ function spray(g, text, x, y, size, rot, drips = 1) {
     if (dy < 0) continue;
     const len = size * (0.28 + 0.12 * i), w2 = size * 0.03;
     pk.fillStyle = '#0c0a24'; pk.beginPath(); pk.moveTo(dx - w2 - 2, dy - 2); pk.lineTo(dx + w2 + 2, dy - 2); pk.lineTo(dx + w2 * 0.8 + 2, dy + len); pk.arc(dx, dy + len, w2 + 2, 0, Math.PI); pk.fill();
-    pk.fillStyle = '#ff4fa8'; pk.beginPath(); pk.moveTo(dx - w2, dy - 4); pk.lineTo(dx + w2, dy - 4); pk.lineTo(dx + w2 * 0.8, dy + len); pk.arc(dx, dy + len, w2, 0, Math.PI); pk.fill();
+    pk.fillStyle = one || '#ff4fa8'; pk.beginPath(); pk.moveTo(dx - w2, dy - 4); pk.lineTo(dx + w2, dy - 4); pk.lineTo(dx + w2 * 0.8, dy + len); pk.arc(dx, dy + len, w2, 0, Math.PI); pk.fill();
   }
   g.save(); g.translate(x, y); g.rotate(rot); g.drawImage(pc, -cw / 2, -ch / 2); g.restore();
 }
-function fighterArt() { const c = brickCanvas(512, 1184, 24), g = c.getContext('2d'); spray(g, 'fret', SX(0.4), SY(1.18), 150, -Math.PI / 2 + 0.12, 1); spray(g, 'fighter', SX(0.2), SY(0.72), 128, -Math.PI / 2 + 0.08, 0); return tex(c); }
-function fighterMarquee() { const c = brickCanvas(1024, 384, 8), g = c.getContext('2d'); spray(g, 'fret fighter', 512, 170, 150, -0.05, 2); return tex(c); }
+// the logo: "fret" in blue, "fighter" in pink. On the sides the words run downward, fret beside the screen
+// and fighter down the kick panel, so they read top to bottom as "fret fighter", both well inside the panel's edges.
+const FRET = '#38b6ff', FIGHTER = '#ff4fa8';
+function fighterArt() { const c = brickCanvas(512, 1184, 24), g = c.getContext('2d'); spray(g, 'fret', RX(0.2), SY(1.3), 120, Math.PI / 2 - 0.06, 1, FRET); spray(g, 'fighter', RX(0.27), SY(0.44), 104, Math.PI / 2 - 0.05, 0, FIGHTER); return tex(c); }
+function fighterMarquee() {
+  const c = brickCanvas(1024, 384, 8), g = c.getContext('2d'), size = 128; g.font = `${size}px 'Sedgwick Ave Display'`;
+  const wa = g.measureText('fret').width, wb = g.measureText('fighter').width, gap = 46, x0 = (1024 - wa - wb - gap) / 2;
+  spray(g, 'fret', x0 + wa / 2, 176, size, -0.05, 1, FRET); spray(g, 'fighter', x0 + wa + gap + wb / 2, 166, size, -0.05, 1, FIGHTER); return tex(c);
+}
 
 // Slalom: a snow slope with gates down it, the name in big pixel letters
 const SL = ['#ff2fa0', '#b6ff3a', '#2ee6ff', '#ffe23a'];
@@ -686,7 +707,7 @@ const MACHINES = [
       box(cw + 0.1, 0.06, S.toe + 0.1, marble, 0, 0.03, (S.toe + 0.1) / 2 - 0.03); box(cw + 0.04, 0.05, S.toe + 0.04, gold, 0, 0.085, S.toe / 2);
     } },
   { key: 'tn', name: 'THE TOURNAMENT', href: 'tournament.html', kind: 'upright', shape: SHAPES.castle, pale: true, screen: 'arcade/tn.webp',
-    body: '#23407a', tmold: '#c99a2e', tmoldMetal: 0.7, lip: '#c99a2e', coin: '#c99a2e', make: () => ({ sideArt: tnArt(), marquee: tnMarquee(), cpArt: tex(parchment(512, 256)) }),
+    body: '#23407a', tmold: '#c99a2e', tmoldMetal: 0.7, lip: '#c99a2e', coin: '#c99a2e', make: () => ({ ...bothSides(tnArt), marquee: tnMarquee(), cpArt: tex(parchment(512, 256)) }),
     controls(cp) { stick(cp, -0.13, 0.0, '#c99a2e'); [['#a8261f', 0.03], ['#23407a', 0.09], ['#c99a2e', 0.15]].forEach(([colr, x], i) => button(cp, x, -0.01 + (i === 1 ? -0.012 : 0), colr, 0.015)); } },
   { key: 'dt', name: 'DIRT TRACK', href: 'dirt-track.html', kind: 'upright', shape: SHAPES.wedge, screen: 'dirt-track-card.webp',
     body: '#0c0c10', tmold: '#c99400', lip: '#c99400', coin: '#ff4020', make: () => ({ sideArt: dirtArt(), marquee: dirtMarquee(), cpArt: tex(stripeCanvas(512, 256)), kickArt: tex(stripeCanvas(512, 512)) }),
@@ -697,7 +718,7 @@ const MACHINES = [
   { key: 'pl', name: 'PLANETS', href: 'planets.html', kind: 'cockpit', screen: 'arcade/pl.webp',
     body: '#10132a', inside: '#0a0b16', tmold: '#c8a840', seat: '#2a2440', fire: '#ffd24a', coin: '#f8d24a', make: () => ({ sideArt: planetsSide(), marquee: planetsMarquee(), dash: dashTex(), tread: treadTex() }) },
   { key: 'ff', name: 'FRET FIGHTER', href: 'fret-fighter.html', kind: 'upright', shape: SHAPES.wide, screen: 'fret-fighter-card.webp',
-    body: '#101012', tmold: '#b8901e', lip: '#1a1a1c', coin: '#ffcc44', make: () => ({ sideArt: fighterArt(), marquee: fighterMarquee(), cpArt: tex(brickCanvas(512, 256, 6)), kickArt: tex(brickCanvas(512, 512, 10)) }),
+    body: '#101012', tmold: '#b8901e', lip: '#1a1a1c', coin: '#ffcc44', make: () => ({ ...bothSides(fighterArt), marquee: fighterMarquee(), cpArt: tex(brickCanvas(512, 256, 6)), kickArt: tex(brickCanvas(512, 512, 10)) }),
     controls(cp) {
       // two players, a stick and six buttons each in the fighting layout
       [-1, 1].forEach(p => { const ox = p * 0.155; stick(cp, ox - 0.075, 0.005, '#f4efe4');
@@ -1007,6 +1028,8 @@ function bubbles(parent, n, y0, y1, rAt, colr, escape = 0) {
     ins.instanceMatrix.needsUpdate = true;
   };
 }
+// how full a drink is: the liquid and its bubbles sink toward the bottom of the glass, narrowing with it where the glass narrows
+const levelOf = (liq, fizz, base, xz) => k => { const on = k > 0.02; liq.visible = fizz.visible = on; if (!on) return; const w = xz(k); for (const o of [liq, fizz]) { o.scale.set(w, k, w); o.position.y = base * (1 - k); } };
 const DRINKS = {
   // Alpha: a wine glass with a deep sparkling red, beads streaming up through it
   alpha: { name: 'ALPHA', sub: 'SPARKLING RED', colr: '#ff4a4a', make() {
@@ -1014,7 +1037,8 @@ const DRINKS = {
     g.add(lathe([[0, 0], [0.036, 0], [0.036, 0.003], [0.008, 0.007], [0.0045, 0.014], [0.0045, 0.086], [0.009, 0.093], [0.022, 0.098], [0.034, 0.112], [0.042, 0.136], [0.041, 0.162], [0.036, 0.188], [0.032, 0.205]], glassMat()));
     g.add(lathe([[0, 0.095], [0.02, 0.099], [0.032, 0.113], [0.0395, 0.136], [0.039, 0.152], [0, 0.152]], liquidMat('#c80f2a', '#8a0018', 0.55)));
     const rAt = y => y < 0.1 ? 0.015 : y < 0.115 ? 0.028 : 0.036;
-    return { g, tick: bubbles(g, 34, 0.1, 0.151, rAt, '#ffe0e4', 4) };
+    const fizz = new THREE.Group(); g.add(fizz);
+    return { g, tick: bubbles(fizz, 34, 0.1, 0.151, rAt, '#ffe0e4', 4), setLevel: levelOf(g.children[1], fizz, 0.095, k => 0.62 + 0.38 * k) };
   } },
   // Echo: a cocktail glass of bright blue with a lime wheel on the rim and a cherry on a pick
   echo: { name: 'ECHO', sub: 'BLUE COCKTAIL, LIME AND A CHERRY', colr: '#4a9eff', make() {
@@ -1032,10 +1056,11 @@ const DRINKS = {
     const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, a.distanceTo(b), 8), mat({ color: '#e8d8b0', roughness: 0.6 })); pick.position.copy(mid); pick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); g.add(pick);
     const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 20, 14), new THREE.MeshPhysicalMaterial({ color: '#a0081e', roughness: 0.15, clearcoat: 1 })); cherry.position.copy(a).add(new THREE.Vector3(0.004, 0.002, 0)); g.add(cherry);
     const rAt = y => Math.max(0.006, (y - 0.105) / 0.051 * 0.044);
-    return { g, tick: bubbles(g, 10, 0.112, 0.155, rAt, '#cfe6ff') };
+    const fizz = new THREE.Group(); g.add(fizz);
+    return { g, tick: bubbles(fizz, 10, 0.112, 0.155, rAt, '#cfe6ff'), setLevel: levelOf(g.children[1], fizz, 0.105, k => k) };
   } },
-  // Delta: a green beer bottle, cold and fizzing, the beer inside glowing
-  delta: { name: 'DELTA', sub: 'GREEN BEER, ICE COLD', colr: '#4aff7a', make() {
+  // Delta: a green bottle of brew, cold and fizzing, the brew inside glowing
+  delta: { name: 'DELTA', sub: 'GREEN BREW, ICE COLD', colr: '#4aff7a', make() {
     const g = new THREE.Group();
     g.add(lathe([[0, 0], [0.029, 0], [0.031, 0.004], [0.031, 0.13], [0.029, 0.15], [0.02, 0.175], [0.0135, 0.195], [0.0115, 0.215], [0.0125, 0.224], [0.013, 0.232], [0.0105, 0.234]], glassMat('#1f9a3a', 0.5, '#0f6a26', 0.35)));
     g.add(lathe([[0, 0.005], [0.028, 0.006], [0.028, 0.13], [0.026, 0.149], [0.018, 0.172], [0, 0.172]], liquidMat('#7dff7a', '#36ff5a', 1.15, 0.7)));
@@ -1044,7 +1069,8 @@ const DRINKS = {
     k.font = "56px 'Zen Dots'"; k.textAlign = 'center'; k.textBaseline = 'middle'; k.fillText('DELTA', 128, 66); k.fillText('DELTA', 384, 66);
     const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0318, 0.0318, 0.05, 48, 1, true), mat({ map: tex(c), roughness: 0.6 })); label.position.y = 0.075; g.add(label);
     const rAt = y => y < 0.13 ? 0.026 : Math.max(0.008, 0.026 - (y - 0.13) / 0.042 * 0.018);
-    return { g, tick: bubbles(g, 70, 0.012, 0.171, rAt, '#e8ffe0', 8) };
+    const fizz = new THREE.Group(); g.add(fizz);
+    return { g, tick: bubbles(fizz, 70, 0.012, 0.171, rAt, '#e8ffe0', 8), setLevel: levelOf(g.children[1], fizz, 0.005, () => 1) };
   } },
 };
 
@@ -1211,17 +1237,26 @@ function play(i = focus) {
 }
 $('coin').onclick = e => { e.stopPropagation(); play(); };
 // ---- ordering: a menu of the three, then the bartender slides your drink down the counter to you ----
-let served = null, gaze = null, lean = 0;
+let served = null, gaze = null, lean = 0, sipOn = false;
 function openMenu() { $('menu').classList.add('on'); $('hud').classList.remove('on'); $('help').classList.add('off'); }
 function closeMenu() { if ($('menu').classList.contains('on')) { $('menu').classList.remove('on'); if (focus === 'bar') $('hud').classList.add('on'); } }
 document.querySelectorAll('#menu [data-d]').forEach(b => b.onclick = e => { e.stopPropagation(); serve(b.dataset.d); });
 $('nope').onclick = e => { e.stopPropagation(); closeMenu(); };
+// take a sip: lift the glass to your mouth, tip it, and the level drops a quarter. If it is still on the counter, pick it up first.
+function sip() {
+  if (!served || going || served.level <= 0.01 || served.sipT != null) return;
+  if (!served.held) { gaze = null; served.want = true; return; }
+  if (served.lift < 1) { served.want = true; return; }
+  served.sipT = 0; served.drunk = false;
+}
+$('sip').onclick = e => { e.stopPropagation(); sip(); };
 function serve(kind) {
   $('menu').classList.remove('on');
   if (served) { served.g.removeFromParent(); served.g.traverse(o => { o.geometry && o.geometry.dispose(); }); }
   const d = DRINKS[kind].make(), z = Math.max(BAR.z0 + 0.25, Math.min(BAR.z1 - 0.3, me.z));
   d.g.position.set(BAR.servX, BAR.top, BAR.z1 - 0.25); scene.add(d.g);
-  served = { kind, ...d, from: BAR.z1 - 0.25, to: z, t: 0 };
+  d.g.traverse(o => { o.userData.drink = true; }); d.g.rotation.order = 'YXZ';
+  served = { kind, ...d, from: BAR.z1 - 0.25, to: z, t: 0, level: 1, shown: 1, sipT: null };
   focus = null; showFocus('bar');
   // look down at it as it arrives, leaning in a little
   gaze = new THREE.Vector3(BAR.servX, BAR.top + 0.1, z); auto = null;
@@ -1232,6 +1267,7 @@ const keys = new Set();
 addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
   if (e.key === 'Enter') { play(); return; }
+  if (e.key === ' ') { sip(); return; }
   keys.add(e.key.toLowerCase());
 });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
@@ -1267,7 +1303,7 @@ function release(e) {
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ptr, cam);
   const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible);
   if (!hit) return; const i = hit.object.userData.machine;
-  if (i === undefined) { if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
+  if (i === undefined) { if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
   if (i === focus) play(i); else walkTo(MACHINES[i]);
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
@@ -1338,11 +1374,19 @@ function frame(now) {
       const walking = Math.min(1, Math.hypot(me.x - (served.lx ?? me.x), me.z - (served.lz ?? me.z)) / Math.max(dt, 1e-3) / SPEED); served.lx = me.x; served.lz = me.z;
       served.bob = (served.bob || 0) + dt * 7 * walking;
       const halfW = Math.tan(cam.fov * Math.PI / 360) * cam.aspect * 0.48;
-      const hold = new THREE.Vector3(halfW * 0.55, -0.2 + Math.sin(served.bob * 2) * 0.006 * walking, -0.48).applyQuaternion(cam.quaternion).add(cam.position);
+      // a sip: up to the mouth and tipped, the level dropping as it tips, then back down
+      if (served.want && served.lift >= 1) { served.want = false; sip(); }
+      let up = 0; if (served.sipT != null) { served.sipT += dt / 1.8; up = Math.sin(Math.PI * Math.min(1, served.sipT)); up = up * up * (3 - 2 * up);
+        if (served.sipT > 0.4 && !served.drunk) { served.drunk = true; served.level = Math.max(0, served.level - 0.25); } if (served.sipT >= 1) served.sipT = null; }
+      const rest = new THREE.Vector3(halfW * 0.55, -0.2 + Math.sin(served.bob * 2) * 0.006 * walking, -0.48), mouth = new THREE.Vector3(0.02, -0.17, -0.37);
+      const hold = rest.lerp(mouth, up).applyQuaternion(cam.quaternion).add(cam.position);
       served.lift = Math.min(1, served.lift + dt / 0.6); const e = served.lift * served.lift * (3 - 2 * served.lift);
-      served.g.position.lerpVectors(served.p0, hold, e); served.g.rotation.set(Math.sin(served.bob) * 0.03 * walking, served.r0 + wrap(me.yaw + 0.5 - served.r0) * e, 0);
+      served.g.position.lerpVectors(served.p0, hold, e); served.g.rotation.set(Math.sin(served.bob) * 0.03 * walking + up * 0.8, served.r0 + wrap(me.yaw + 0.5 * (1 - up) - served.r0) * e, 0);
     }
+    served.shown += (served.level - served.shown) * (1 - Math.exp(-dt * 5)); served.setLevel(served.shown);
     served.tick(dt);
+  }
+  { const can = !!served && served.level > 0.01 && !going && !$('menu').classList.contains('on'); if (can !== sipOn) { sipOn = can; $('sip').classList.toggle('on', can); }
   }
   signs.forEach(sg => { if (!sg.flicker) return; sg.next -= dt; if (sg.next < 0) { sg.off = 0.12 + Math.random() * 0.25; sg.next = 4 + Math.random() * 9; }
     if (sg.off > 0) { sg.off -= dt; sg.set(Math.random() < 0.5 ? 0.25 : 1); } else if (sg.off > -1) { sg.off = -1; sg.set(1); } });
