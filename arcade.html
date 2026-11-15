@@ -32,6 +32,14 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 .step { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom)); width: 52px; height: 64px; font-size: 18px; color: var(--ink); z-index: 3; }
 .step:active { color: var(--dim); }
 .step.l { left: 4px; } .step.r { right: 4px; }
+.menu { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(calc(100% - 32px), 360px); background: rgba(0,0,0,0.88); border: 2px solid #2a2a30; padding: 14px 14px 8px; z-index: 4; display: none; }
+.menu.on { display: block; }
+.menu .mh { font-size: 10px; color: var(--dim); margin-bottom: 10px; }
+.menu button { display: block; width: 100%; text-align: left; padding: 9px 0; }
+.menu button b { display: block; font-weight: 400; font-size: 14px; }
+.menu button span { display: block; font-size: 8px; color: var(--dim); margin-top: 5px; }
+.menu button:active b { opacity: 0.6; }
+.menu .no { font-size: 8px; color: var(--dim); margin-top: 4px; }
 .help { position: fixed; left: 0; right: 0; bottom: calc(96px + env(safe-area-inset-bottom)); text-align: center; font-size: 8px; line-height: 2; color: var(--dim); z-index: 1; pointer-events: none; transition: opacity .6s; }
 .help.off { opacity: 0; }
 .joy { position: fixed; width: 100px; height: 100px; margin: -50px 0 0 -50px; border: 2px solid rgba(244,241,234,0.25); border-radius: 50%; z-index: 2; pointer-events: none; display: none; }
@@ -60,6 +68,13 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
   <button class="coin" id="coin">INSERT COIN</button>
 </div>
 <div class="help" id="help"></div>
+<div class="menu" id="menu">
+  <div class="mh">WHAT'LL IT BE?</div>
+  <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL, LIME AND A CHERRY</span></button>
+  <button data-d="alpha"><b style="color:#ff4a4a">ALPHA</b><span>SPARKLING RED</span></button>
+  <button data-d="delta"><b style="color:#4aff7a">DELTA</b><span>GREEN BEER, ICE COLD</span></button>
+  <button class="no" id="nope">NOTHING, THANKS</button>
+</div>
 <button class="step l" id="prev" aria-label="Previous machine">&lt;</button><button class="step r" id="next" aria-label="Next machine">&gt;</button>
 <div class="joy" id="joy"><div class="knob" id="knob"></div></div>
 <div class="fade" id="fade"></div>
@@ -808,8 +823,13 @@ const tubeText = (s, font, x, y) => (g) => { g.font = font; g.textAlign = 'cente
 // back wall: ARCADE in pink, an underline swept in cyan beneath it
 neonSign(3.2, 0.9, '#ff3fa4', (g, w, h) => tubeText('ARCADE', "italic 800 250px 'Kanit'", w / 2, h * 0.44)(g), new THREE.Vector3(0, 2.62, RZ0 + 0.03), 0, true);
 neonSign(2.6, 0.2, '#3fe8ff', (g, w, h) => { g.beginPath(); g.moveTo(40, h * 0.62); g.bezierCurveTo(w * 0.3, h * 0.2, w * 0.7, h * 0.95, w - 40, h * 0.38); g.stroke(); }, new THREE.Vector3(0.1, 2.14, RZ0 + 0.035), 0);
-// left wall: INSERT COIN in amber, above Dirt Track and Western World
-neonSign(2.4, 0.5, '#ffb43f', (g, w, h) => tubeText('INSERT COIN', "110px 'Zen Dots'", w / 2, h / 2)(g), new THREE.Vector3(RX0 + 0.03, 2.55, -1.6), Math.PI / 2);
+// the entrance wall, bare until now: the Echo Alpha Delta sign, lit, big enough to fill it. Its black ground
+// drops out, leaving the letters and strings glowing on the wall.
+{
+  const t = new THREE.TextureLoader().load('arcade/logo.webp'); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(4.0, 4.0 * 740 / 1560), new THREE.MeshBasicMaterial({ map: t, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  logo.position.set(-0.6, 1.75, RZ1 - 0.03); logo.rotation.y = Math.PI; scene.add(logo);
+}
 // right wall: a joystick and PLAY in green and pink, above Fret Fighter and Slalom
 neonSign(0.7, 0.8, '#5cff8a', (g, w, h) => {
   g.beginPath(); g.roundRect(w * 0.12, h * 0.68, w * 0.76, h * 0.22, 18); g.stroke();
@@ -840,7 +860,7 @@ neonSign(1.3, 0.5, '#ff3fa4', (g, w, h) => tubeText('PLAY', "italic 800 150px 'K
 }
 
 // ---- seating: stools at some of the machines, and a bar along the right wall by the door ----
-const PROPS = [];
+const PROPS = []; let BAR = null;
 const prop = (g, foot, ry = 0) => { g.rotation.y = ry; scene.add(g); g.updateMatrixWorld(true); PROPS.push({ group: g, ry, foot }); return g; };
 const chromeM = mat({ color: '#d0d0d6', metalness: 1, roughness: 0.18 });
 function stool(x, z, seatH, vinyl) {
@@ -870,8 +890,11 @@ const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key ===
   add(new THREE.BoxGeometry(0.03, 0.03, len), chromeM, -D / 2 - 0.12, 0.22, 0);   // a foot rail
   // the short return at the end, closing it off to the wall
   add(new THREE.BoxGeometry(RX1 - bx - D / 2 + 0.02, H - 0.05, 0.06), front, (RX1 - bx + D / 2) / 2, (H - 0.05) / 2, -len / 2 + 0.03);
-  scene.add(g);
+  scene.add(g); g.traverse(c => { c.userData.bar = true; });
   PROPS.push({ group: g, ry: 0, foot: { x0: -D / 2 - 0.14, x1: RX1 - bx, z0: -len / 2 - 0.04, z1: len / 2 } });
+  // where you order: stand back from the stools, facing the counter; drinks are set down near its front edge
+  const edge = bx - D / 2 - 0.11, surf = H + 0.025;
+  BAR = { key: 'bar', name: 'THE BAR', front: edge, top: surf, z0, z1, servX: bx - D / 2 + 0.03, stand: new THREE.Vector3(3.5, 0, z0 + 0.95), screenAt: new THREE.Vector3(edge, surf + 0.15, z0 + 0.95) };
   // back bar: two shelves on the wall, each lit warm from beneath, with bottles
   const shelfM = mat({ color: '#1a1a1e', roughness: 0.4, metalness: 0.5 }), glassCols = ['#3a7a3a', '#7a4a1a', '#2a4a8a', '#c8b070', '#8a1a2a', '#e8e8f0', '#5a3a6a'];
   [1.32, 1.72].forEach(y => {
@@ -884,7 +907,7 @@ const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key ===
     }
   });
   // a warm light over the counter
-  const bl = new THREE.SpotLight('#ffd8a8', 4, 5, 0.75, 0.9, 1.5); bl.position.set(bx - 0.3, ROOM.H - 0.1, (z0 + z1) / 2); bl.target.position.set(bx, 0.8, (z0 + z1) / 2); scene.add(bl, bl.target);
+  const bl = new THREE.SpotLight('#ffd8a8', 2.6, 5, 0.75, 0.9, 1.5); bl.position.set(bx - 0.3, ROOM.H - 0.1, (z0 + z1) / 2); bl.target.position.set(bx, 0.8, (z0 + z1) / 2); scene.add(bl, bl.target);
   // stools along the front
   for (let k = 0; k < 3; k++) stool(bx - D / 2 - 0.42, z0 + 0.55 + k * 0.78, 0.76, '#141416');
   // neon over the back bar: DRINKS in cyan, a cocktail glass in green and pink
@@ -896,6 +919,71 @@ const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key ===
   }, new THREE.Vector3(RX1 - 0.03, 2.35, z0 + 0.45), -Math.PI / 2);
 }
 const SOLIDS = [...MACHINES, ...PROPS];
+// ---- drinks: three glasses built on a lathe, each with its drink inside ----
+const glassMat = (colr = '#ffffff', op = 0.2, em = '#000000', ei = 0) => new THREE.MeshPhysicalMaterial({ color: colr, roughness: 0.04, metalness: 0, transparent: true, opacity: op, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6, emissive: em, emissiveIntensity: ei });
+const liquidMat = (colr, em, ei, op = 0.88) => new THREE.MeshPhysicalMaterial({ color: colr, emissive: em, emissiveIntensity: ei, roughness: 0.08, clearcoat: 1, transparent: true, opacity: op, depthWrite: false });
+const lathe = (pts, m, seg = 48) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m);
+// bubbles: tiny beads rising through the drink, starting again at the bottom when they reach the top;
+// a few can carry on out of the top as fizz, shrinking away
+function bubbles(parent, n, y0, y1, rAt, colr, escape = 0) {
+  const geo = new THREE.SphereGeometry(1, 8, 6), m = new THREE.MeshBasicMaterial({ color: colr, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false });
+  const ins = new THREE.InstancedMesh(geo, m, n + escape); parent.add(ins);
+  const b = [], d = new THREE.Object3D();
+  const reset = (p, fresh) => { const a = Math.random() * Math.PI * 2, y = fresh ? y0 + Math.random() * (y1 - y0) : y0, r = Math.sqrt(Math.random()) * rAt(y) * 0.85; Object.assign(p, { a, r, y, v: 0.012 + Math.random() * 0.02, s: 0.00055 + Math.random() * 0.0007 }); };
+  for (let i = 0; i < n + escape; i++) { const p = { out: i >= n }; reset(p, true); if (p.out) p.y = y1 + Math.random() * 0.06; b.push(p); }
+  return dt => {
+    b.forEach((p, i) => {
+      p.y += p.v * dt * (p.out ? 1.6 : 1); p.a += dt * 0.6;
+      if (!p.out && p.y > y1) reset(p, false);
+      if (p.out && p.y > y1 + 0.07) { p.y = y1; p.r = Math.random() * rAt(y1) * 0.6; }
+      const k = p.out ? Math.max(0, 1 - (p.y - y1) / 0.07) : 1, r = p.out ? p.r + (p.y - y1) * 0.3 : Math.min(p.r, rAt(p.y) * 0.85);
+      d.position.set(Math.cos(p.a) * r, p.y, Math.sin(p.a) * r); d.scale.setScalar(p.s * k); d.updateMatrix(); ins.setMatrixAt(i, d.matrix);
+    });
+    ins.instanceMatrix.needsUpdate = true;
+  };
+}
+const DRINKS = {
+  // Alpha: a wine glass with a deep sparkling red, beads streaming up through it
+  alpha: { name: 'ALPHA', sub: 'SPARKLING RED', colr: '#ff4a4a', make() {
+    const g = new THREE.Group();
+    g.add(lathe([[0, 0], [0.036, 0], [0.036, 0.003], [0.008, 0.007], [0.0045, 0.014], [0.0045, 0.086], [0.009, 0.093], [0.022, 0.098], [0.034, 0.112], [0.042, 0.136], [0.041, 0.162], [0.036, 0.188], [0.032, 0.205]], glassMat()));
+    g.add(lathe([[0, 0.095], [0.02, 0.099], [0.032, 0.113], [0.0395, 0.136], [0.039, 0.152], [0, 0.152]], liquidMat('#c80f2a', '#8a0018', 0.55)));
+    const rAt = y => y < 0.1 ? 0.015 : y < 0.115 ? 0.028 : 0.036;
+    return { g, tick: bubbles(g, 34, 0.1, 0.151, rAt, '#ffe0e4', 4) };
+  } },
+  // Echo: a cocktail glass of bright blue with a lime wheel on the rim and a cherry on a pick
+  echo: { name: 'ECHO', sub: 'BLUE COCKTAIL, LIME AND A CHERRY', colr: '#4a9eff', make() {
+    const g = new THREE.Group();
+    g.add(lathe([[0, 0], [0.034, 0], [0.034, 0.003], [0.007, 0.007], [0.004, 0.014], [0.004, 0.1], [0.008, 0.105], [0.058, 0.168]], glassMat()));
+    g.add(lathe([[0, 0.105], [0.007, 0.107], [0.049, 0.156], [0, 0.156]], liquidMat('#1e7bff', '#0a52ff', 0.75, 0.85)));
+    // the lime: rind round the edge, pale flesh in segments
+    const c = canvas(128, 128), k = c.getContext('2d');
+    k.fillStyle = '#3f8f1c'; k.beginPath(); k.arc(64, 64, 63, 0, 7); k.fill(); k.fillStyle = '#e9f5c8'; k.beginPath(); k.arc(64, 64, 56, 0, 7); k.fill();
+    k.fillStyle = '#b8e04a'; for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; k.beginPath(); k.moveTo(64 + Math.cos(a + 0.06) * 6, 64 + Math.sin(a + 0.06) * 6); k.arc(64, 64, 52, a + 0.08, a + Math.PI * 2 / 9 - 0.08); k.closePath(); k.fill(); }
+    const lime = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.005, 32), [mat({ color: '#3f8f1c', roughness: 0.5 }), mat({ map: tex(c), roughness: 0.4 }), mat({ map: tex(c), roughness: 0.4 })]);
+    lime.rotation.x = Math.PI / 2; lime.position.set(0.054, 0.168, 0); g.add(lime);
+    // a pick leaning across the glass with a cherry on its end, resting in the drink
+    const a = new THREE.Vector3(-0.026, 0.15, 0.01), b = new THREE.Vector3(0.05, 0.205, -0.012), mid = a.clone().add(b).multiplyScalar(0.5);
+    const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, a.distanceTo(b), 8), mat({ color: '#e8d8b0', roughness: 0.6 })); pick.position.copy(mid); pick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); g.add(pick);
+    const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 20, 14), new THREE.MeshPhysicalMaterial({ color: '#a0081e', roughness: 0.15, clearcoat: 1 })); cherry.position.copy(a).add(new THREE.Vector3(0.004, 0.002, 0)); g.add(cherry);
+    const rAt = y => Math.max(0.006, (y - 0.105) / 0.051 * 0.044);
+    return { g, tick: bubbles(g, 10, 0.112, 0.155, rAt, '#cfe6ff') };
+  } },
+  // Delta: a green beer bottle, cold and fizzing, the beer inside glowing
+  delta: { name: 'DELTA', sub: 'GREEN BEER, ICE COLD', colr: '#4aff7a', make() {
+    const g = new THREE.Group();
+    g.add(lathe([[0, 0], [0.029, 0], [0.031, 0.004], [0.031, 0.13], [0.029, 0.15], [0.02, 0.175], [0.0135, 0.195], [0.0115, 0.215], [0.0125, 0.224], [0.013, 0.232], [0.0105, 0.234]], glassMat('#1f9a3a', 0.5, '#0f6a26', 0.35)));
+    g.add(lathe([[0, 0.005], [0.028, 0.006], [0.028, 0.13], [0.026, 0.149], [0.018, 0.172], [0, 0.172]], liquidMat('#7dff7a', '#36ff5a', 1.15, 0.7)));
+    // the label: cream band round the middle with the name on it
+    const c = canvas(512, 128), k = c.getContext('2d'); k.fillStyle = '#f2ead2'; k.fillRect(0, 0, 512, 128); k.fillStyle = '#1f7a34'; k.fillRect(0, 10, 512, 6); k.fillRect(0, 112, 512, 6);
+    k.font = "56px 'Zen Dots'"; k.textAlign = 'center'; k.textBaseline = 'middle'; k.fillText('DELTA', 128, 66); k.fillText('DELTA', 384, 66);
+    const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0318, 0.0318, 0.05, 48, 1, true), mat({ map: tex(c), roughness: 0.6 })); label.position.y = 0.075; g.add(label);
+    const rAt = y => y < 0.13 ? 0.026 : Math.max(0.008, 0.026 - (y - 0.13) / 0.042 * 0.018);
+    return { g, tick: bubbles(g, 70, 0.012, 0.171, rAt, '#e8ffe0', 8) };
+  } },
+};
+
+
 
 // ---- light: four soft spots from the ceiling follow you round, lighting the machines nearest you ----
 const spots = [0, 1, 2, 3].map(k => { const s = new THREE.SpotLight('#fff1dc', 6, 7, 0.42, 0.8, 1.5); if (!k) { s.castShadow = true; s.shadow.mapSize.set(1024, 1024); s.shadow.bias = -0.0005; } scene.add(s, s.target); return s; });
@@ -966,7 +1054,9 @@ let focus = -1, going = null, auto = null, moved = false;
   const m = MACHINES.find(m => m.key === k); if (m) { me.x = m.stand.x; me.z = m.stand.z; Object.assign(me, faceTo(m.screenAt)); } }
 function showFocus(i) {
   if (i === focus) return; focus = i;
-  if (i < 0) { $('hud').classList.remove('on'); return; }
+  if (i === -1) { $('hud').classList.remove('on'); closeMenu(); return; }
+  if (i === 'bar') { $('name').textContent = served ? DRINKS[served.kind].name : 'THE BAR'; $('best').textContent = served ? DRINKS[served.kind].sub : ''; $('coin').textContent = served ? 'ANOTHER ROUND' : 'ORDER A DRINK'; $('hud').classList.add('on'); return; }
+  closeMenu(); $('coin').textContent = 'INSERT COIN';
   const m = MACHINES[i]; $('name').textContent = m.name;
   let b = null; try { b = BEST[m.key](); } catch (e) {} $('best').textContent = b || '';
   $('hud').classList.add('on');
@@ -981,6 +1071,10 @@ function findFocus() {
     tmp.copy(m.screenAt).sub(cam.position).normalize(); if (tmp.dot(fwd) < 0.55) return;
     best = i; bd = d;
   });
+  // or the bar, if you are standing at it and looking toward the counter
+  if (best < 0 && BAR && me.x < BAR.front && BAR.front - me.x < 1.7 && me.z > BAR.z0 - 0.3 && me.z < BAR.z1) {
+    tmp.set(BAR.front, BAR.top, me.z).sub(cam.position).normalize(); if (tmp.dot(fwd) > 0.5) return 'bar';
+  }
   return best;
 }
 // walk over to a machine on your own
@@ -1019,8 +1113,9 @@ function route(x, z) {
   while (k < pts.length) { let far = k; for (let q = pts.length - 1; q > k; q--) if (sees(at, pts[q])) { far = q; break; } out.push(pts[far]); at = pts[far]; k = far + 1; }
   return out;
 }
-function walkTo(m) { auto = { m, x: m.stand.x, z: m.stand.z, path: route(m.stand.x, m.stand.z), ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
+function walkTo(m) { gaze = null; auto = { m, x: m.stand.x, z: m.stand.z, path: route(m.stand.x, m.stand.z), ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
 function walkToSpot(x, z) {
+  gaze = null;
   x = Math.max(RX0 + R, Math.min(RX1 - R, x)); z = Math.max(RZ0 + R, Math.min(RZ1 - R, z));
   auto = { m: null, x, z, path: route(x, z), yaw: Math.atan2(-(x - me.x), -(z - me.z)), pitch: -0.06, best: Infinity, stuck: 0 };
   marker.position.set(x, 0.005, z); marker.visible = true; marker.material.opacity = 0.6;
@@ -1029,9 +1124,9 @@ function walkToSpot(x, z) {
 const marker = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.2, 40), new THREE.MeshBasicMaterial({ color: '#f4f1ea', transparent: true, opacity: 0.6, depthWrite: false }));
 marker.rotation.x = -Math.PI / 2; marker.visible = false; scene.add(marker);
 // the machines in the order you meet them going round the room
-const ROUND = ['pl', 'ww', 'dt', 'ss', 'pr', 'nb', 'ng', 'tn', 'ff', 'sl', 'ni'].map(k => MACHINES.find(m => m.key === k));
+const ROUND = ['pl', 'ww', 'dt', 'ss', 'pr', 'nb', 'ng', 'tn', 'ff', 'sl', 'bar', 'ni'].map(k => k === 'bar' ? BAR : MACHINES.find(m => m.key === k));
 function step(d) {
-  let i = ROUND.indexOf(MACHINES[focus]);
+  let i = ROUND.indexOf(focus === 'bar' ? BAR : MACHINES[focus]);
   if (i < 0) { // not at one: start from the machine nearest you in that direction round the room
     i = ROUND.map((m, k) => [Math.hypot(me.x - m.stand.x, me.z - m.stand.z), k]).sort((a, b) => a[0] - b[0])[0][1];
     walkTo(ROUND[i]); return;
@@ -1041,6 +1136,7 @@ function step(d) {
 $('prev').onclick = e => { e.stopPropagation(); step(-1); };
 $('next').onclick = e => { e.stopPropagation(); step(1); };
 function play(i = focus) {
+  if (i === 'bar') { openMenu(); return; }
   if (going || i < 0) return; const m = MACHINES[i];
   const s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
   const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
@@ -1049,6 +1145,22 @@ function play(i = focus) {
   $('hud').classList.remove('on');
 }
 $('coin').onclick = e => { e.stopPropagation(); play(); };
+// ---- ordering: a menu of the three, then the bartender slides your drink down the counter to you ----
+let served = null, gaze = null, lean = 0;
+function openMenu() { $('menu').classList.add('on'); $('hud').classList.remove('on'); $('help').classList.add('off'); }
+function closeMenu() { if ($('menu').classList.contains('on')) { $('menu').classList.remove('on'); if (focus === 'bar') $('hud').classList.add('on'); } }
+document.querySelectorAll('#menu [data-d]').forEach(b => b.onclick = e => { e.stopPropagation(); serve(b.dataset.d); });
+$('nope').onclick = e => { e.stopPropagation(); closeMenu(); };
+function serve(kind) {
+  $('menu').classList.remove('on');
+  if (served) { served.g.removeFromParent(); served.g.traverse(o => { o.geometry && o.geometry.dispose(); }); }
+  const d = DRINKS[kind].make(), z = Math.max(BAR.z0 + 0.25, Math.min(BAR.z1 - 0.3, me.z));
+  d.g.position.set(BAR.servX, BAR.top, BAR.z1 - 0.25); scene.add(d.g);
+  served = { kind, ...d, from: BAR.z1 - 0.25, to: z, t: 0 };
+  focus = null; showFocus('bar');
+  // look down at it as it arrives, leaning in a little
+  gaze = new THREE.Vector3(BAR.servX, BAR.top + 0.1, z); auto = null;
+}
 
 // keys
 const keys = new Set();
@@ -1079,7 +1191,7 @@ r.domElement.addEventListener('pointermove', e => {
   } else if (e.pointerId === look.id) {
     const s = touchy ? 0.006 : 0.004;
     me.yaw -= (e.clientX - look.x) * s; me.pitch = Math.max(-0.7, Math.min(0.6, me.pitch - (e.clientY - look.y) * s));
-    look.x = e.clientX; look.y = e.clientY; auto = null;
+    look.x = e.clientX; look.y = e.clientY; auto = null; gaze = null;
   }
 });
 function release(e) {
@@ -1090,7 +1202,7 @@ function release(e) {
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ptr, cam);
   const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible);
   if (!hit) return; const i = hit.object.userData.machine;
-  if (i === undefined) { walkToSpot(hit.point.x, hit.point.z); return; }
+  if (i === undefined) { if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
   if (i === focus) play(i); else walkTo(MACHINES[i]);
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
@@ -1110,7 +1222,7 @@ function frame(now) {
     if (keys.has('a')) sd -= 1; if (keys.has('d')) sd += 1;
     if (keys.has('arrowleft') || keys.has('q')) turn += 1; if (keys.has('arrowright') || keys.has('e')) turn -= 1;
     f -= pad.y; turn -= pad.x * 1.2;
-    if (f || sd || turn) { auto = null; if (!moved) { moved = true; $('help').classList.add('off'); } }
+    if (f || sd || turn) { auto = null; gaze = null; if (!moved) { moved = true; $('help').classList.add('off'); } }
     me.yaw += turn * 1.9 * dt;
     const len = Math.hypot(f, sd); if (len > 1) { f /= len; sd /= len; }
     me.x += (-Math.sin(me.yaw) * f + Math.cos(me.yaw) * sd) * SPEED * dt;
@@ -1130,7 +1242,10 @@ function frame(now) {
       if ((d < 0.03 && Math.abs(wrap(auto.yaw - me.yaw)) < 0.01) || auto.stuck > 0.8) { auto = null; marker.visible = false; }
     } else collide();
     if (marker.visible && !auto) marker.visible = false;
-    cam.position.set(me.x, EYE, me.z); cam.rotation.set(me.pitch, me.yaw, 0);
+    // turning to look at a drink just served, and leaning in toward it
+    if (gaze) { const t = faceTo(gaze), k = 1 - Math.exp(-dt * 3); me.yaw += wrap(t.yaw - me.yaw) * k; me.pitch += (Math.max(-0.65, t.pitch) - me.pitch) * k; }
+    lean += ((gaze ? 0.62 : 0) - lean) * (1 - Math.exp(-dt * 3));
+    cam.position.set(me.x - Math.sin(me.yaw) * lean, EYE - lean * 0.45, me.z - Math.cos(me.yaw) * lean); cam.rotation.set(me.pitch, me.yaw, 0);
     showFocus(findFocus());
   } else {
     going.t += dt / 0.9; const e = ease(Math.min(1, going.t));
@@ -1146,6 +1261,24 @@ function frame(now) {
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
   // now and then a tube stutters, the way old neon does
+  if (served) {
+    if (!served.held) {
+      served.t = Math.min(1, served.t + dt / 1.3); const e = 1 - Math.pow(1 - served.t, 3);
+      served.g.position.z = served.from + (served.to - served.from) * e; served.g.rotation.y = (1 - e) * 0.6;
+      if (gaze && served.t < 1) gaze.z = served.g.position.z;
+      // once it has arrived and you turn or walk away, you pick it up
+      if (served.t >= 1 && !gaze) { served.held = true; served.lift = 0; served.p0 = served.g.position.clone(); served.r0 = served.g.rotation.y; }
+    } else {
+      // carried low on your right, upright, swaying a little as you walk
+      const walking = Math.min(1, Math.hypot(me.x - (served.lx ?? me.x), me.z - (served.lz ?? me.z)) / Math.max(dt, 1e-3) / SPEED); served.lx = me.x; served.lz = me.z;
+      served.bob = (served.bob || 0) + dt * 7 * walking;
+      const halfW = Math.tan(cam.fov * Math.PI / 360) * cam.aspect * 0.48;
+      const hold = new THREE.Vector3(halfW * 0.55, -0.2 + Math.sin(served.bob * 2) * 0.006 * walking, -0.48).applyQuaternion(cam.quaternion).add(cam.position);
+      served.lift = Math.min(1, served.lift + dt / 0.6); const e = served.lift * served.lift * (3 - 2 * served.lift);
+      served.g.position.lerpVectors(served.p0, hold, e); served.g.rotation.set(Math.sin(served.bob) * 0.03 * walking, served.r0 + wrap(me.yaw + 0.5 - served.r0) * e, 0);
+    }
+    served.tick(dt);
+  }
   signs.forEach(sg => { if (!sg.flicker) return; sg.next -= dt; if (sg.next < 0) { sg.off = 0.12 + Math.random() * 0.25; sg.next = 4 + Math.random() * 9; }
     if (sg.off > 0) { sg.off -= dt; sg.m.material.opacity = Math.random() < 0.5 ? 0.25 : 1; } else sg.m.material.opacity = 1; });
   comp.render();
