@@ -75,7 +75,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
   <div class="best" id="best"></div>
   <button class="coin" id="coin">INSERT COIN</button>
 </div>
-<div class="help" id="help"></div>
+<div class="help off" id="help" hidden></div>
 <button class="sip" id="sip">DRINK</button>
 <div class="menu" id="panel"></div>
 <div class="menu" id="menu">
@@ -1038,57 +1038,212 @@ const SOLIDS = [...MACHINES, ...PROPS];
 // ---- people: low-polygon figures in the manner of the first 3D console adventures ----
 // Few polygons, but smooth-shaded and rounded: a big head with tall dark eyes, hair with some volume, a short tapered
 // body, thin upper arms into forearms that swell toward the wrist, mitt hands, trousers flaring over big boots.
+// Each arm and leg is a single skin that bends at the elbow or knee, so there are no joint pieces anywhere.
 // The jacket is the person's own colour; hair comes in a few cuts so no two look alike.
 function person(colr, cut = 0) {
-  const g = new THREE.Group(), C = c => new THREE.Color(c);
-  const soft = (c, glow = 0.1) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.82, emissive: c, emissiveIntensity: glow });
+  // four looks: an astronaut, a punk (black leather, studs, pink mohawk), a hoodie with long hair, a varsity jacket and cap.
+  // The person's own colour runs through each.
+  const look = [4, 1, 2, 3][cut % 4], ASTRO = look === 4, g = new THREE.Group(), C = c => new THREE.Color(c);
+  const soft = (c, glow = 0.04, rough = 0.82) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, emissive: c, emissiveIntensity: glow });
   const shade = (c, k) => '#' + C(c).multiplyScalar(k).getHexString();
-  const skin = soft('#e9e6e0', 0.05), coat = soft(shade(colr, 0.82), 0.05), trim = soft(shade(colr, 0.45), 0.05), legsM = soft('#30344a', 0.08), boot = soft('#1c1c22', 0.05), hairM = soft(['#3a261a', '#d8b048', '#1e1e24', '#a8481e'][cut % 4], 0.1), ink = new THREE.MeshBasicMaterial({ color: '#16161c' });
-  const turn = (pts, m, seg = 10) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m); o.castShadow = true; return o; };
-  const ball = (r, m, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), m); o.scale.set(sx, sy, sz); o.castShadow = true; return o; };
+  const OUT = [
+    { coat: shade(colr, 0.82), tee: '#ecebe6', trim: shade(colr, 0.45), sleeve: null, legs: '#3a4a6e', boot: '#5a3a22', sole: '#1a1410', hair: '#3a261a' },
+    { coat: '#1a1a1e', tee: '#0e0e10', trim: '#26262c', sleeve: null, legs: '#3a5488', boot: '#141418', sole: '#0a0a0c', hair: '#ff3fa4' },
+    { coat: shade(colr, 0.8), tee: null, trim: shade(colr, 0.55), sleeve: null, legs: '#30344a', boot: '#e8e6e0', sole: '#9a9890', hair: '#1e1e24' },
+    { coat: shade(colr, 0.72), tee: '#f2f0ea', trim: '#1c1c20', sleeve: null, legs: '#2c3448', boot: '#f2f0ec', sole: '#e2e0da', hair: '#2a1c14' },
+    { coat: '#e6e6ea', tee: null, trim: shade(colr, 0.85), sleeve: null, legs: '#e6e6ea', boot: '#dcdce2', sole: '#5a5a62', hair: '#2a1c14' },
+  ][look];
+  const skin = soft('#e9e6e0', 0.05), coat = soft(OUT.coat, 0.04, look === 1 ? 0.45 : 0.82), trim = soft(OUT.trim), legsM = soft(OUT.legs, 0), sleeveM = OUT.sleeve ? soft(OUT.sleeve) : coat;
+  const bootM = soft(OUT.boot, 0.04, 0.6), soleM = soft(OUT.sole), metal = new THREE.MeshStandardMaterial({ color: look === 1 ? '#2a2a30' : '#d8d8de', metalness: 1, roughness: look === 1 ? 0.4 : 0.25 }), ink = new THREE.MeshBasicMaterial({ color: '#16161c' });
+  const hairM = new THREE.MeshStandardMaterial({ color: OUT.hair, roughness: 0.7, emissive: OUT.hair, emissiveIntensity: look === 1 ? 0.25 : 0.08, side: THREE.DoubleSide });
+  const K = ASTRO ? 1.16 : 1;   // the suit makes everything a size bigger
+  // a profile of [radius, height] points, drawn as one smooth curve through them and sampled every few millimetres
+  const fine = (pts, step = 0.008) => { const P = pts.map(([r, y]) => new THREE.Vector2(r, y)), out = [];
+    for (let i = 0; i < P.length - 1; i++) { const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)], n = Math.max(2, Math.ceil(p1.distanceTo(p2) / step));
+      for (let k = 0; k < n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t, f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3); out.push(new THREE.Vector2(Math.max(0, f(p0.x, p1.x, p2.x, p3.x)), f(p0.y, p1.y, p2.y, p3.y))); } }
+    out.push(P[P.length - 1].clone()); return out; };
+  const turn = (pts, m, seg = 24) => { const o = new THREE.Mesh(new THREE.LatheGeometry(fine(pts), seg), m); o.castShadow = true; return o; };
   const add = (o, x, y, z, parent = g) => { o.position.set(x, y, z); parent.add(o); return o; };
   const joint = (x, y, z, parent = g) => add(new THREE.Group(), x, y, z, parent);
-  // legs: thigh from the hip, then a knee, a trouser leg flaring out over the boot
-  const leg = s => { const hip = joint(s * 0.085, 0.74, 0);
-    add(turn([[0, 0.02], [0.078, 0], [0.074, -0.16], [0.056, -0.32]], legsM), 0, 0, 0, hip);
-    const knee = joint(0, -0.32, 0, hip);
-    add(ball(0.046, legsM), 0, 0, 0, knee);
-    add(turn([[0.056, 0], [0.062, -0.14], [0.094, -0.33], [0.088, -0.35], [0, -0.35]], legsM), 0, 0, 0, knee);
-    add(ball(0.075, boot, 0.95, 0.72, 1.75), 0, -0.375, 0.045, knee); add(ball(0.06, boot, 1, 0.8, 1), 0, -0.36, -0.02, knee);
-    return { hip, knee }; };
-  const L = leg(-1), R = leg(1);
-  // body: hips, a belt, a jacket widening to the shoulders, a collar
+  // a box with its edges and corners rounded off
+  const rbox = (w, h, d, r, m) => { const geo = new THREE.BoxGeometry(w, h, d, 6, 6, 6), p = geo.attributes.position, v = new THREE.Vector3(), q = new THREE.Vector3(), hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r;
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); q.set(Math.max(-hx, Math.min(hx, v.x)), Math.max(-hy, Math.min(hy, v.y)), Math.max(-hz, Math.min(hz, v.z))); v.sub(q); if (v.lengthSq() > 0) v.setLength(r); q.add(v); p.setXYZ(i, q.x, q.y, q.z); }
+    geo.computeVertexNormals(); const o = new THREE.Mesh(geo, m); o.castShadow = true; return o; };
+  const dot = (r, m) => new THREE.Mesh(new THREE.CircleGeometry(r, 16), m);
+  // a whole arm or leg as one skin over two bones, so the elbow or knee bends the surface itself: no joint piece, no seam
+  const limb = (pts, bend, m, parent, x, y, z) => {
+    const geo = new THREE.LatheGeometry(fine(pts.map(([r, yy]) => [r * K, yy])), 24), pos = geo.attributes.position, idx = [], wt = [], band = 0.06;
+    for (let i = 0; i < pos.count; i++) { let t = (-pos.getY(i) - (bend - band)) / (2 * band); t = Math.max(0, Math.min(1, t)); t = t * t * (3 - 2 * t); idx.push(0, 1, 0, 0); wt.push(1 - t, t, 0, 0); }
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wt, 4));
+    const mesh = new THREE.SkinnedMesh(geo, m), b0 = new THREE.Bone(), b1 = new THREE.Bone(); b1.position.y = -bend; b0.add(b1); mesh.add(b0); mesh.bind(new THREE.Skeleton([b0, b1]));
+    mesh.castShadow = true; mesh.frustumCulled = false; add(mesh, x, y, z, parent); return { top: b0, mid: b1, mesh };
+  };
+  const ring = (r0, r1, y0, y1, m, parent) => add(turn([[r0 * K, y0], [r1 * K, (y0 + y1) / 2], [r0 * K, y1]], m), 0, 0, 0, parent);
+  // ---- body: one piece from the seat of the trousers up through the belt into the jacket and its shoulders, painted
+  // where the cloth changes: an open front showing the tee, a zip, pockets ----
   const body = joint(0, 0, 0);
-  add(ball(0.15, legsM, 1, 0.6, 0.72), 0, 0.76, 0, body);
-  const chest = add(turn([[0, 0.78], [0.118, 0.79], [0.125, 0.86], [0.15, 1.0], [0.2, 1.085], [0.228, 1.12], [0.225, 1.16], [0.16, 1.2], [0.062, 1.225], [0, 1.225]], coat, 12), 0, 0, 0, body); chest.scale.z = 0.7;
-  const belt = add(turn([[0.127, 0.8], [0.13, 0.84], [0.127, 0.86]], trim, 12), 0, 0, 0, body); belt.scale.z = 0.72;
-  const collar = add(turn([[0.07, 1.2], [0.095, 1.25], [0.085, 1.255], [0.06, 1.215]], trim, 10), 0, 0, 0, body); collar.scale.z = 0.85;
-  add(turn([[0.045, 1.2], [0.045, 1.28]], skin, 8), 0, 0, 0, body);
-  // arms: a round shoulder, a thin upper arm, an elbow, a forearm that swells toward the cuff, a mitt of a hand
-  // the sleeve starts inside the jacket, so the arm grows out of the shoulder with no separate joint showing; the
-  // elbow is rounded off at exactly the sleeve's own width, so it bends without a ball or a gap
-  const arm = s => { const sh = joint(s * 0.18, 1.125, 0, body); sh.rotation.z = s * 0.17;
-    add(turn([[0, 0.03], [0.047, 0.02], [0.047, -0.06], [0.043, -0.2], [0, -0.2]], coat, 12), 0, 0, 0, sh);
-    const el = joint(0, -0.2, 0, sh);
-    add(turn([[0, 0.012], [0.034, 0.009], [0.043, 0], [0.058, -0.08], [0.076, -0.17], [0.068, -0.21], [0, -0.215]], coat, 12), 0, 0, 0, el);
-    add(turn([[0.07, -0.185], [0.074, -0.2], [0.068, -0.215]], trim, 9), 0, 0, 0, el);
-    add(ball(0.056, skin, 0.9, 1.15, 1), 0, -0.255, 0.005, el);
-    return { sh, el }; };
+  const SEC = [[0.632, 0.142, 0.068, 0.08], [0.66, 0.146, 0.072, 0.088], [0.7, 0.148, 0.076, 0.096], [0.75, 0.15, 0.08, 0.1], [0.8, 0.145, 0.081, 0.096], [0.85, 0.132, 0.084, 0.083], [0.93, 0.142, 0.103, 0.088],
+    [1.0, 0.163, 0.118, 0.094], [1.065, 0.19, 0.116, 0.093], [1.11, 0.212, 0.1, 0.088], [1.15, 0.2, 0.084, 0.078], [1.185, 0.15, 0.07, 0.068], [1.21, 0.085, 0.056, 0.056], [1.225, 0.05, 0.046, 0.046]].map(([y, w, f, b]) => [y, w * K, f * K, b * K]);
+  const cr = (a, b, c, d, t) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
+  const sec = u => { const x = u * (SEC.length - 1), i = Math.min(SEC.length - 2, Math.floor(x)), t = x - i, q = k => SEC[Math.max(0, Math.min(SEC.length - 1, k))]; return [0, 1, 2, 3].map(j => cr(q(i - 1)[j], q(i)[j], q(i + 1)[j], q(i + 2)[j], t)); };
+  const surf = y => { let lo = 0, hi = 1; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (sec(m)[0] < y) lo = m; else hi = m; } return sec(lo); };   // the section at a height
+  {
+    const cLeg = C(OUT.legs), cBelt = C(look === 4 ? OUT.trim : '#2a2018'), cCoat = C(OUT.coat), cTee = OUT.tee && C(OUT.tee), cTrim = C(OUT.trim), cDark = C(shade(OUT.coat, 0.72)), cZip = C('#b8b8c0');
+    const paint = (x, y, z, w) => {
+      if (y < 0.8) return cLeg; if (y < 0.85) return cBelt;
+      const ax = Math.abs(x), front = z > 0;
+      if (look === 0 || look === 1) { if (front && y > 0.86 && ax < 0.05 + (y - 0.86) * 0.15) return cTee; if (front && y > 0.86 && ax < 0.062 + (y - 0.86) * 0.15) return cTrim; if (front && y > 0.88 && y < 0.95 && ax > 0.085 && ax < 0.13) return cDark; }
+      if (look === 2) { if (front && y > 0.87 && y < 0.97 && ax < 0.1) return y > 0.955 || ax > 0.09 ? cTrim : cDark; }
+      if (look === 3) { if (y < 0.885) return cTrim; if (front && y > 1.175 && ax < 0.018 + (y - 1.175) * 0.55) return cTee; if (front && ax < 0.006) return cZip; }
+      if (look === 4) { if (y > 1.02 && y < 1.045) return cTrim; if (front && ax < 0.006 && y < 1.0) return cZip; }
+      return cCoat; };
+    const ROWS = 100, SEG = 64, POW = 2.7, pos = [], cols = [], ind = [];
+    let u0 = 0; { let lo = 0, hi = 1; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (sec(m)[0] < 0.795) lo = m; else hi = m; } u0 = lo; }
+    for (let r = 0; r <= ROWS; r++) { const [y, w, df, db] = sec(u0 + (1 - u0) * r / ROWS);
+      for (let k = 0; k <= SEG; k++) { const a = Math.PI + k / SEG * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a), e = 2 / POW;
+        const x = Math.sign(sa) * Math.pow(Math.abs(sa), e) * w, z = Math.sign(ca) * Math.pow(Math.abs(ca), e) * (ca > 0 ? df : db), c = paint(x, y, z, w);
+        pos.push(x, y, z); cols.push(c.r, c.g, c.b); } }
+    for (let r = 0; r < ROWS; r++) for (let k = 0; k < SEG; k++) { const a = r * (SEG + 1) + k, b = a + SEG + 1; ind.push(a, b, a + 1, a + 1, b, b + 1); }
+    const base = pos.length / 3; pos.push(0, 0.79, 0, 0, SEC[SEC.length - 1][0] + 0.002, 0); cols.push(cLeg.r, cLeg.g, cLeg.b, cCoat.r, cCoat.g, cCoat.b);
+    for (let k = 0; k < SEG; k++) { ind.push(base, k + 1, k); const t = ROWS * (SEG + 1); ind.push(base + 1, t + k, t + k + 1); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); geo.setIndex(ind); geo.computeVertexNormals();
+    { const n = geo.attributes.normal; for (let r = 0; r <= ROWS; r++) { const i = r * (SEG + 1), j = i + SEG, v = new THREE.Vector3(n.getX(i) + n.getX(j), n.getY(i) + n.getY(j), n.getZ(i) + n.getZ(j)).normalize(); n.setXYZ(i, v.x, v.y, v.z); n.setXYZ(j, v.x, v.y, v.z); } }
+    const torso = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, side: THREE.DoubleSide })); torso.castShadow = true; body.add(torso);
+  }
+  const front = y => surf(y)[2];   // how far forward the body comes at a height
+  // a belt buckle, and the lapels or hood or neck ring for each look
+  if (!ASTRO) { const bk = rbox(0.05, 0.034, 0.012, 0.004, metal); bk.castShadow = false; add(bk, 0, 0.825, front(0.825) + 0.004, body); }
+  if (look === 0 || look === 1) [-1, 1].forEach(s => { const lap = rbox(0.05, 0.16, 0.012, 0.005, look === 1 ? soft('#24242a', 0.04, 0.45) : trim); lap.rotation.set(-0.2, s * 0.35, s * 0.32); add(lap, s * 0.078, 1.13, front(1.13) - 0.006, body); });
+  if (look === 1) { // studs along the shoulders and a chain hanging from the belt
+    [-1, 1].forEach(s => { for (let i = 0; i < 5; i++) { const st = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.016, 8), metal); const x = s * (0.11 + i * 0.022), y = 1.16 - i * 0.008; st.rotation.z = -s * 0.5; add(st, x, y + 0.01, 0, body); } });
+    for (let i = 0; i < 7; i++) { const lk = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0028, 6, 12), metal); const t = i / 6; lk.rotation.y = i % 2 ? Math.PI / 2 : 0; add(lk, 0.06 + t * 0.07, 0.8 - Math.sin(t * Math.PI) * 0.06, front(0.8) + 0.01 - t * 0.03, body); } }
+  if (look === 2) { // the hood lying behind the neck, and its drawstrings
+    const hood = new THREE.Mesh(new THREE.LatheGeometry(fine([[0.09, 1.2], [0.13, 1.22], [0.135, 1.28], [0.11, 1.33], [0.08, 1.32]]), 28, Math.PI * 0.62, Math.PI * 0.76), soft(OUT.coat)); hood.material.side = THREE.DoubleSide; hood.scale.z = 1.1; hood.castShadow = true; add(hood, 0, 0, -0.01, body);
+    [-1, 1].forEach(s => { const str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.12, 6), soft('#f2f0ea')); add(str, s * 0.035, 1.13, front(1.13) + 0.006, body); const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 8), metal); add(tip, s * 0.035, 1.065, front(1.065) + 0.008, body); }); }
+  if (!ASTRO) { const collar = add(turn([[0.062, 1.2], [0.075, 1.225], [0.078, 1.245], [0.07, 1.255], [0.055, 1.25]], look === 2 ? coat : trim), 0, 0, 0, body); collar.scale.z = 0.85; }
+  add(turn([[0.046, 1.2], [0.044, 1.24], [0.046, 1.28]], skin), 0, 0, 0, body);
+  // ---- legs: from inside the hips to the ankle in one, flaring over the boot; boots with a sole, a toe cap and laces ----
+  // Each leg is one skin from under the belt to the ankle. At the top its section is exactly one half of the hips, so
+  // the two legs meet down the middle and together make the hips, with the same surface and the same shading
+  // across the join; lower down the section rounds out into the thigh. The hip half stays put while the thigh swings.
+  const leg = s => {
+    const cx = s * 0.076 * K, HIP = 0.74, SEG = 40, PW = 2.7, PROF = fine([[0.068 * K, 0.0], [0.068 * K, -0.12], [0.056 * K, -0.32], [0.06 * K, -0.46], [0.09 * K, -0.62], [0.088 * K, -0.64]]);
+    const rAt = yl => { if (yl >= PROF[0].y) return PROF[0].x; for (let i = 1; i < PROF.length; i++) if (PROF[i].y <= yl) { const a = PROF[i - 1], b = PROF[i], t = (yl - a.y) / (b.y - a.y); return a.x + (b.x - a.x) * t; } return PROF[PROF.length - 1].x; };
+    const se = (x, z, w, df, db) => Math.pow(Math.abs(x) / w, PW) + Math.pow(Math.abs(z) / (z > 0 ? df : db), PW);
+    const pos = [], nrm = [], idx = [], wt = [], ind = [], rows = [];
+    for (let yl = 0.095; yl > -0.64; yl -= 0.008) rows.push(yl); rows.push(-0.64);
+    rows.forEach(yl => { const yb = HIP + yl, r = rAt(yl); let t = (yb - 0.64) / 0.08; t = Math.max(0, Math.min(1, t)); t = t * t * (3 - 2 * t);
+      const [, w, df, db] = surf(Math.max(yb, 0.64)), W = w * 0.995, DF = df * 0.995, DB = db * 0.995;
+      // weights: the hip half to the fixed root, the thigh to the hip bone, the shin to the knee bone
+      const wr = t;
+      let wk = (-yl - 0.26) / 0.12; wk = Math.max(0, Math.min(1, wk)); wk = wk * wk * (3 - 2 * wk);
+      // the ring starts exactly at the front of the middle line, runs round the outside of the hip to the back of it, then
+      // back up the middle line (hidden, against the other leg); so both legs share the very same points down the middle
+      const a0 = Math.atan2(-cx, DF); let a1 = Math.atan2(-cx, -DB); if (s > 0 && a1 < a0) a1 += Math.PI * 2; if (s < 0 && a1 > a0) a1 -= Math.PI * 2;
+      const H = SEG / 2;
+      for (let k = 0; k <= SEG; k++) { const outer = k <= H, u = outer ? k / H : (k - H) / H, a = outer ? a0 + (a1 - a0) * u : a1 + (a0 + s * Math.PI * 2 - a1) * u, dx = Math.sin(a), dz = Math.cos(a);
+        let hx, hz, onMid = false;
+        if (outer) { let lo = 0, hi = 0.5; for (let i = 0; i < 34; i++) { const m = (lo + hi) / 2; if (se(cx + dx * m, dz * m, W, DF, DB) > 1) hi = m; else lo = m; } hx = cx + dx * lo; hz = dz * lo; if (k === 0) { hx = 0; hz = DF; } if (k === H) { hx = 0; hz = -DB; } }
+        else { hx = 0; hz = -DB + (DF + DB) * u; onMid = k !== SEG; }
+        const px = cx + dx * r, pz = dz * r;
+        const X = px + (hx - px) * t, Z = pz + (hz - pz) * t;
+        pos.push(X - cx, yl, Z);
+        let nx, nz; if (onMid) { nx = -s; nz = 0; } else { const d = hz > 0 ? DF : DB; nx = Math.sign(hx) * Math.pow(Math.abs(hx) / W, PW - 1) / W; nz = Math.sign(hz) * Math.pow(Math.abs(hz) / d, PW - 1) / d; }
+        const nl = Math.hypot(nx, nz) || 1; nrm.push((nx / nl) * t + dx * (1 - t), 0, (nz / nl) * t + dz * (1 - t));
+        idx.push(0, 1, 2, 0); wt.push(wr, (1 - wr) * (1 - wk), (1 - wr) * wk, 0); } });
+    // shading is worked out from the outside faces only where the leg is part of the hips, so the hidden middle faces
+    // don't darken the front of the join
+    const R = rows.length, forN = [], H2 = SEG / 2; for (let r = 0; r < R - 1; r++) { const inHip = HIP + rows[r + 1] >= 0.7205; for (let k = 0; k < SEG; k++) { const a = r * (SEG + 1) + k, b = a + SEG + 1; if (!inHip || k < H2) { const f = s > 0 ? [a, b, a + 1, a + 1, b, b + 1] : [a, a + 1, b, a + 1, b + 1, b]; ind.push(...f); forN.push(...f); } } }
+    { const c = pos.length / 3, last = (R - 1) * (SEG + 1); pos.push(0, -0.645, 0); nrm.push(0, -1, 0); idx.push(2, 0, 0, 0); wt.push(1, 0, 0, 0); for (let k = 0; k < SEG; k++) { const f = s > 0 ? [c, last + k + 1, last + k] : [c, last + k, last + k + 1]; ind.push(...f); forN.push(...f); } }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(forN); geo.computeVertexNormals(); geo.setIndex(ind);
+    // keep the computed normals down the leg, use the outline's own across the hips
+    { const n = geo.attributes.normal, given = nrm; for (let i = 0; i < n.count; i++) { const yl = pos[i * 3 + 1], yb = HIP + yl; let t = (yb - 0.64) / 0.08; t = Math.max(0, Math.min(1, t)); if (t > 0 && Math.abs(pos[i * 3] + cx) < 0.002) { const v = new THREE.Vector3(0, n.getY(i), n.getZ(i)).normalize(); n.setXYZ(i, v.x, v.y, v.z); }
+      if (n.getX(i) === 0 && n.getY(i) === 0 && n.getZ(i) === 0) n.setXYZ(i, given[i * 3], 0, given[i * 3 + 2]);
+      // the inner faces between the legs, where they part, take the shading of the front or back of the leg at that
+      // height, so any sliver of them showing at the join looks the same as the trousers round it
+      { const row = Math.floor(i / (SEG + 1)), k = i % (SEG + 1); if (row < R && k > SEG / 2 && k < SEG) { const z = pos[i * 3 + 2], f = row * (SEG + 1), bk = f + SEG / 2, u = Math.max(0, Math.min(1, (z - pos[bk * 3 + 2]) / ((pos[f * 3 + 2] - pos[bk * 3 + 2]) || 1)));
+        const v = new THREE.Vector3(n.getX(f) * u + n.getX(bk) * (1 - u), n.getY(f) * u + n.getY(bk) * (1 - u), n.getZ(f) * u + n.getZ(bk) * (1 - u)).normalize(); n.setXYZ(i, v.x, v.y, v.z); } } }
+    }
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wt, 4));
+    const mesh = new THREE.SkinnedMesh(geo, legsM), root = new THREE.Bone(), b0 = new THREE.Bone(), b1 = new THREE.Bone(); b1.position.y = -0.32; root.add(b0); b0.add(b1); mesh.add(root); mesh.bind(new THREE.Skeleton([root, b0, b1]));
+    mesh.castShadow = true; mesh.receiveShadow = false; mesh.frustumCulled = false; add(mesh, cx, HIP, 0, body);
+    const k = { top: b0, mid: b1 };
+    const shoe = new THREE.Group(); add(shoe, 0, -0.35, 0.03, k.mid);
+    const up = turn([[0, 0.06], [0.06 * K, 0.058], [0.078 * K, 0.02], [0.088 * K, -0.03], [0.088 * K, -0.05], [0, -0.052]], bootM, 28); up.scale.z = 1.6; shoe.add(up);
+    const sole = turn([[0, -0.042], [0.092 * K, -0.042], [0.094 * K, -0.056], [0.09 * K, -0.066], [0, -0.066]], soleM, 28); sole.scale.z = 1.62; shoe.add(sole);
+    if (!ASTRO) for (let i = 0; i < 3; i++) { const lace = rbox(0.05, 0.006, 0.01, 0.002, look === 2 ? soft('#d0d0d4') : look === 1 ? soft('#26262c') : soft('#d8c8a8')); lace.rotation.x = 0.55; add(lace, 0, 0.03 - i * 0.017, 0.045 + i * 0.022, shoe); }
+    if (look === 1) { const rr = (0.056 + (0.06 - 0.056) * (0.4 - 0.32) / 0.14) * K + 0.0009, g2 = new THREE.CylinderGeometry(rr, rr, 0.028, 14, 4, true, -0.42, 0.84), gp = g2.attributes.position;
+      // a ragged edge: pinch the patch in toward its top and bottom so it reads as a tear, not a square
+      for (let i = 0; i < gp.count; i++) { const x = gp.getX(i), y = gp.getY(i), z = gp.getZ(i), a = Math.atan2(x, z), w = 1 - Math.pow(Math.abs(y) / 0.014, 2) * 0.55; const a2 = a * w, r2 = Math.hypot(x, z); gp.setXYZ(i, Math.sin(a2) * r2, y, Math.cos(a2) * r2); }
+      g2.computeVertexNormals(); const rip = new THREE.Mesh(g2, soft('#c8d0e0')); add(rip, 0, -0.08, 0, k.mid); }
+    if (ASTRO) { ring(0.064, 0.07, -0.08, -0.04, trim, k.mid); ring(0.078, 0.084, -0.1, -0.06, trim, k.top); }
+    return { hip: k.top, knee: k.mid }; };
+  const L = leg(-1), R = leg(1);
+  // ---- arms: from inside the shoulder to the wrist in one; a cuff; a mitt of a hand with a thumb, or a glove ----
+  const arm = s => { const sh = joint(s * 0.18 * K, 1.125, 0, body); sh.rotation.z = s * 0.17;
+    const k = limb([[0, 0.03], [0.04, 0.025], [0.047, 0.0], [0.043, -0.2], [0.048, -0.27], [0.062, -0.37], [0.06, -0.405], [0, -0.415]], 0.2, sleeveM, sh, 0, 0, 0);
+    ring(0.058, 0.064, look === 3 ? -0.15 : -0.165, -0.205, trim, k.mid);
+    const handM = ASTRO ? soft('#d0d0d8', 0.03, 0.6) : skin;
+    const hand = add(turn([[0, 0.0], [0.04 * K, -0.008], [0.05 * K, -0.04], [0.047 * K, -0.08], [0.032 * K, -0.11], [0, -0.118 * K]], handM), 0, -0.2, 0.004, k.mid); hand.scale.z = 0.62;
+    const thumb = add(turn([[0, 0.0], [0.018 * K, -0.01], [0.017 * K, -0.045], [0, -0.055 * K]], handM, 12), 0, -0.215, 0.032 * K, k.mid); thumb.rotation.x = 0.55;
+    if (ASTRO) { ring(0.072, 0.08, -0.205, -0.24, trim, k.mid); ring(0.05, 0.056, -0.06, -0.1, trim, k.top); }
+    return { sh: k.top, el: k.mid, grp: sh }; };
   const AL = arm(-1), AR = arm(1);
-  // head: wide at the cheeks, narrowing to the chin; tall dark eyes with a glint, brows; hair
+  // ---- head: wide at the cheeks, narrowing to the chin, with ears ----
   const head = joint(0, 1.4, 0, body);
-  add(turn([[0, -0.165], [0.062, -0.155], [0.118, -0.1], [0.15, -0.02], [0.158, 0.06], [0.135, 0.13], [0.07, 0.172], [0, 0.18]], skin, 12), 0, 0, 0, head).scale.z = 0.95;
-  [-1, 1].forEach(s => { const a = s * 0.38, r = 0.1585;
-    const eye = new THREE.Mesh(new THREE.CircleGeometry(1, 12), ink); eye.scale.set(0.021, 0.04, 1); eye.rotation.y = a; add(eye, Math.sin(a) * r, 0.005, Math.cos(a) * r * 0.95, head);
-    const glint = new THREE.Mesh(new THREE.CircleGeometry(0.007, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' })); glint.rotation.y = a; add(glint, Math.sin(a) * (r + 0.001) + 0.006, 0.022, Math.cos(a) * (r + 0.001) * 0.95, head);
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.011, 0.006), hairM); brow.rotation.set(0, a, s * 0.06); add(brow, Math.sin(a) * (r + 0.001), 0.072, Math.cos(a) * (r + 0.001) * 0.95, head); });
-  const tuft = (x, y, z, rx, rz, h = 0.17, r = 0.06) => { const sp = new THREE.Mesh(new THREE.ConeGeometry(r, h, 6), hairM); sp.rotation.set(rx, 0, rz); sp.castShadow = true; add(sp, x, y, z, head); };
-  // every cut starts from a cap of hair over the top and back of the head
-  const scalp = (down = -0.03) => { const o = turn([[0.168, down], [0.172, 0.06], [0.148, 0.14], [0.08, 0.19], [0, 0.2]], hairM, 12); o.scale.z = 1.0; add(o, 0, 0, -0.012, head); };
-  if (cut % 4 === 0) { scalp(0.045); [[-0.07, 0.115, 0.125, 1.9, 0.3, 0.12, 0.05], [0.0, 0.125, 0.14, 2.0, 0, 0.13, 0.055], [0.075, 0.115, 0.12, 1.9, -0.35, 0.12, 0.05]].forEach(a => tuft(...a)); add(ball(0.16, hairM, 1, 0.75, 0.6), 0, -0.02, -0.07, head); }   // short, with a fringe
-  else if (cut % 4 === 1) { scalp(0.05); [[0, 0.24, 0.0, -0.1, 0, 0.22, 0.07], [-0.09, 0.21, 0.02, 0, 0.55, 0.2, 0.065], [0.09, 0.21, 0.02, 0, -0.55, 0.2, 0.065], [0, 0.2, -0.1, -0.8, 0, 0.22, 0.07], [-0.1, 0.15, -0.1, -0.7, 0.8, 0.2, 0.06], [0.1, 0.15, -0.1, -0.7, -0.8, 0.2, 0.06], [0.03, 0.17, 0.1, 0.9, -0.2, 0.17, 0.055], [-0.05, 0.17, 0.1, 0.9, 0.3, 0.15, 0.05]].forEach(a => tuft(...a)); }   // swept up in points
-  else if (cut % 4 === 2) { scalp(0.03); const back = turn([[0.165, 0.06], [0.175, -0.1], [0.16, -0.26], [0.1, -0.33], [0, -0.33]], hairM, 12); back.scale.set(1, 1, 0.55); add(back, 0, 0, -0.085, head); [-1, 1].forEach(s => add(ball(0.05, hairM, 0.7, 2.6, 1.2), s * 0.15, -0.05, 0.02, head)); tuft(0.03, 0.12, 0.135, 2.0, -0.4, 0.13, 0.06); }   // long and straight
-  else { add(ball(0.16, hairM, 1, 0.8, 0.6), 0, -0.03, -0.07, head); const dome = turn([[0.17, 0.05], [0.172, 0.1], [0.14, 0.17], [0.07, 0.2], [0, 0.205]], coat, 12); add(dome, 0, 0, -0.005, head); const peak = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.012, 14, 1, false, -Math.PI / 2, Math.PI), trim); peak.rotation.y = Math.PI / 2; peak.scale.z = 1; add(peak, 0, 0.062, 0.1, head); peak.rotation.set(0.12, Math.PI / 2 * 0 , 0); }   // a cap in their colour
+  { const h = add(turn([[0, -0.165], [0.062, -0.155], [0.118, -0.1], [0.15, -0.02], [0.158, 0.06], [0.135, 0.13], [0.07, 0.172], [0, 0.18]], skin, 32), 0, 0, 0, head); h.scale.z = 0.95; h.rotation.y = Math.PI; }
+  const onFace = (o, a, y, r) => { o.rotation.y = a; return add(o, Math.sin(a) * r, y, Math.cos(a) * r * 0.95, head); };
+  // a plain face: two small dark eyes, nothing else
+  [-1, 1].forEach(s => { const a = s * 0.3, eye = onFace(dot(1, ink), a, 0.0, 0.1585); eye.scale.set(0.016, 0.024, 1);
+    const ear = turn([[0, 0.04], [0.026, 0.032], [0.032, 0.0], [0.026, -0.03], [0, -0.04]], skin, 16); ear.scale.set(0.45, 1, 1); add(ear, s * 0.154, -0.005, -0.012, head); });
+  // ---- hair: shaped as whole pieces that follow the head ----
+  const part = (pts, phi0, phiLen, z = -0.012) => { const o = new THREE.Mesh(new THREE.LatheGeometry(fine(pts), 36, phi0, phiLen), hairM); o.castShadow = true; return add(o, 0, 0, z, head); };
+  const scalp = (down) => part([[0, 0.205], [0.085, 0.192], [0.148, 0.145], [0.172, 0.07], [0.17, down]], 0, Math.PI * 2);
+  const fringe = (low, side = 0) => part([[0.06, 0.2], [0.14, 0.16], [0.172, 0.11], [0.177, low + 0.02], [0.17, low], [0.162, low + 0.03], [0.15, 0.12]], -1.15 + side, 2.3);
+  const curtain = (low) => part([[0.12, 0.19], [0.172, 0.12], [0.182, 0.0], [0.178, -0.14], [0.17, low], [0.158, low - 0.02], [0.15, low + 0.02]], 0.95, Math.PI * 2 - 1.9);
+  const crop = () => part([[0.12, 0.19], [0.168, 0.12], [0.17, 0.04], [0.162, -0.04], [0.142, -0.1], [0.12, -0.13], [0.11, -0.115]], 1.2, Math.PI * 2 - 2.4);
+  if (look === 0) { scalp(0.04); crop(); fringe(0.1, 0.3); }
+  else if (look === 1) {
+    for (let i = 0; i < 9; i++) { const f = -0.75 + i * 0.3, h = 0.12 + Math.sin(Math.PI * (i + 0.5) / 9) * 0.1, R = 0.16;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, h, 16), hairM); spike.scale.x = 0.32; spike.castShadow = true; spike.rotation.x = -(f + 0.35); add(spike, 0, 0.015 + Math.cos(f) * (R + h * 0.38), -Math.sin(f) * (R + h * 0.38), head); }
+    part([[0, 0.205], [0.06, 0.196], [0.12, 0.165], [0.16, 0.1], [0.17, 0.0], [0.16, -0.08]], -0.13, 0.26).rotation.y = Math.PI; part([[0, 0.205], [0.06, 0.196], [0.12, 0.165], [0.15, 0.12]], -0.13, 0.26);
+    [-1, 1].forEach(s => { const er = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0025, 6, 14), metal); er.rotation.y = Math.PI / 2; add(er, s * 0.165, -0.04, -0.01, head); }); }
+  else if (look === 2) { scalp(0.02); curtain(-0.36); fringe(0.06, -0.15); }
+  else if (look === 3) {
+    part([[0.145, 0.07], [0.162, 0.02], [0.158, -0.04], [0.138, -0.1], [0.118, -0.115]], 1.15, Math.PI * 2 - 2.3);
+    const CROWN = [[0.163, 0.03], [0.168, 0.08], [0.158, 0.135], [0.122, 0.185], [0.062, 0.212], [0, 0.218]];
+    const c = add(turn(CROWN, coat, 48), 0, 0, -0.006, head); c.rotation.y = Math.PI;
+    const prof = fine(CROWN); for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + Math.PI / 6, pts = prof.filter((_, i) => i % 3 === 0).map(v => new THREE.Vector3(Math.sin(a) * v.x * 1.01, v.y + 0.001, Math.cos(a) * v.x * 1.01 - 0.006));
+      add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.0016, 5), soft(shade(colr, 0.5))), 0, 0, 0, head); }
+    add(turn([[0, 0.228], [0.012, 0.225], [0.015, 0.218], [0.014, 0.213]], coat, 20), 0, 0, -0.006, head);
+    const sh = new THREE.Shape(); sh.moveTo(-0.13, 0); sh.bezierCurveTo(-0.14, 0.09, -0.07, 0.125, 0, 0.127); sh.bezierCurveTo(0.07, 0.125, 0.14, 0.09, 0.13, 0); sh.quadraticCurveTo(0, 0.045, -0.13, 0);
+    const bg = new THREE.ExtrudeGeometry(sh, { depth: 0.007, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2, curveSegments: 24 }); bg.rotateX(Math.PI / 2);
+    const bp = bg.attributes.position; for (let i = 0; i < bp.count; i++) { const x = bp.getX(i), z = bp.getZ(i); bp.setY(i, bp.getY(i) - 1.4 * x * x - 0.2 * z * z); } bg.computeVertexNormals();
+    const brim = new THREE.Mesh(bg, [coat, soft(shade(colr, 0.45))]); brim.castShadow = true; brim.rotation.x = 0.28; add(brim, 0, 0.06, 0.112, head);
+  }
+  else { // the astronaut: short hair under a glass helmet with the gold visor raised, a neck ring, a pack, a panel on the chest
+    const capM = soft('#ece8e0', 0.04, 0.9), darkM = soft('#2a2a30', 0.03, 0.6);
+    const cap = new THREE.Mesh(new THREE.LatheGeometry(fine([[0.16, -0.06], [0.168, 0.02], [0.172, 0.08], [0.148, 0.145], [0.085, 0.192], [0, 0.206]]), 36, 1.05, Math.PI * 2 - 2.1), capM); cap.material.side = THREE.DoubleSide; cap.castShadow = true; add(cap, 0, 0, -0.008, head);
+    const band = new THREE.Mesh(new THREE.LatheGeometry(fine([[0.172, 0.05], [0.176, 0.07], [0.174, 0.09]]), 36, 1.05, Math.PI * 2 - 2.1), darkM); band.material.side = THREE.DoubleSide; add(band, 0, 0, -0.008, head);
+    const stripe = new THREE.Mesh(new THREE.LatheGeometry(fine([[0.0, 0.207], [0.086, 0.193], [0.15, 0.146], [0.172, 0.08]]), 8, -0.06, 0.12), darkM); stripe.material.side = THREE.DoubleSide; stripe.scale.setScalar(1.006); add(stripe, 0, 0, -0.008, head);
+    [-1, 1].forEach(s => { const cup = turn([[0, 0.022], [0.04, 0.02], [0.044, 0], [0.04, -0.02], [0, -0.022]], darkM, 20); cup.rotation.z = Math.PI / 2; add(cup, s * 0.165, -0.01, -0.01, head); });
+    { const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0.17, -0.02, 0.0), new THREE.Vector3(0.155, -0.08, 0.07), new THREE.Vector3(0.08, -0.1, 0.13), new THREE.Vector3(0.035, -0.085, 0.14)]);
+      add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.0045, 8), darkM), 0, 0, 0, head); add(turn([[0, 0.01], [0.009, 0.008], [0.01, -0.006], [0, -0.01]], darkM, 12), 0.033, -0.085, 0.142, head); }
+    const glass = new THREE.Mesh(new THREE.SphereGeometry(0.245, 48, 32), new THREE.MeshStandardMaterial({ color: '#cfe0ff', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 2 })); add(glass, 0, 0.015, 0.005, head);
+    const visor = new THREE.Mesh(new THREE.SphereGeometry(0.25, 48, 24, Math.PI / 2 - 1.15, 2.3, 0.2, 0.72), new THREE.MeshStandardMaterial({ color: '#e0a830', metalness: 1, roughness: 0.18, side: THREE.DoubleSide, envMapIntensity: 1.6 })); add(visor, 0, 0.015, 0.005, head);
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.252, 48, 24, Math.PI / 2 + 1.25, Math.PI * 2 - 2.5, 0.0, 1.9), soft('#ececf0', 0.04, 0.5)); shell.material.side = THREE.DoubleSide; add(shell, 0, 0.015, 0.0, head);
+    const neckRing = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.028, 16, 48), soft(OUT.trim, 0.05, 0.5)); neckRing.rotation.x = Math.PI / 2; add(neckRing, 0, 1.245, 0, body);
+    const pack = rbox(0.36, 0.42, 0.15, 0.04, soft('#dcdce2', 0.03, 0.6)); add(pack, 0, 1.0, -0.155, body);
+    for (let i = 0; i < 4; i++) add(rbox(0.22, 0.012, 0.01, 0.004, soft('#9a9aa2')), 0, 0.88 + i * 0.03, -0.232, body);
+    const panel = rbox(0.17, 0.1, 0.04, 0.012, soft('#bfc0c8', 0.03, 0.5)); add(panel, 0, 0.99, front(0.99) + 0.012, body);
+    [[OUT.trim, -0.05], ['#ffffff', 0], ['#ffb43f', 0.05]].forEach(([c, x]) => { const l = new THREE.Mesh(new THREE.CircleGeometry(0.011, 16), new THREE.MeshBasicMaterial({ color: c, toneMapped: false })); add(l, x, 1.0, front(0.99) + 0.033, body); });
+    [-1, 1].forEach(s => { const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(s * 0.17, 1.05, -0.1), new THREE.Vector3(s * 0.22, 0.98, 0.02), new THREE.Vector3(s * 0.16, 0.93, front(0.95)), new THREE.Vector3(s * 0.085, 0.97, front(0.97) + 0.015)]);
+      const hose = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.014, 10), soft('#9aa0aa', 0.03, 0.5)); hose.castShadow = true; body.add(hose); });
+    // a mission patch on the left shoulder: a planet with a ring, in the person's colour
+    const c = canvas(128, 128), k = c.getContext('2d'); k.fillStyle = '#16203a'; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); k.strokeStyle = '#e0a830'; k.lineWidth = 6; k.stroke();
+    for (let i = 0; i < 18; i++) { k.fillStyle = '#fff'; k.fillRect(10 + Math.random() * 108, 10 + Math.random() * 108, 2, 2); } k.fillStyle = colr; k.beginPath(); k.arc(64, 66, 24, 0, 7); k.fill(); k.strokeStyle = '#f2f0ea'; k.lineWidth = 5; k.beginPath(); k.ellipse(64, 66, 44, 12, -0.3, 0, 7); k.stroke();
+    const patch = new THREE.Mesh(new THREE.CircleGeometry(0.038, 24), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.8 })); patch.rotation.y = -Math.PI / 2; add(patch, -0.056 * K, -0.07, 0, AL.sh);
+  }
   const still = () => { [L, R].forEach(k => { k.hip.rotation.x = 0; k.knee.rotation.x = 0; }); };
   return { g, colr,
     // t is time in seconds, amt 0 standing to 1 walking: legs and arms swing against each other, knees and elbows bend
@@ -1097,10 +1252,12 @@ function person(colr, cut = 0) {
       L.knee.rotation.x = (0.08 + Math.max(0, Math.cos(ph)) * 0.75) * amt; R.knee.rotation.x = (0.08 + Math.max(0, -Math.cos(ph)) * 0.75) * amt;
       AL.sh.rotation.x = sw * 0.5 * amt; AR.sh.rotation.x = -sw * 0.5 * amt;
       const idle = Math.sin(t * 1.6) * 0.02;
-      AL.el.rotation.x = -0.1 - Math.max(0, sw) * 0.4 * amt; AR.el.rotation.x = -0.1 - Math.max(0, -sw) * 0.4 * amt; AL.el.rotation.z = 0.1; AR.el.rotation.z = -0.1;
+      AL.el.rotation.x = -0.12 - Math.max(0, sw) * 0.4 * amt; AR.el.rotation.x = -0.12 - Math.max(0, -sw) * 0.4 * amt;
       body.position.y = Math.abs(Math.cos(ph)) * 0.022 * amt + idle * 0.3 * (1 - amt); body.rotation.x = 0.06 * amt; body.rotation.y = sw * 0.08 * amt;
       head.rotation.y = Math.sin(t * 0.6) * 0.25 * (1 - amt); head.rotation.x = -0.04 * amt; },
     // sitting on a stool: thighs forward, shins hanging, forearms out toward the counter
+    play(t) { still(); body.position.y = 0; body.rotation.set(0.05, 0, 0); head.rotation.set(0.12, 0, 0);
+      AL.sh.rotation.x = -0.62; AR.sh.rotation.x = -0.62; AL.el.rotation.x = -0.75 + Math.sin(t * 9) * 0.07; AR.el.rotation.x = -0.75 + Math.sin(t * 13 + 1) * 0.09; },
     sit() { still(); [L, R].forEach(k => { k.hip.rotation.x = -1.35; k.knee.rotation.x = 1.25; }); [AL, AR].forEach(a => { a.sh.rotation.x = -0.35; a.el.rotation.x = -1.1; }); } };
 }
 const PEOPLE = [];
@@ -1176,6 +1333,24 @@ const DRINKS = {
 
 
 
+// ---- the way out: a plain dark door in the entrance wall by the bar, a small lit EXIT sign over it ----
+const DOOR = { x: 2.75, w: 0.92, h: 2.08 };
+{
+  const grp = new THREE.Group(); grp.position.set(DOOR.x, 0, RZ1 - 0.012); grp.rotation.y = Math.PI; scene.add(grp);
+  const part = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.receiveShadow = true; grp.add(b); return b; };
+  const frame = mat({ color: '#1e1e22', roughness: 0.5, metalness: 0.4 }), leaf = mat({ color: '#24242a', roughness: 0.6 }), steel = mat({ color: '#9a9aa2', metalness: 0.9, roughness: 0.3 });
+  part(0.05, DOOR.h + 0.05, 0.05, frame, -DOOR.w / 2 - 0.025, (DOOR.h + 0.05) / 2, 0); part(0.05, DOOR.h + 0.05, 0.05, frame, DOOR.w / 2 + 0.025, (DOOR.h + 0.05) / 2, 0); part(DOOR.w + 0.1, 0.05, 0.05, frame, 0, DOOR.h + 0.025, 0);
+  part(DOOR.w, DOOR.h, 0.03, leaf, 0, DOOR.h / 2, 0.005);
+  part(DOOR.w * 0.78, 0.035, 0.04, steel, 0, 1.0, 0.035); [-1, 1].forEach(s => part(0.04, 0.06, 0.05, steel, s * DOOR.w * 0.39, 1.0, 0.02));
+  part(DOOR.w - 0.04, 0.2, 0.004, mat({ color: '#2a2a30', metalness: 0.8, roughness: 0.4 }), 0, 0.12, 0.022);
+  const c = canvas(256, 96), g = c.getContext('2d'); g.fillStyle = '#1a0404'; g.fillRect(0, 0, 256, 96); g.font = "52px 'Press Start 2P'"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff3a2a'; g.fillText('EXIT', 128, 52);
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.13, 0.04), [frame, frame, frame, frame, lit(tex(c), 0.9), frame]); sign.position.set(0, DOOR.h + 0.2, 0.02); grp.add(sign);
+  // the sign throws a faint red light down the door, enough to find it
+  const glow = new THREE.PointLight('#ff7a6a', 0.6, 2.6, 1.6); glow.position.set(0, DOOR.h + 0.1, 0.35); grp.add(glow);
+  grp.traverse(o => { o.userData.door = true; });
+  DOOR.stand = new THREE.Vector3(DOOR.x, 0, RZ1 - 0.75); DOOR.screenAt = new THREE.Vector3(DOOR.x, 1.3, RZ1);
+}
+
 // ---- light: four soft spots from the ceiling follow you round, lighting the machines nearest you ----
 const spots = [0, 1, 2, 3].map(k => { const s = new THREE.SpotLight('#fff1dc', 6, 7, 0.42, 0.8, 1.5); if (!k) { s.castShadow = true; s.shadow.mapSize.set(1024, 1024); s.shadow.bias = -0.0005; } scene.add(s, s.target); return s; });
 function aimSpot(s, m) {
@@ -1245,6 +1420,7 @@ let focus = -1, going = null, auto = null, moved = false;
   const m = MACHINES.find(m => m.key === k); if (m) { me.x = m.stand.x; me.z = m.stand.z; Object.assign(me, faceTo(m.screenAt)); } }
 function showFocus(i) {
   if (i === focus) return; focus = i;
+  if (typeof asked !== 'undefined' && asked) { asked = null; hidePanel(); }
   if (i === -1) { $('hud').classList.remove('on'); closeMenu(); return; }
   if (i === 'bar') { $('name').textContent = served ? DRINKS[served.kind].name : 'THE BAR'; $('best').textContent = served ? DRINKS[served.kind].sub : ''; $('coin').textContent = served ? 'ANOTHER ROUND' : 'ORDER A DRINK'; $('hud').classList.add('on'); return; }
   closeMenu(); $('coin').textContent = 'INSERT COIN';
@@ -1279,8 +1455,8 @@ const clear = (x, z, pad = R + 0.04) => x > RX0 + pad && x < RX1 - pad && z > RZ
 const blocked = new Uint8Array(GW * GD);
 for (let j = 0; j < GD; j++) for (let i = 0; i < GW; i++) blocked[j * GW + i] = clear(RX0 + (i + 0.5) * CELL, RZ0 + (j + 0.5) * CELL) ? 0 : 1;
 const sees = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.08); for (let k = 1; k < n; k++) { const t = k / n; if (!clear(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, R)) return false; } return true; };
-function route(x, z) {
-  const to = { x, z }, from = { x: me.x, z: me.z };
+function route(x, z, from = { x: me.x, z: me.z }) {
+  const to = { x, z };
   if (sees(from, to)) return [to];
   const cell = p => [Math.max(0, Math.min(GW - 1, Math.floor((p.x - RX0) / CELL))), Math.max(0, Math.min(GD - 1, Math.floor((p.z - RZ0) / CELL)))];
   const [si, sj] = cell(from), [ti, tj] = cell(to), S = sj * GW + si, Tt = tj * GW + ti;
@@ -1304,7 +1480,7 @@ function route(x, z) {
   while (k < pts.length) { let far = k; for (let q = pts.length - 1; q > k; q--) if (sees(at, pts[q])) { far = q; break; } out.push(pts[far]); at = pts[far]; k = far + 1; }
   return out;
 }
-function walkTo(m) { stand(); gaze = null; auto = { m, x: m.stand.x, z: m.stand.z, path: route(m.stand.x, m.stand.z), ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
+function walkTo(m) { stand(); gaze = null; leaving = false; auto = { m, x: m.stand.x, z: m.stand.z, path: route(m.stand.x, m.stand.z), ...faceTo(m.screenAt, { x: m.stand.x, z: m.stand.z }), best: Infinity, stuck: 0 }; marker.visible = false; }
 function walkToSpot(x, z) {
   stand(); gaze = null;
   x = Math.max(RX0 + R, Math.min(RX1 - R, x)); z = Math.max(RZ0 + R, Math.min(RZ1 - R, z));
@@ -1326,9 +1502,14 @@ function step(d) {
 }
 $('prev').onclick = e => { e.stopPropagation(); step(-1); };
 $('next').onclick = e => { e.stopPropagation(); step(1); };
+// walking out: through the door and back to the main site
+let leaving = false;
+function exitArcade() { if (going) return; leaving = false; auto = null; const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
+  going = { t: 0, from: cam.position.clone(), look0, to: new THREE.Vector3(DOOR.x, 1.45, RZ1 - 0.2), look: new THREE.Vector3(DOOR.x, 1.3, RZ1 + 1), href: 'index.html' }; $('hud').classList.remove('on'); }
 function play(i = focus) {
   if (i === 'bar') { openMenu(); return; }
   if (going || i < 0) return; const m = MACHINES[i];
+  if (m.occ && m.occ.length && !(asked && asked.m === m && asked.line.act === 'beat' && !m.occ.length)) { talkTo(m); return; }
   const s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
   const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
   going = { t: 0, from: cam.position.clone(), look0, to: m.screenAt.clone().addScaledVector(n, 0.3 * (m.scale || 1)).add(new THREE.Vector3(0, 0, 0)), look: m.screenAt.clone(), href: m.href };
@@ -1379,6 +1560,73 @@ const ACTS = {
     else done(url); },
 };
 panel.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; e.stopPropagation(); ACTS[b.dataset.act](); });
+// ---- other players: people come in through the door, alone or in pairs, play a machine or two, and leave ----
+const NPC = [], NPC_MAX = 4, PLAYABLE = ['ss', 'nb', 'ng', 'tn', 'dt', 'ww', 'ff', 'sl', 'ni'].map(k => MACHINES.find(m => m.key === k));
+const NPC_COLS = ['#ff3fa4', '#3fe8ff', '#ffb43f', '#5cff8a', '#b98cff', '#4a9eff', '#ff6a4a'];
+const DOORWAY = { x: DOOR.x, z: RZ1 - 0.45 };
+let npcNext = 3;
+const pick = a => a[Math.floor(Math.random() * a.length)];
+// where someone stands to play a machine: just in front of it, facing it; at the table, at either end
+function spotAt(m, side = 0, end = 0) {
+  if (m.kind === 'cocktail') { const len = m.foot.z1 - m.foot.z0, c = m.group.position, f = m.facing.clone().multiplyScalar(end ? -1 : 1);
+    const p = c.clone().addScaledVector(f, len / 2 + 0.28); return { x: p.x, z: p.z, face: Math.atan2(-f.x, -f.z) }; }
+  const p = m.front.clone().addScaledVector(m.facing, 0.42), across = new THREE.Vector3(m.facing.z, 0, -m.facing.x);
+  p.addScaledVector(across, side * 0.2 * (m.scale || 1)); return { x: p.x, z: p.z, face: Math.atan2(-m.facing.x, -m.facing.z) };
+}
+// a free machine, not the one you are standing at
+const freeMachines = () => PLAYABLE.filter(m => !m.occ && m.i !== focus && Math.hypot(me.x - m.stand.x, me.z - m.stand.z) > 1.2);
+function sendTo(n, m, side, end) { const s = spotAt(m, side, end); n.m = m; n.spot = s; n.path = route(s.x, s.z, { x: n.x, z: n.z }); n.state = 'walk'; }
+function leave(n) { if (n.m && n.m.occ && n.m.occ.includes(n)) n.m.occ = n.m.occ.filter(q => q !== n); if (n.m && n.m.occ && !n.m.occ.length) n.m.occ = null;
+  n.m = null; n.state = 'out'; n.path = route(DOORWAY.x, DOORWAY.z, { x: n.x, z: n.z }); }
+function spawn() {
+  const free = freeMachines(); if (!free.length) return;
+  const pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.4, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
+  const make = (k, dx) => { const fig = person(cols[k], Math.floor(Math.random() * 4)); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
+  if (!pair) { const n = make(0, 0), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
+  const a = make(0, -0.25), b = make(1, 0.25), two = free.filter(m => m.key === 'ff' || m.key === 'ni');
+  if (two.length && Math.random() < 0.7) { const m = pick(two); m.occ = [a, b]; if (m.key === 'ni') { sendTo(a, m, 0, 0); sendTo(b, m, 0, 1); } else { sendTo(a, m, -1); sendTo(b, m, 1); } a.partner = b; b.partner = a; a.stay = b.stay = 30 + Math.random() * 30; return; }
+  // otherwise one plays and the friend watches over their shoulder
+  const m = pick(free); m.occ = [a, b]; sendTo(a, m, 0); sendTo(b, m, 1.6); b.watch = true; a.partner = b; b.partner = a; a.stay = b.stay = 25 + Math.random() * 25;
+}
+function npcTick(dt, t) {
+  npcNext -= dt; if (npcNext < 0) { npcNext = 6 + Math.random() * 14; if (NPC.length < NPC_MAX - (Math.random() < 0.5 ? 1 : 0)) spawn(); }
+  for (let i = NPC.length - 1; i >= 0; i--) { const n = NPC[i], f = n.fig; n.t += dt;
+    if (n.state === 'walk' || n.state === 'out') {
+      while (n.path.length > 1 && Math.hypot(n.path[0].x - n.x, n.path[0].z - n.z) < 0.12) n.path.shift();
+      const w = n.path[0], dx = w.x - n.x, dz = w.z - n.z, d = Math.hypot(dx, dz), st = Math.min(d, 1.05 * dt);
+      if (d > 0.01) { n.x += dx / d * st; n.z += dz / d * st; n.yaw += wrap(Math.atan2(dx, dz) - n.yaw) * (1 - Math.exp(-dt * 8)); }
+      f.pose(n.t, 1);
+      if (n.path.length === 1 && d < 0.04) { if (n.state === 'out') { scene.remove(f.g); NPC.splice(i, 1); continue; } n.state = 'play'; n.until = n.stay; }
+    } else if (n.state === 'play') {
+      n.yaw += wrap((n.watch ? n.spot.face - 0.5 : n.spot.face) - n.yaw) * (1 - Math.exp(-dt * 5));
+      if (n.watch) f.pose(n.t, 0); else f.play(n.t);
+      n.until -= dt;
+      if (n.until < 0 && !n.partner) { // play another, or go
+        const free = freeMachines(); if (Math.random() < 0.35 && free.length) { n.m.occ = null; const m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 20 + Math.random() * 30; } else leave(n); }
+      else if (n.until < 0 && n.partner && n.partner.state === 'play') { const p = n.partner; leave(n); leave(p); }
+    }
+    f.g.position.x = n.x; f.g.position.z = n.z; f.g.rotation.y = n.yaw;
+  }
+}
+// trying to play a machine someone else is on: they answer
+const BUSY = [
+  { say: "Almost done, one more life. Grab the next one and it's yours in a minute.", act: 'soon' },
+  { say: 'Beat my high score and it is all yours.', act: 'beat' },
+  { say: "Last level. Give me a sec, I'm nearly through.", act: 'soon' },
+  { say: 'Go for it, I was only watching anyway.', act: 'go' },
+];
+let asked = null;
+function talkTo(m) {
+  const who = m.occ[0], line = pick(BUSY); asked = { m, line };
+  who.yaw = Math.atan2(me.x - who.x, me.z - who.z);
+  const btns = line.act === 'beat' ? '<button data-act="npcBeat"><b>CHALLENGE ACCEPTED</b></button><button class="no" data-act="npcBye">MAYBE LATER</button>' : '<button data-act="npcBye"><b>OK</b></button>';
+  showPanel(`<div class="mh">${m.name}</div><p>&ldquo;${line.say}&rdquo;</p>${btns}`);
+  if (line.act === 'soon') { m.occ.forEach(n => { n.until = Math.min(n.until, 4 + Math.random() * 3); }); }
+  if (line.act === 'go') { const occ = m.occ; occ.forEach(n => leave(n)); }
+}
+ACTS.npcBye = () => { hidePanel(); focus = -2; };
+ACTS.npcBeat = () => { hidePanel(); const m = asked.m; const occ = m.occ || []; occ.forEach(n => leave(n)); play(m.i); };
+
 // take a sip: lift the glass to your mouth, tip it, and the level drops a quarter. If it is still on the counter, pick it up first.
 function sip() {
   if (!served || going || served.level <= 0.01 || served.sipT != null) return;
@@ -1441,7 +1689,7 @@ function release(e) {
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ptr, cam);
   const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible);
   if (!hit) return; const i = hit.object.userData.machine;
-  if (i === undefined) { if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.seat !== undefined) { sit(hit.object.userData.seat); return; } if (hit.object.userData.tv) { TV.tune(); return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
+  if (i === undefined) { if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.seat !== undefined) { sit(hit.object.userData.seat); return; } if (hit.object.userData.tv) { TV.tune(); return; } if (hit.object.userData.door) { if (Math.hypot(me.x - DOOR.x, me.z - RZ1) < 1.3) exitArcade(); else { walkTo(DOOR); leaving = true; } return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
   if (i === focus) play(i); else walkTo(MACHINES[i]);
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
@@ -1451,7 +1699,7 @@ addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1;
 // ---- music: three songs, one picked at random, then another when it ends ----
 // Browsers only allow sound after a tap or a key, so the first song starts then. MUSIC OFF is remembered.
 {
-  const SONGS = ['horizons-gift', 'fading-lights', 'always-a-way'], song = new Audio(); song.volume = 0.18; song.preload = 'none';
+  const SONGS = ['horizons-gift', 'fading-lights', 'always-a-way'], song = new Audio(); song.volume = 0.1; song.preload = 'none';
   let on = true, last = -1, started = false; try { on = localStorage.getItem('arcadeMusic') !== 'off'; } catch (e) {}
   const btn = $('music'), label = () => { btn.textContent = on ? 'MUSIC ON' : 'MUSIC OFF'; };
   const next = () => { let i; do { i = Math.floor(Math.random() * SONGS.length); } while (i === last); last = i; song.src = 'arcade/music/' + SONGS[i] + '.m4a'; song.play().then(() => { started = true; }, () => {}); };
@@ -1496,7 +1744,7 @@ function frame(now) {
       collide();
       // give up if something is in the way and you have stopped getting closer
       if (d < auto.best - 0.02) { auto.best = d; auto.stuck = 0; } else auto.stuck += dt;
-      if ((d < 0.03 && Math.abs(wrap(auto.yaw - me.yaw)) < 0.01) || auto.stuck > 0.8) { auto = null; marker.visible = false; }
+      if ((d < 0.03 && Math.abs(wrap(auto.yaw - me.yaw)) < 0.01) || auto.stuck > 0.8) { const was = auto.m; auto = null; marker.visible = false; if (leaving && was === DOOR) exitArcade(); }
     } else if (seat) {
       // settle onto the stool facing the bar; after that you are free to look about
       const k = 1 - Math.exp(-dt * 5); me.x += (seat.x - 0.04 - me.x) * k; me.z += (seat.z - me.z) * k; seat.t += dt;
@@ -1521,7 +1769,7 @@ function frame(now) {
   if (key !== litKey) { litKey = key; spots.forEach((s, k) => aimSpot(s, near[k])); }
   if (focus >= 0) { const m = MACHINES[focus], s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
-  PEOPLE.forEach(q => { if (q.walk) q.fig.pose(now / 1000, 1); });
+  npcTick(dt, now / 1000);
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
   // now and then a tube stutters, the way old neon does
   if (served) {
@@ -1560,7 +1808,7 @@ $('msg').remove();
 setTimeout(() => $('help').classList.add('off'), 7000);
 requestAnimationFrame(frame);
 window.arcadeReady = true;
-window.arcadeDebug = { me, MACHINES, walkTo, person, PEOPLE, scene };
+window.arcadeDebug = { me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play };
 </script>
 </body>
 </html>
