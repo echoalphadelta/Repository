@@ -1829,7 +1829,7 @@ async function unpack(code) { const bytes = unb64u(code.slice(1));
   const raw = code[0] === 'z' ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : bytes;
   return JSON.parse(new TextDecoder().decode(raw)); }
 // wait until the phone has worked out every way it can be reached on the network (or a few seconds, whichever first)
-const gather = pc => new Promise(res => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, 3500); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+const gather = pc => new Promise(res => { pc.found = 0; pc.addEventListener('icecandidate', e => { if (e.candidate && e.candidate.candidate) pc.found++; }); if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, 3500); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
 const toastEl = document.getElementById('toast'); let toastT = 0;
 const toast = t => { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 4000); };
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1862,8 +1862,9 @@ async function prepInvite() {
   if (link && link.pc) link.pc.close();
   showPanel('<div class="mh">GETTING YOUR INVITE READY</div><p>One moment.</p>');
   const room = Math.random().toString(36).slice(2, 10), pc = new RTCPeerConnection({ iceServers: [] }), dc = pc.createDataChannel('arcade');
-  link = { pc, room, host: true }; wire(dc);
+  link = { pc, room, host: true }; wire(dc); watchConn(pc);
   await pc.setLocalDescription(await pc.createOffer()); await gather(pc);
+  if (!pc.found && !/a=candidate/.test(pc.localDescription.sdp)) { noAddress(); return; }
   const url = location.origin + location.pathname + '#join=' + await pack({ sdp: pc.localDescription.sdp, room, from: ME.name });
   const waiting = copied => showPanel(`<div class="mh">INVITE SENT</div><p>${copied === true ? 'The invite is copied: paste it into a message to your friend. ' : ''}When your friend sends a link back, tap it, and they'll walk in here. Keep this page open.</p><button class="no" data-act="cancelLink">CANCEL</button>`);
   showPanel(`<div class="mh">INVITE A FRIEND</div><p>Send this to a friend on the same wifi. They'll send you a link back.</p><button id="sendInv"><b>SEND INVITE</b></button><button class="no" data-act="cancelLink">CANCEL</button>`);
@@ -1873,13 +1874,19 @@ async function prepInvite() {
 async function prepJoin(code) {
   let o; try { o = await unpack(code); } catch (e) { showPanel('<div class="mh">THAT INVITE DIDN&rsquo;T WORK</div><p>Ask your friend to send a new one.</p><button class="no" data-act="cancelLink">OK</button>'); return; }
   showPanel('<div class="mh">JOINING</div><p>One moment.</p>');
-  const pc = new RTCPeerConnection({ iceServers: [] }); link = { pc, room: o.room, host: false };
+  const pc = new RTCPeerConnection({ iceServers: [] }); link = { pc, room: o.room, host: false }; watchConn(pc);
   pc.ondatachannel = e => wire(e.channel);
   await pc.setRemoteDescription({ type: 'offer', sdp: o.sdp }); await pc.setLocalDescription(await pc.createAnswer()); await gather(pc);
+  if (!pc.found && !/a=candidate/.test(pc.localDescription.sdp)) { noAddress(); return; }
   const url = location.origin + location.pathname + '#reply=' + await pack({ sdp: pc.localDescription.sdp }) + '&room=' + o.room;
   showPanel(`<div class="mh">ALMOST IN</div><p>Send this link back to ${esc(o.from || 'your friend')}. When they tap it, you'll walk in together.</p><button id="sendRep"><b>SEND IT BACK</b></button><button class="no" data-act="cancelLink">CANCEL</button>`);
   $('sendRep').onclick = e => { e.stopPropagation(); shareLink(url, `Let me in!`, () => showPanel(`<div class="mh">SENT</div><p>Waiting for ${esc(o.from || 'your friend')} to tap it. Keep this page open.</p><button class="no" data-act="cancelLink">CANCEL</button>`)); };
 }
+function noAddress() { showPanel('<div class="mh">THIS PHONE CAN&rsquo;T BE REACHED</div><p>The browser didn&rsquo;t give the arcade a network address to share, so your friend&rsquo;s phone has no way to find this one.</p><button class="no" data-act="cancelLink">OK</button>'); }
+// show how the connection is getting on, and say so if it fails
+function watchConn(pc) { pc.addEventListener('connectionstatechange', () => { const st = pc.connectionState;
+  if (st === 'connecting') showPanel('<div class="mh">CONNECTING</div><p>Your phones are finding each other.</p>');
+  if (st === 'failed') showPanel('<div class="mh">COULDN&rsquo;T CONNECT</div><p>Your phones couldn&rsquo;t reach each other. Make sure you&rsquo;re both on the same wifi, then send a new invite.</p><button class="no" data-act="cancelLink">OK</button>'); }); }
 ACTS.cancelLink = () => { if (link && link.pc && !(link.dc && link.dc.readyState === 'open')) { link.pc.close(); link = null; } hidePanel(); };
 // the reply arrives from the tab that opened it
 async function takeReply(m) {
@@ -1889,6 +1896,10 @@ async function takeReply(m) {
   try { const a = await unpack(m.code); await link.pc.setRemoteDescription({ type: 'answer', sdp: a.sdp }); showPanel('<div class="mh">CONNECTING</div><p>Your friend is on the way in.</p>'); }
   catch (e) { link.got = false; showPanel('<div class="mh">THAT DIDN&rsquo;T CONNECT</div><p>Try sending a new invite.</p><button class="no" data-act="cancelLink">OK</button>'); }
 }
+function takeHash() { const h = location.hash;
+  if (h.startsWith('#reply=')) { const q = new URLSearchParams(h.slice(1)); history.replaceState(null, '', location.pathname + location.search); takeReply({ t: 'reply', room: q.get('room'), code: q.get('reply'), at: Date.now() }); }
+  else if (h.startsWith('#join=')) { const code = h.slice(6); history.replaceState(null, '', location.pathname + location.search); pickLook(() => prepJoin(code)); } }
+addEventListener('hashchange', takeHash);
 if (bc) bc.onmessage = e => { if (e.data && e.data.t === 'reply') takeReply(e.data); };
 const checkStored = () => { try { const m = JSON.parse(localStorage.getItem('arcadeReply')); if (m && Date.now() - m.at < 15 * 60 * 1000) takeReply(m); } catch (e) {} };
 addEventListener('storage', e => { if (e.key === 'arcadeReply') checkStored(); });
