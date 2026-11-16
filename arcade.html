@@ -1541,6 +1541,10 @@ function faceTo(p, from = { x: me.x, z: me.z }, h = EYE) { const dx = p.x - from
 // keep out of walls and machines: push a circle out of each footprint
 function collide() {
   me.x = Math.max(RX0 + R, Math.min(RX1 - R, me.x)); me.z = Math.max(RZ0 + R, Math.min(RZ1 - R, me.z));
+  // other people: keep a step apart from each of them
+  const keepOff = (x, z, gap) => { const dx = me.x - x, dz = me.z - z, d = Math.hypot(dx, dz); if (d < gap) { const ux = d > 1e-4 ? dx / d : 1, uz = d > 1e-4 ? dz / d : 0; me.x = x + ux * gap; me.z = z + uz * gap; } };
+  if (typeof FRIEND !== 'undefined' && FRIEND) keepOff(FRIEND.x, FRIEND.z, 0.62);
+  if (typeof NPC !== 'undefined') for (const n of NPC) keepOff(n.x, n.z, 0.55);
   for (const m of SOLIDS) {
     const dx = me.x - m.group.position.x, dz = me.z - m.group.position.z, c = Math.cos(m.ry), s = Math.sin(m.ry);
     let lx = dx * c - dz * s, lz = dx * s + dz * c; const f = m.foot;
@@ -1740,6 +1744,10 @@ function spotAt(m, side = 0, end = 0, watch = false) {
   const p = m.front.clone().addScaledVector(m.facing, 0.42).addScaledVector(across, side * 0.2 * sc);
   return { x: p.x, z: p.z, face, dy: panel - SHOULDER, h: 0.48 };
 }
+// the looks you and your friend have, while you're in the room together
+function takenLooks() { return typeof FRIEND !== 'undefined' && FRIEND && ME ? [ME.look, FRIEND.me.look] : []; }
+// anyone dressed like you or your friend heads for the door (and their friend with them)
+function clearLookalikes() { const t = takenLooks(); NPC.forEach(n => { if (t.includes(n.cut) && n.state !== 'out') { leave(n); if (n.partner && n.partner.state !== 'out') leave(n.partner); } }); }
 // a free machine, not the one you are standing at
 const freeMachines = () => PLAYABLE.filter(m => !m.occ && m.i !== focus && Math.hypot(me.x - m.stand.x, me.z - m.stand.z) > 1.2);
 function sendTo(n, m, side, end) { const s = spotAt(m, side, end, n.watch); n.m = m; n.spot = s; n.path = route(s.x, s.z, { x: n.x, z: n.z }); n.state = 'walk'; }
@@ -1753,8 +1761,9 @@ function barPair() { for (const k of [0, 1].sort(() => Math.random() - 0.5)) { c
 function spawn() {
   const free = freeMachines(), pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.35, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
   // looks: a pair is two different people; only once in a long while the same look in different colours
-  const cutA = Math.floor(Math.random() * 4), cutB = Math.random() < 0.06 ? cutA : (cutA + 1 + Math.floor(Math.random() * 3)) % 4;
-  const make = (k, dx, cut) => { const fig = person(cols[k], cut); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.traverse(o => { o.userData.npc = n; }); fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
+  const free4 = [0, 1, 2, 3].filter(c => !takenLooks().includes(c)); if (!free4.length) return;
+  const cutA = pick(free4), others = free4.filter(c => c !== cutA), cutB = Math.random() < 0.06 || !others.length ? cutA : pick(others);
+  const make = (k, dx, cut) => { const fig = person(cols[k], cut); scene.add(fig.g); const n = { cut, fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.traverse(o => { o.userData.npc = n; }); fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
   const go = (n, spot) => { n.m = null; n.spot = spot; n.path = route(spot.x, spot.z, { x: n.x, z: n.z }); n.state = 'walk'; };
   if (!pair) { if (!free.length) return; const n = make(0, 0, cutA), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
   const r = Math.random(), bar = r > 0.72 ? barPair() : null, talk = !bar && r > 0.4 ? talkSpot() : null;
@@ -1903,12 +1912,37 @@ function nameTag(text, colr) {
 function onLinkMessage(m) {
   if (m.t === 'hi' && m.me && !FRIEND) {
     const me = { look: (m.me.look | 0) % 4, colr: /^#[0-9a-f]{6}$/i.test(m.me.colr) ? m.me.colr : '#ffffff', name: String(m.me.name || 'FRIEND').slice(0, 12) };
-    const fig = person(me.colr, me.look); scene.add(fig.g); const tag = nameTag(me.name, me.colr); tag.position.y = me.look === 0 ? 1.98 : 1.84; fig.g.add(tag);
+    const fig = person(me.colr, me.look); scene.add(fig.g); const tag = nameTag(me.name, me.colr); tag.position.y = me.look === 0 ? 1.92 : 1.78; fig.g.add(tag);
     FRIEND = { me, fig, x: DOORWAY.x, z: DOORWAY.z, yaw: Math.PI, tx: DOORWAY.x, tz: DOORWAY.z, tyaw: Math.PI, si: -1, t: 0 };
-    fig.g.position.set(FRIEND.x, 0, FRIEND.z); toast(`${me.name} walked in`);
+    fig.g.position.set(FRIEND.x, 0, FRIEND.z); toast(`${me.name} walked in`); clearLookalikes();
   }
   else if (m.t === 'p' && FRIEND) { FRIEND.tx = +m.x || 0; FRIEND.tz = +m.z || 0; FRIEND.tyaw = +m.yaw || 0; FRIEND.si = m.si | 0; FRIEND.play = !!m.pl; }
+  else if (m.t === 'greet' && FRIEND) { startGreet(false); }
   else if (m.t === 'bye' && FRIEND) { toast(`${FRIEND.me.name} is playing ${String(m.game || '').slice(0, 20)}`); }
+}
+const GREET = ['Yo', 'Yo', 'I love this place', 'Me too!', "Let's play!"];
+let greet = null, greeted = false;
+function bubble(text) {
+  const c = canvas(512, 128), k = c.getContext('2d'); k.font = "30px 'Press Start 2P'"; const w = Math.min(480, k.measureText(text).width + 56);
+  k.fillStyle = '#f4f1ea'; k.beginPath(); k.roundRect(256 - w / 2, 8, w, 84, 18); k.fill(); k.beginPath(); k.moveTo(240, 90); k.lineTo(256, 118); k.lineTo(272, 90); k.fill();
+  k.fillStyle = '#121216'; k.textAlign = 'center'; k.textBaseline = 'middle'; k.fillText(text, 256, 52);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), transparent: true, depthWrite: false })); s.scale.set(0.56, 0.14, 1); return s;
+}
+// the one who sent the invite speaks first; each side plays the same exchange, so the lines alternate between you
+function startGreet(first) { greet = { t: 0, i: -1, first }; greeted = true; }
+function greetTick(dt) {
+  if (!FRIEND) { greet = null; return; }
+  const d = Math.hypot(me.x - FRIEND.x, me.z - FRIEND.z);
+  if (d > 3) greeted = false;
+  if (!greet && !greeted && link && link.host && d < 1.5) { startGreet(true); try { link.dc.send(JSON.stringify({ t: 'greet' })); } catch (e) {} }
+  if (!greet) return;
+  greet.t += dt; const i = Math.floor(greet.t / 1.4);
+  if (i !== greet.i) {
+    greet.i = i; if (FRIEND.say) { FRIEND.fig.g.remove(FRIEND.say); FRIEND.say = null; }
+    if (i >= GREET.length) { greet = null; return; }
+    const mine = (i % 2 === 0) === greet.first;
+    if (mine) toast('YOU: ' + GREET[i]); else { FRIEND.say = bubble(GREET[i]); FRIEND.say.position.y = (FRIEND.me.look === 0 ? 1.92 : 1.78) + 0.16; FRIEND.fig.g.add(FRIEND.say); }
+  }
 }
 function dropFriend() { if (!FRIEND) return; scene.remove(FRIEND.fig.g); FRIEND = null; }
 let linkSend = 0;
@@ -2100,7 +2134,7 @@ function frame(now) {
   if (focus >= 0) { const m = MACHINES[focus], s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
   npcTick(dt, now / 1000);
-  linkTick(dt);
+  linkTick(dt); greetTick(dt);
   if (asked && asked.chat && Math.hypot(me.x - asked.x, me.z - asked.z) > 0.6) { asked = null; hidePanel(); }
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
   // now and then a tube stutters, the way old neon does
@@ -2142,7 +2176,7 @@ requestAnimationFrame(frame);
 // opened from an invite: choose how you look, then join
 { const h = location.hash; if (h.startsWith('#join=')) { const code = h.slice(6); history.replaceState(null, '', location.pathname + location.search); pickLook(() => prepJoin(code)); } }
 window.arcadeReady = true;
-window.arcadeDebug = { get link() { return link; }, get friend() { return FRIEND; }, cam, me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
+window.arcadeDebug = { get link() { return link; }, get friend() { return FRIEND; }, onLinkMessage, startGreet, cam, me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
 </script>
 </body>
 </html>
