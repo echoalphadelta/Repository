@@ -968,7 +968,7 @@ function stool(x, z, seatH, vinyl) {
 }
 // a stool in front of a machine, so far out from it and so far across, in its own frame
 const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key === key); return toWorld(m, across, 0, m.foot.z1 + out); };
-[['ff', -0.24], ['ff', 0.24], ['ww', 0], ['nb', 0], ['tn', 0]].forEach(([k, a]) => { const p = atMachine(k, a, 0.38); stool(p.x, p.z, 0.64, '#141416'); });
+[['ff', -0.24], ['ff', 0.24], ['ww', 0], ['nb', 0], ['tn', 0]].forEach(([k, a]) => { const p = atMachine(k, a, 0.38), m = MACHINES.find(m => m.key === k); stool(p.x, p.z, 0.64, '#141416'); (m.stools = m.stools || []).push({ x: p.x, z: p.z, across: a, top: 0.64 + 0.0375 }); });
 // the bar: a counter with a black top, a cyan strip under its lip, a back bar of lit shelves and bottles
 {
   const bx = RX1 - 1.15, z0 = 1.75, z1 = RZ1, len = z1 - z0, H = 1.06, D = 0.5;
@@ -1256,8 +1256,14 @@ function person(colr, cut = 0) {
       body.position.y = Math.abs(Math.cos(ph)) * 0.022 * amt + idle * 0.3 * (1 - amt); body.rotation.x = 0.06 * amt; body.rotation.y = sw * 0.08 * amt;
       head.rotation.y = Math.sin(t * 0.6) * 0.25 * (1 - amt); head.rotation.x = -0.04 * amt; },
     // sitting on a stool: thighs forward, shins hanging, forearms out toward the counter
-    play(t) { still(); body.position.y = 0; body.rotation.set(0.05, 0, 0); head.rotation.set(0.12, 0, 0);
-      AL.sh.rotation.x = -0.62; AR.sh.rotation.x = -0.62; AL.el.rotation.x = -0.75 + Math.sin(t * 9) * 0.07; AR.el.rotation.x = -0.75 + Math.sin(t * 13 + 1) * 0.09; },
+    // playing: dy is how far above (+) or below (-) the shoulder the controls are, h how far in front; the arms reach
+    // out to just above them, hands working the buttons
+    play(t, seated = false, dy = 0, h = 0.48) {
+      still(); body.position.y = 0; body.rotation.set(seated ? 0.12 : 0.05, 0, 0); head.rotation.set(0.15, 0, 0);
+      if (seated) [L, R].forEach(k => { k.hip.rotation.x = -1.35; k.knee.rotation.x = 1.25; });
+      const ang = Math.PI / 2 + Math.atan2(dy, h);
+      AL.sh.rotation.x = AR.sh.rotation.x = -(ang - 0.18);
+      AL.el.rotation.x = -0.36 + Math.sin(t * 9) * 0.06; AR.el.rotation.x = -0.36 + Math.sin(t * 13 + 1) * 0.07; },
     sit() { still(); [L, R].forEach(k => { k.hip.rotation.x = -1.35; k.knee.rotation.x = 1.25; }); [AL, AR].forEach(a => { a.sh.rotation.x = -0.35; a.el.rotation.x = -1.1; }); } };
 }
 const PEOPLE = [];
@@ -1340,9 +1346,17 @@ const DOOR = { x: 2.75, w: 0.92, h: 2.08 };
   const part = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.receiveShadow = true; grp.add(b); return b; };
   const frame = mat({ color: '#1e1e22', roughness: 0.5, metalness: 0.4 }), leaf = mat({ color: '#24242a', roughness: 0.6 }), steel = mat({ color: '#9a9aa2', metalness: 0.9, roughness: 0.3 });
   part(0.05, DOOR.h + 0.05, 0.05, frame, -DOOR.w / 2 - 0.025, (DOOR.h + 0.05) / 2, 0); part(0.05, DOOR.h + 0.05, 0.05, frame, DOOR.w / 2 + 0.025, (DOOR.h + 0.05) / 2, 0); part(DOOR.w + 0.1, 0.05, 0.05, frame, 0, DOOR.h + 0.025, 0);
-  part(DOOR.w, DOOR.h, 0.03, leaf, 0, DOOR.h / 2, 0.005);
-  part(DOOR.w * 0.78, 0.035, 0.04, steel, 0, 1.0, 0.035); [-1, 1].forEach(s => part(0.04, 0.06, 0.05, steel, s * DOOR.w * 0.39, 1.0, 0.02));
-  part(DOOR.w - 0.04, 0.2, 0.004, mat({ color: '#2a2a30', metalness: 0.8, roughness: 0.4 }), 0, 0.12, 0.022);
+  // the leaf, its push bar and kick plate, on a hinge at one side so it can swing out
+  const hinge = new THREE.Group(); hinge.position.set(-DOOR.w / 2, 0, 0); grp.add(hinge);
+  const onLeaf = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x + DOOR.w / 2, y, z); b.castShadow = b.receiveShadow = true; hinge.add(b); return b; };
+  onLeaf(DOOR.w, DOOR.h, 0.03, leaf, 0, DOOR.h / 2, 0.005);
+  onLeaf(DOOR.w * 0.78, 0.035, 0.04, steel, 0, 1.0, 0.035); [-1, 1].forEach(s => onLeaf(0.04, 0.06, 0.05, steel, s * DOOR.w * 0.39, 1.0, 0.02));
+  onLeaf(DOOR.w - 0.04, 0.2, 0.004, mat({ color: '#2a2a30', metalness: 0.8, roughness: 0.4 }), 0, 0.12, 0.022);
+  // beyond it, soft light: hidden until the door opens
+  { const c2 = canvas(128, 256), k = c2.getContext('2d'), gr = k.createRadialGradient(64, 150, 10, 64, 140, 170); gr.addColorStop(0, '#6e655c'); gr.addColorStop(0.5, '#2e2a27'); gr.addColorStop(1, '#0c0b0a'); k.fillStyle = gr; k.fillRect(0, 0, 128, 256);
+    const beyond = new THREE.Mesh(new THREE.PlaneGeometry(DOOR.w, DOOR.h), new THREE.MeshBasicMaterial({ map: tex(c2), transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+    beyond.position.set(0, DOOR.h / 2, -0.004); grp.add(beyond); DOOR.beyond = beyond; }
+  DOOR.hinge = hinge;
   const c = canvas(256, 96), g = c.getContext('2d'); g.fillStyle = '#1a0404'; g.fillRect(0, 0, 256, 96); g.font = "52px 'Press Start 2P'"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff3a2a'; g.fillText('EXIT', 128, 52);
   const sign = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.13, 0.04), [frame, frame, frame, frame, lit(tex(c), 0.9), frame]); sign.position.set(0, DOOR.h + 0.2, 0.02); grp.add(sign);
   // the sign throws a faint red light down the door, enough to find it
@@ -1504,8 +1518,8 @@ $('prev').onclick = e => { e.stopPropagation(); step(-1); };
 $('next').onclick = e => { e.stopPropagation(); step(1); };
 // walking out: through the door and back to the main site
 let leaving = false;
-function exitArcade() { if (going) return; leaving = false; auto = null; const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
-  going = { t: 0, from: cam.position.clone(), look0, to: new THREE.Vector3(DOOR.x, 1.45, RZ1 - 0.2), look: new THREE.Vector3(DOOR.x, 1.3, RZ1 + 1), href: 'index.html' }; $('hud').classList.remove('on'); }
+function exitArcade() { if (going) return; leaving = false; auto = null; stand(); const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
+  going = { door: true, t: 0, from: cam.position.clone(), look0, href: 'index.html' }; $('hud').classList.remove('on'); }
 function play(i = focus) {
   if (i === 'bar') { openMenu(); return; }
   if (going || i < 0) return; const m = MACHINES[i];
@@ -1567,26 +1581,32 @@ const DOORWAY = { x: DOOR.x, z: RZ1 - 0.45 };
 let npcNext = 3;
 const pick = a => a[Math.floor(Math.random() * a.length)];
 // where someone stands to play a machine: just in front of it, facing it; at the table, at either end
-function spotAt(m, side = 0, end = 0) {
+const SHOULDER = 1.125;
+function spotAt(m, side = 0, end = 0, watch = false) {
   if (m.kind === 'cocktail') { const len = m.foot.z1 - m.foot.z0, c = m.group.position, f = m.facing.clone().multiplyScalar(end ? -1 : 1);
-    const p = c.clone().addScaledVector(f, len / 2 + 0.28); return { x: p.x, z: p.z, face: Math.atan2(-f.x, -f.z) }; }
-  const p = m.front.clone().addScaledVector(m.facing, 0.42), across = new THREE.Vector3(m.facing.z, 0, -m.facing.x);
-  p.addScaledVector(across, side * 0.2 * (m.scale || 1)); return { x: p.x, z: p.z, face: Math.atan2(-m.facing.x, -m.facing.z) };
+    const p = c.clone().addScaledVector(f, len / 2 + 0.28); return { x: p.x, z: p.z, face: Math.atan2(-f.x, -f.z), dy: 0.86 - SHOULDER, h: 0.36 }; }
+  const sc = m.scale || 1, across = new THREE.Vector3(m.facing.z, 0, -m.facing.x), face = Math.atan2(-m.facing.x, -m.facing.z), panel = m.shape.lip1[1] * sc + 0.1;
+  if (watch) { const p = m.front.clone().addScaledVector(m.facing, 0.6).addScaledVector(across, 0.58); return { x: p.x, z: p.z, face: face - 0.5 }; }
+  // a stool on this side: walk up behind it, then sit
+  const st = (m.stools || []).find(q => Math.abs(q.across - side * 0.24) < 0.1 || (m.stools.length === 1 && side === 0));
+  if (st) { const off = st.top + 0.005 - 0.632; return { x: st.x + m.facing.x * 0.36, z: st.z + m.facing.z * 0.36, face, seat: st, off, dy: panel - (SHOULDER + off), h: 0.44 }; }
+  const p = m.front.clone().addScaledVector(m.facing, 0.42).addScaledVector(across, side * 0.2 * sc);
+  return { x: p.x, z: p.z, face, dy: panel - SHOULDER, h: 0.48 };
 }
 // a free machine, not the one you are standing at
 const freeMachines = () => PLAYABLE.filter(m => !m.occ && m.i !== focus && Math.hypot(me.x - m.stand.x, me.z - m.stand.z) > 1.2);
-function sendTo(n, m, side, end) { const s = spotAt(m, side, end); n.m = m; n.spot = s; n.path = route(s.x, s.z, { x: n.x, z: n.z }); n.state = 'walk'; }
-function leave(n) { if (n.m && n.m.occ && n.m.occ.includes(n)) n.m.occ = n.m.occ.filter(q => q !== n); if (n.m && n.m.occ && !n.m.occ.length) n.m.occ = null;
+function sendTo(n, m, side, end) { const s = spotAt(m, side, end, n.watch); n.m = m; n.spot = s; n.path = route(s.x, s.z, { x: n.x, z: n.z }); n.state = 'walk'; }
+function leave(n) { if (n.sat) { n.sat = false; n.y = 0; n.x = n.spot.x; n.z = n.spot.z; } if (n.m && n.m.occ && n.m.occ.includes(n)) n.m.occ = n.m.occ.filter(q => q !== n); if (n.m && n.m.occ && !n.m.occ.length) n.m.occ = null;
   n.m = null; n.state = 'out'; n.path = route(DOORWAY.x, DOORWAY.z, { x: n.x, z: n.z }); }
 function spawn() {
   const free = freeMachines(); if (!free.length) return;
   const pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.4, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
-  const make = (k, dx) => { const fig = person(cols[k], Math.floor(Math.random() * 4)); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
+  const make = (k, dx) => { const fig = person(cols[k], Math.floor(Math.random() * 4)); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
   if (!pair) { const n = make(0, 0), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
   const a = make(0, -0.25), b = make(1, 0.25), two = free.filter(m => m.key === 'ff' || m.key === 'ni');
   if (two.length && Math.random() < 0.7) { const m = pick(two); m.occ = [a, b]; if (m.key === 'ni') { sendTo(a, m, 0, 0); sendTo(b, m, 0, 1); } else { sendTo(a, m, -1); sendTo(b, m, 1); } a.partner = b; b.partner = a; a.stay = b.stay = 30 + Math.random() * 30; return; }
   // otherwise one plays and the friend watches over their shoulder
-  const m = pick(free); m.occ = [a, b]; sendTo(a, m, 0); sendTo(b, m, 1.6); b.watch = true; a.partner = b; b.partner = a; a.stay = b.stay = 25 + Math.random() * 25;
+  const m = pick(free); m.occ = [a, b]; b.watch = true; sendTo(a, m, 0); sendTo(b, m, 1); a.partner = b; b.partner = a; a.stay = b.stay = 25 + Math.random() * 25;
 }
 function npcTick(dt, t) {
   npcNext -= dt; if (npcNext < 0) { npcNext = 6 + Math.random() * 14; if (NPC.length < NPC_MAX - (Math.random() < 0.5 ? 1 : 0)) spawn(); }
@@ -1596,16 +1616,21 @@ function npcTick(dt, t) {
       const w = n.path[0], dx = w.x - n.x, dz = w.z - n.z, d = Math.hypot(dx, dz), st = Math.min(d, 1.05 * dt);
       if (d > 0.01) { n.x += dx / d * st; n.z += dz / d * st; n.yaw += wrap(Math.atan2(dx, dz) - n.yaw) * (1 - Math.exp(-dt * 8)); }
       f.pose(n.t, 1);
-      if (n.path.length === 1 && d < 0.04) { if (n.state === 'out') { scene.remove(f.g); NPC.splice(i, 1); continue; } n.state = 'play'; n.until = n.stay; }
+      if (n.path.length === 1 && d < 0.04) { if (n.state === 'out') { scene.remove(f.g); NPC.splice(i, 1); continue; } if (n.spot.seat) { n.state = 'mount'; n.k = 0; } else n.state = 'play'; n.until = n.stay; }
+    } else if (n.state === 'mount') {
+      // step in and sit down on the stool
+      n.k = Math.min(1, n.k + dt / 0.6); const e = n.k * n.k * (3 - 2 * n.k), st = n.spot.seat;
+      n.x = n.spot.x + (st.x - n.spot.x) * e; n.z = n.spot.z + (st.z - n.spot.z) * e; n.y = n.spot.off * e; n.yaw += wrap(n.spot.face - n.yaw) * (1 - Math.exp(-dt * 8));
+      f.play(n.t, e > 0.5, n.spot.dy, n.spot.h); if (n.k >= 1) { n.sat = true; n.state = 'play'; }
     } else if (n.state === 'play') {
       n.yaw += wrap((n.watch ? n.spot.face - 0.5 : n.spot.face) - n.yaw) * (1 - Math.exp(-dt * 5));
-      if (n.watch) f.pose(n.t, 0); else f.play(n.t);
+      if (n.watch) f.pose(n.t, 0); else f.play(n.t, !!n.sat, n.spot.dy, n.spot.h);
       n.until -= dt;
       if (n.until < 0 && !n.partner) { // play another, or go
-        const free = freeMachines(); if (Math.random() < 0.35 && free.length) { n.m.occ = null; const m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 20 + Math.random() * 30; } else leave(n); }
+        const free = freeMachines(); if (Math.random() < 0.35 && free.length) { if (n.sat) { n.sat = false; n.y = 0; n.x = n.spot.x; n.z = n.spot.z; } n.m.occ = null; const m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 20 + Math.random() * 30; } else leave(n); }
       else if (n.until < 0 && n.partner && n.partner.state === 'play') { const p = n.partner; leave(n); leave(p); }
     }
-    f.g.position.x = n.x; f.g.position.z = n.z; f.g.rotation.y = n.yaw;
+    f.g.position.set(n.x, n.y || 0, n.z); f.g.rotation.y = n.yaw;
   }
 }
 // trying to play a machine someone else is on: they answer
@@ -1694,7 +1719,7 @@ function release(e) {
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
 // coming back to this page from a game with the back button
-addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1; $('fade').classList.remove('on'); } });
+addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1; $('fade').classList.remove('on'); $('fade').style.transition = ''; DOOR.hinge.rotation.y = 0; DOOR.beyond.material.opacity = 0; } });
 
 // ---- music: three songs, one picked at random, then another when it ends ----
 // Browsers only allow sound after a tap or a key, so the first song starts then. MUSIC OFF is remembered.
@@ -1758,10 +1783,21 @@ function frame(now) {
     cam.position.set(me.x - Math.sin(me.yaw) * lean, eye - lean * 0.45, me.z - Math.cos(me.yaw) * lean); cam.rotation.set(me.pitch, me.yaw, 0);
     showFocus(seat ? -1 : findFocus());
   } else {
+    if (going.door) {
+      // turn to the door and step up to it; it swings open on soft light; walk on through as the room fades away
+      going.t += dt; const t = going.t, up = ease(Math.min(1, t / 1.0)), open = ease(Math.max(0, Math.min(1, (t - 0.5) / 0.9))), through = ease(Math.max(0, Math.min(1, (t - 1.1) / 1.2)));
+      const near = new THREE.Vector3(DOOR.x, 1.5, RZ1 - 0.85), far = new THREE.Vector3(DOOR.x, 1.5, RZ1 + 0.35);
+      cam.position.copy(going.from).lerp(near, up).lerp(far, through);
+      lookNow.copy(going.look0).lerp(new THREE.Vector3(DOOR.x, 1.35, RZ1 + 2), up); cam.lookAt(lookNow);
+      DOOR.hinge.rotation.y = open * 1.3; DOOR.beyond.material.opacity = open * 0.9;
+      if (t > 1.15 && !going.faded) { going.faded = true; $('fade').style.transition = 'opacity 1s ease-in'; $('fade').classList.add('on'); }
+      if (t >= 2.4 && !going.left) { going.left = true; location.href = going.href; }
+    } else {
     going.t += dt / 0.9; const e = ease(Math.min(1, going.t));
     cam.position.lerpVectors(going.from, going.to, e); lookNow.lerpVectors(going.look0, going.look, e); cam.lookAt(lookNow);
     if (going.t > 0.7) $('fade').classList.add('on');
     if (going.t >= 1.25 && !going.left) { going.left = true; location.href = going.href; }
+    }
   }
   // the four machines nearest you get the spots, the nearest one casts shadows
   const near = MACHINES.map(m => [Math.hypot(me.x - m.front.x, me.z - m.front.z), m]).sort((a, b) => a[0] - b[0]).slice(0, 4).map(a => a[1]);
@@ -1808,7 +1844,7 @@ $('msg').remove();
 setTimeout(() => $('help').classList.add('off'), 7000);
 requestAnimationFrame(frame);
 window.arcadeReady = true;
-window.arcadeDebug = { me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play };
+window.arcadeDebug = { me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
 </script>
 </body>
 </html>
