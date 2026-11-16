@@ -1245,7 +1245,7 @@ function person(colr, cut = 0) {
     const patch = new THREE.Mesh(new THREE.CircleGeometry(0.038, 24), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.8 })); patch.rotation.y = -Math.PI / 2; add(patch, -0.056 * K, -0.07, 0, AL.sh);
   }
   const still = () => { [L, R].forEach(k => { k.hip.rotation.x = 0; k.knee.rotation.x = 0; }); };
-  return { g, colr,
+  return { g, colr, look,
     // t is time in seconds, amt 0 standing to 1 walking: legs and arms swing against each other, knees and elbows bend
     pose(t, amt) { const ph = t * 7.2, sw = Math.sin(ph);
       L.hip.rotation.x = -sw * 0.55 * amt; R.hip.rotation.x = sw * 0.55 * amt;
@@ -1542,7 +1542,7 @@ let seat = null, eye = EYE;
 const panel = $('panel');
 const showPanel = html => { panel.innerHTML = html; panel.classList.add('on'); $('hud').classList.remove('on'); $('help').classList.add('off'); };
 const hidePanel = () => { panel.classList.remove('on'); panel.innerHTML = ''; };
-function sit(k) { if (going) return; auto = null; gaze = null; seat = { ...SEATS[k], t: 0 }; seatMenu(); }
+function sit(k) { if (going) return; if (SEATS[k].npc) { showPanel('<div class="mh">THE BAR</div><p>&ldquo;Sorry, someone&rsquo;s sitting here.&rdquo;</p><button data-act="npcBye"><b>OK</b></button>'); asked = { m: null, line: {} }; return; } auto = null; gaze = null; seat = { ...SEATS[k], t: 0 }; seatMenu(); }
 function stand() { if (!seat) return; me.x = seat.x - 0.62; me.z = seat.z; seat = null; gaze = null; hidePanel(); TV.onTune = null; }
 function seatMenu() { gaze = null; TV.onTune = null; showPanel(`<div class="mh">WHAT WOULD YOU LIKE?</div>
   <button data-act="order"><b>ORDER A DRINK</b></button>
@@ -1596,17 +1596,35 @@ function spotAt(m, side = 0, end = 0, watch = false) {
 // a free machine, not the one you are standing at
 const freeMachines = () => PLAYABLE.filter(m => !m.occ && m.i !== focus && Math.hypot(me.x - m.stand.x, me.z - m.stand.z) > 1.2);
 function sendTo(n, m, side, end) { const s = spotAt(m, side, end, n.watch); n.m = m; n.spot = s; n.path = route(s.x, s.z, { x: n.x, z: n.z }); n.state = 'walk'; }
-function leave(n) { if (n.sat) { n.sat = false; n.y = 0; n.x = n.spot.x; n.z = n.spot.z; } if (n.m && n.m.occ && n.m.occ.includes(n)) n.m.occ = n.m.occ.filter(q => q !== n); if (n.m && n.m.occ && !n.m.occ.length) n.m.occ = null;
+function leave(n) { if (n.barSeat) { n.barSeat.npc = null; n.barSeat = null; } if (n.sat) { n.sat = false; n.y = 0; n.x = n.spot.x; n.z = n.spot.z; } if (n.m && n.m.occ && n.m.occ.includes(n)) n.m.occ = n.m.occ.filter(q => q !== n); if (n.m && n.m.occ && !n.m.occ.length) n.m.occ = null;
   n.m = null; n.state = 'out'; n.path = route(DOORWAY.x, DOORWAY.z, { x: n.x, z: n.z }); }
+// open floor where two people can stand and talk
+const TALK = [[-1.6, 2.8], [1.2, -1.1], [-2.6, -1.7], [0.6, 3.3], [-3.4, 0.9], [2.2, 0.5], [-0.8, -1.6]];
+function talkSpot() { const ok = TALK.filter(([x, z]) => clear(x - 0.4, z, R) && clear(x + 0.4, z, R) && Math.hypot(me.x - x, me.z - z) > 1.6 && !NPC.some(n => n.spot && n.spot.mode === 'talk' && Math.hypot(n.spot.x - x, n.spot.z - z) < 1.2)); return ok.length ? pick(ok) : null; }
+// two bar stools side by side, free, and not the one you are on
+function barPair() { for (const k of [0, 1].sort(() => Math.random() - 0.5)) { const a = SEATS[k], b = SEATS[k + 1]; const mine = q => seat && Math.hypot(seat.x - q.x, seat.z - q.z) < 0.1; if (!a.npc && !b.npc && !mine(a) && !mine(b)) return [a, b]; } return null; }
 function spawn() {
-  const free = freeMachines(); if (!free.length) return;
-  const pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.4, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
-  const make = (k, dx) => { const fig = person(cols[k], Math.floor(Math.random() * 4)); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
-  if (!pair) { const n = make(0, 0), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
-  const a = make(0, -0.25), b = make(1, 0.25), two = free.filter(m => m.key === 'ff' || m.key === 'ni');
-  if (two.length && Math.random() < 0.7) { const m = pick(two); m.occ = [a, b]; if (m.key === 'ni') { sendTo(a, m, 0, 0); sendTo(b, m, 0, 1); } else { sendTo(a, m, -1); sendTo(b, m, 1); } a.partner = b; b.partner = a; a.stay = b.stay = 30 + Math.random() * 30; return; }
+  const free = freeMachines(), pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.35, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
+  // looks: a pair is two different people; only once in a long while the same look in different colours
+  const cutA = Math.floor(Math.random() * 4), cutB = Math.random() < 0.06 ? cutA : (cutA + 1 + Math.floor(Math.random() * 3)) % 4;
+  const make = (k, dx, cut) => { const fig = person(cols[k], cut); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
+  const go = (n, spot) => { n.m = null; n.spot = spot; n.path = route(spot.x, spot.z, { x: n.x, z: n.z }); n.state = 'walk'; };
+  if (!pair) { if (!free.length) return; const n = make(0, 0, cutA), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
+  const r = Math.random(), bar = r > 0.72 ? barPair() : null, talk = !bar && r > 0.4 ? talkSpot() : null;
+  if (!bar && !talk && !free.length) return;
+  const a = make(0, -0.25, cutA), b = make(1, 0.25, cutB); a.partner = b; b.partner = a;
+  if (bar) { // side by side at the bar, turned a little toward each other
+    bar.forEach((st, i) => { const n = i ? b : a; st.npc = n; n.barSeat = st; const top = 0.76 + 0.0375;
+      go(n, { mode: 'bar', x: st.x - 0.38, z: st.z, face: Math.PI / 2 + (i ? 0.35 : -0.35), seat: { x: st.x, z: st.z, top }, off: top + 0.005 - 0.632 }); });
+    a.stay = b.stay = 35 + Math.random() * 35; return; }
+  if (talk) { // standing in the room, facing each other, chatting
+    const ang = Math.random() * Math.PI, dx = Math.cos(ang) * 0.4, dz = Math.sin(ang) * 0.4;
+    go(a, { mode: 'talk', x: talk[0] - dx, z: talk[1] - dz, face: Math.atan2(dx, dz) }); go(b, { mode: 'talk', x: talk[0] + dx, z: talk[1] + dz, face: Math.atan2(-dx, -dz) });
+    a.stay = b.stay = 20 + Math.random() * 25; return; }
+  const two = free.filter(m => m.key === 'ff' || m.key === 'ni');
+  if (two.length && Math.random() < 0.7) { const m = pick(two); m.occ = [a, b]; if (m.key === 'ni') { sendTo(a, m, 0, 0); sendTo(b, m, 0, 1); } else { sendTo(a, m, -1); sendTo(b, m, 1); } a.stay = b.stay = 30 + Math.random() * 30; return; }
   // otherwise one plays and the friend watches over their shoulder
-  const m = pick(free); m.occ = [a, b]; b.watch = true; sendTo(a, m, 0); sendTo(b, m, 1); a.partner = b; b.partner = a; a.stay = b.stay = 25 + Math.random() * 25;
+  const m = pick(free); m.occ = [a, b]; b.watch = true; sendTo(a, m, 0); sendTo(b, m, 1); a.stay = b.stay = 25 + Math.random() * 25;
 }
 function npcTick(dt, t) {
   npcNext -= dt; if (npcNext < 0) { npcNext = 6 + Math.random() * 14; if (NPC.length < NPC_MAX - (Math.random() < 0.5 ? 1 : 0)) spawn(); }
@@ -1621,10 +1639,10 @@ function npcTick(dt, t) {
       // step in and sit down on the stool
       n.k = Math.min(1, n.k + dt / 0.6); const e = n.k * n.k * (3 - 2 * n.k), st = n.spot.seat;
       n.x = n.spot.x + (st.x - n.spot.x) * e; n.z = n.spot.z + (st.z - n.spot.z) * e; n.y = n.spot.off * e; n.yaw += wrap(n.spot.face - n.yaw) * (1 - Math.exp(-dt * 8));
-      f.play(n.t, e > 0.5, n.spot.dy, n.spot.h); if (n.k >= 1) { n.sat = true; n.state = 'play'; }
+      if (n.spot.mode === 'bar') { if (e > 0.5) f.sit(); else f.pose(n.t, 0); } else f.play(n.t, e > 0.5, n.spot.dy, n.spot.h); if (n.k >= 1) { n.sat = true; n.state = 'play'; }
     } else if (n.state === 'play') {
       n.yaw += wrap((n.watch ? n.spot.face - 0.5 : n.spot.face) - n.yaw) * (1 - Math.exp(-dt * 5));
-      if (n.watch) f.pose(n.t, 0); else f.play(n.t, !!n.sat, n.spot.dy, n.spot.h);
+      if (n.spot.mode === 'bar') f.sit(); else if (n.watch || n.spot.mode === 'talk') { f.pose(n.t, 0); } else f.play(n.t, !!n.sat, n.spot.dy, n.spot.h);
       n.until -= dt;
       if (n.until < 0 && !n.partner) { // play another, or go
         const free = freeMachines(); if (Math.random() < 0.35 && free.length) { if (n.sat) { n.sat = false; n.y = 0; n.x = n.spot.x; n.z = n.spot.z; } n.m.occ = null; const m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 20 + Math.random() * 30; } else leave(n); }
