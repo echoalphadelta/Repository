@@ -2052,7 +2052,7 @@ addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1;
 // ---- music: three songs, one picked at random, then another when it ends ----
 // Browsers only allow sound after a tap or a key, so the first song starts then. MUSIC OFF is remembered.
 {
-  const SONGS = ['horizons-gift', 'fading-lights', 'always-a-way'], song = new Audio(); song.volume = 0.1; song.preload = 'none';
+  const SONGS = ['horizons-gift', 'fading-lights', 'always-a-way'], song = new Audio(); song.volume = 0.05; song.preload = 'none';
   let on = true, last = -1, started = false; try { on = localStorage.getItem('arcadeMusic') !== 'off'; } catch (e) {}
   const btn = $('music'), label = () => { btn.textContent = on ? 'MUSIC ON' : 'MUSIC OFF'; };
   const next = () => { let i; do { i = Math.floor(Math.random() * SONGS.length); } while (i === last); last = i; song.src = 'arcade/music/' + SONGS[i] + '.m4a'; song.play().then(() => { started = true; }, () => {}); };
