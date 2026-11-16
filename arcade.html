@@ -37,6 +37,17 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 .menu input, .menu textarea { display: block; width: 100%; margin: 0 0 8px; padding: 9px; background: #111114; color: var(--ink); border: 1px solid #2a2a30; border-radius: 0; font: 16px system-ui, sans-serif; }
 .menu textarea { height: 84px; resize: none; }
 .menu .say { font-size: 8px; color: #ffb43f; min-height: 13px; }
+.menu .looks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.menu .looks .lk { font-size: 9px; padding: 10px 4px; border: 2px solid #2a2a30; text-align: center; }
+.menu .looks .lk.on { border-color: var(--ink); }
+.menu .swatches { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.menu .swatches .sw { width: 28px; height: 28px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+.menu .swatches .sw.on { border-color: var(--ink); }
+.toast { position: fixed; left: 50%; top: calc(48px + env(safe-area-inset-top)); transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 2px solid #2a2a30; padding: 10px 14px; font-size: 9px; z-index: 4; opacity: 0; pointer-events: none; transition: opacity .3s; white-space: nowrap; }
+.toast.on { opacity: 1; }
+.handoff { max-width: 420px; margin: 80px auto; padding: 0 16px; }
+.handoff .mh { font-size: 12px; margin-bottom: 14px; }
+.handoff p { font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; color: var(--ink); }
 .sip { position: fixed; right: 10px; bottom: calc(98px + env(safe-area-inset-bottom)); font-size: 9px; padding: 10px 8px; color: var(--ink); z-index: 3; display: none; }
 .sip.on { display: block; }
 .sip:active { color: var(--dim); }
@@ -68,6 +79,17 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 <script src="arcade/pix.js"></script>
 </head>
 <body>
+<script>
+// a reply to an invite: hand it to the arcade tab that sent the invite, and say so
+(function () {
+  var h = location.hash; if (h.indexOf('#reply=') !== 0) return; window.arcadeHandoff = true;
+  var q = new URLSearchParams(h.slice(1)), m = { t: 'reply', room: q.get('room'), code: q.get('reply'), at: Date.now() };
+  document.write('<div class="handoff"><div class="mh">YOUR FRIEND IS ON THE WAY</div><p id="hoText">Switch back to the arcade tab you sent the invite from. Your friend will walk in there.</p></div><style>body>*:not(.handoff){display:none!important}</style>');
+  try { localStorage.setItem('arcadeReply', JSON.stringify(m)); } catch (e) {}
+  try { var bc = new BroadcastChannel('arcade-link'); bc.onmessage = function (e) { if (e.data && e.data.t === 'ack' && e.data.room === m.room) document.getElementById('hoText').textContent = 'Done. You can close this tab and go back to the arcade.'; }; bc.postMessage(m); } catch (e) {}
+  history.replaceState(null, '', location.pathname);
+})();
+</script>
 <div class="top"><a href="index.html">&lt; BACK TO MAP</a><span><button id="music">MUSIC ON</button> <a href="arcade-list.html" style="margin-left:14px">LIST</a></span></div>
 <div class="msg" id="msg">POWERING UP</div>
 <div class="hud" id="hud">
@@ -78,6 +100,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 <div class="help off" id="help" hidden></div>
 <button class="sip" id="sip">DRINK</button>
 <div class="menu" id="panel"></div>
+<div class="toast" id="toast"></div>
 <div class="menu" id="menu">
   <div class="mh">WHAT'LL IT BE?</div>
   <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL ON ICE, WITH LIME</span></button>
@@ -98,6 +121,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 
 <script type="module">
 import * as THREE from 'three';
+if (window.arcadeHandoff) await new Promise(() => {});
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -1645,6 +1669,7 @@ let leaving = false;
 function exitArcade() { if (going) return; leaving = false; auto = null; stand(); const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
   going = { door: true, t: 0, from: cam.position.clone(), look0, href: 'index.html' }; $('hud').classList.remove('on'); }
 function play(i = focus) {
+  if (i >= 0 && link && link.dc && link.dc.readyState === 'open' && !going) try { link.dc.send(JSON.stringify({ t: 'bye', game: MACHINES[i].name })); } catch (e) {}
   if (i === 'bar') { openMenu(); return; }
   if (going || i < 0) return; const m = MACHINES[i];
   if (m.occ && m.occ.length && !(asked && asked.m === m && asked.line.act === 'beat' && !m.occ.length)) { talkTo(m); return; }
@@ -1666,7 +1691,7 @@ let seat = null, eye = EYE;
 const panel = $('panel');
 const showPanel = html => { panel.innerHTML = html; panel.classList.add('on'); $('hud').classList.remove('on'); $('help').classList.add('off'); };
 const hidePanel = () => { panel.classList.remove('on'); panel.innerHTML = ''; };
-function sit(k) { if (going) return; if (SEATS[k].npc) { showPanel('<div class="mh">THE BAR</div><p>&ldquo;Sorry, someone&rsquo;s sitting here.&rdquo;</p><button data-act="npcBye"><b>OK</b></button>'); asked = { m: null, line: {} }; return; } auto = null; gaze = null; seat = { ...SEATS[k], t: 0 }; seatMenu(); }
+function sit(k) { if (going) return; if (SEATS[k].npc) { showPanel('<div class="mh">THE BAR</div><p>&ldquo;Sorry, someone&rsquo;s sitting here.&rdquo;</p><button data-act="npcBye"><b>OK</b></button>'); asked = { m: null, line: {} }; return; } auto = null; gaze = null; seat = { ...SEATS[k], t: 0, k }; seatMenu(); }
 function stand() { if (!seat) return; me.x = seat.x - 0.62; me.z = seat.z; seat = null; gaze = null; hidePanel(); TV.onTune = null; }
 function seatMenu() { gaze = null; TV.onTune = null; showPanel(`<div class="mh">WHAT WOULD YOU LIKE?</div>
   <button data-act="order"><b>ORDER A DRINK</b></button>
@@ -1682,7 +1707,7 @@ const ACTS = {
   about() { showPanel(`<div class="mh"><span style="color:#4a9eff">ECHO</span> <span style="color:#ff4a4a">ALPHA</span> <span style="color:#4aff7a">DELTA</span></div><p>${ABOUT}</p><a class="go" href="index.html">OPEN THE MAP</a><button class="no" data-act="back">BACK</button>`); },
   tv() { gaze = TV.at.clone(); TV.onTune = tvBar; tvBar(); },
   chan() { TV.tune(); },
-  msg() { showPanel(`<div class="mh">WHO TO?</div><button data-act="write"><b>ECHO ALPHA DELTA</b><span>ASK ABOUT THE BOOK OR THE WEBSITE</span></button><button data-act="friend"><b>A FRIEND</b><span>SEND THEM A LINK TO THE ARCADE</span></button><button class="no" data-act="back">BACK</button>`); },
+  msg() { showPanel(`<div class="mh">WHO TO?</div><button data-act="write"><b>ECHO ALPHA DELTA</b><span>ASK ABOUT THE BOOK OR THE WEBSITE</span></button><button data-act="friend"><b>A FRIEND</b><span>INVITE THEM INTO THE ARCADE WITH YOU</span></button>${ME ? '<button data-act="look"><b>CHANGE MY LOOK</b></button>' : ''}<button class="no" data-act="back">BACK</button>`); },
   write() { showPanel(`<div class="mh">A MESSAGE TO ECHO ALPHA DELTA</div><form id="note" novalidate><input id="nName" placeholder="Your name" autocomplete="name"><input id="nMail" type="email" placeholder="Your email address" autocomplete="email"><textarea id="nText" placeholder="Your message"></textarea>
     <div class="say" id="nSay"></div><button type="submit"><b>SEND</b></button></form><button class="no" data-act="msg">BACK</button>`);
     $('note').onsubmit = e => { e.preventDefault(); const name = $('nName').value.trim(), email = $('nMail').value.trim(), message = $('nText').value.trim(), say = $('nSay');
@@ -1692,10 +1717,8 @@ const ACTS = {
       fetch('https://formspree.io/f/maqlqajj', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ name, email, message, _replyto: email, _subject: 'Contact Form' }) })
         .then(r => { if (!r.ok) throw 0; showPanel(`<div class="mh">SENT</div><p>Thanks! Your message has been sent to Echo Alpha Delta Publishing.</p><button class="no" data-act="back">BACK</button>`); })
         .catch(() => { say.textContent = 'SOMETHING WENT WRONG. TRY AGAIN.'; btn.disabled = false; }); }; },
-  friend() { const url = location.origin + location.pathname, done = t => showPanel(`<div class="mh">${t}</div><button class="no" data-act="back">BACK</button>`);
-    if (navigator.share) navigator.share({ title: 'Echo Alpha Delta Arcade', text: 'Come and play in the Echo Alpha Delta arcade', url }).then(() => done('SENT'), () => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => done('LINK COPIED. PASTE IT INTO A MESSAGE.'), () => done(url));
-    else done(url); },
+  friend() { if (ME) prepInvite(); else pickLook(prepInvite); },
+  look() { pickLook(seatMenu); },
 };
 panel.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; e.stopPropagation(); ACTS[b.dataset.act](); });
 // ---- other players: people come in through the door, alone or in pairs, play a machine or two, and leave ----
@@ -1782,6 +1805,126 @@ const BUSY = [
   { say: "Last level. Give me a sec, I'm nearly through.", act: 'soon' },
   { say: 'Go for it, I was only watching anyway.', act: 'go' },
 ];
+// ---- a friend in the room: two phones on the same wifi connect straight to each other, with no server.
+// You send an invite link from the bar; it carries your phone's connection details. Your friend opens it and sends a
+// reply link back; tapping the reply hands their details to this tab, and the two phones connect. From then on each
+// sends where it is ten times a second, and each shows the other as a figure with their name over their head.
+const LOOKS = ['ASTRONAUT', 'PUNK', 'HOODIE', 'VARSITY'], ME_COLS = ['#ff3fa4', '#3fe8ff', '#ffb43f', '#5cff8a', '#b98cff', '#4a9eff', '#ff6a4a'];
+let ME = null; try { ME = JSON.parse(localStorage.getItem('arcadeMe')); } catch (e) {}
+const b64u = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function pack(obj) { const raw = new TextEncoder().encode(JSON.stringify(obj));
+  if ('CompressionStream' in window) { const buf = await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer(); return 'z' + b64u(new Uint8Array(buf)); }
+  return 'j' + b64u(raw); }
+async function unpack(code) { const bytes = unb64u(code.slice(1));
+  const raw = code[0] === 'z' ? new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : bytes;
+  return JSON.parse(new TextDecoder().decode(raw)); }
+// wait until the phone has worked out every way it can be reached on the network (or a few seconds, whichever first)
+const gather = pc => new Promise(res => { if (pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, 3500); pc.addEventListener('icegatheringstatechange', () => { if (pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); });
+const toastEl = document.getElementById('toast'); let toastT = 0;
+const toast = t => { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 4000); };
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// choosing how you look to your friend: asked once, remembered, changeable
+function pickLook(then) {
+  const cur = ME || { look: Math.floor(Math.random() * 4), colr: pick(ME_COLS), name: '' }, draft = { ...cur };
+  const draw = () => {
+    showPanel(`<div class="mh">HOW YOU LOOK TO YOUR FRIEND</div>
+      <div class="looks">${LOOKS.map((l, i) => `<button class="lk${draft.look === i ? ' on' : ''}" data-look="${i}">${l}</button>`).join('')}</div>
+      <div class="swatches">${ME_COLS.map(c => `<button class="sw${draft.colr === c ? ' on' : ''}" data-col="${c}" style="background:${c}" aria-label="Colour"></button>`).join('')}</div>
+      <input id="meName" maxlength="12" placeholder="Your name" value="${esc(draft.name)}" autocomplete="nickname">
+      <button id="meDone"><b>DONE</b></button><button class="no" id="meRandom">RANDOM</button>`);
+    panel.querySelectorAll('[data-look]').forEach(b => b.onclick = e => { e.stopPropagation(); draft.name = $('meName').value; draft.look = +b.dataset.look; draw(); });
+    panel.querySelectorAll('[data-col]').forEach(b => b.onclick = e => { e.stopPropagation(); draft.name = $('meName').value; draft.colr = b.dataset.col; draw(); });
+    $('meRandom').onclick = e => { e.stopPropagation(); draft.look = Math.floor(Math.random() * 4); draft.colr = pick(ME_COLS); draw(); };
+    $('meDone').onclick = e => { e.stopPropagation(); draft.name = ($('meName').value.trim() || 'PLAYER').toUpperCase().slice(0, 12); ME = draft; try { localStorage.setItem('arcadeMe', JSON.stringify(ME)); } catch (e2) {} then(); };
+  };
+  draw();
+}
+// share a link, or copy it where sharing is not available
+function shareLink(url, text, sent) {
+  if (navigator.share) navigator.share({ title: 'Echo Alpha Delta Arcade', text, url }).then(sent, () => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + url).then(() => sent(true), () => {});
+}
+let link = null;
+const bc = 'BroadcastChannel' in window ? new BroadcastChannel('arcade-link') : null;
+// your side: make the invite, then wait for the reply
+async function prepInvite() {
+  if (link && link.pc) link.pc.close();
+  showPanel('<div class="mh">GETTING YOUR INVITE READY</div><p>One moment.</p>');
+  const room = Math.random().toString(36).slice(2, 10), pc = new RTCPeerConnection({ iceServers: [] }), dc = pc.createDataChannel('arcade');
+  link = { pc, room, host: true }; wire(dc);
+  await pc.setLocalDescription(await pc.createOffer()); await gather(pc);
+  const url = location.origin + location.pathname + '#join=' + await pack({ sdp: pc.localDescription.sdp, room, from: ME.name });
+  const waiting = copied => showPanel(`<div class="mh">INVITE SENT</div><p>${copied === true ? 'The invite is copied: paste it into a message to your friend. ' : ''}When your friend sends a link back, tap it, and they'll walk in here. Keep this page open.</p><button class="no" data-act="cancelLink">CANCEL</button>`);
+  showPanel(`<div class="mh">INVITE A FRIEND</div><p>Send this to a friend on the same wifi. They'll send you a link back.</p><button id="sendInv"><b>SEND INVITE</b></button><button class="no" data-act="cancelLink">CANCEL</button>`);
+  $('sendInv').onclick = e => { e.stopPropagation(); shareLink(url, `${ME.name} invited you into the Echo Alpha Delta arcade`, waiting); };
+}
+// their side: take the invite, make the reply
+async function prepJoin(code) {
+  let o; try { o = await unpack(code); } catch (e) { showPanel('<div class="mh">THAT INVITE DIDN&rsquo;T WORK</div><p>Ask your friend to send a new one.</p><button class="no" data-act="cancelLink">OK</button>'); return; }
+  showPanel('<div class="mh">JOINING</div><p>One moment.</p>');
+  const pc = new RTCPeerConnection({ iceServers: [] }); link = { pc, room: o.room, host: false };
+  pc.ondatachannel = e => wire(e.channel);
+  await pc.setRemoteDescription({ type: 'offer', sdp: o.sdp }); await pc.setLocalDescription(await pc.createAnswer()); await gather(pc);
+  const url = location.origin + location.pathname + '#reply=' + await pack({ sdp: pc.localDescription.sdp }) + '&room=' + o.room;
+  showPanel(`<div class="mh">ALMOST IN</div><p>Send this link back to ${esc(o.from || 'your friend')}. When they tap it, you'll walk in together.</p><button id="sendRep"><b>SEND IT BACK</b></button><button class="no" data-act="cancelLink">CANCEL</button>`);
+  $('sendRep').onclick = e => { e.stopPropagation(); shareLink(url, `Let me in!`, () => showPanel(`<div class="mh">SENT</div><p>Waiting for ${esc(o.from || 'your friend')} to tap it. Keep this page open.</p><button class="no" data-act="cancelLink">CANCEL</button>`)); };
+}
+ACTS.cancelLink = () => { if (link && link.pc && !(link.dc && link.dc.readyState === 'open')) { link.pc.close(); link = null; } hidePanel(); };
+// the reply arrives from the tab that opened it
+async function takeReply(m) {
+  if (!m || !link || !link.host || link.room !== m.room || link.got) return;
+  link.got = true; if (bc) bc.postMessage({ t: 'ack', room: m.room });
+  try { localStorage.removeItem('arcadeReply'); } catch (e) {}
+  try { const a = await unpack(m.code); await link.pc.setRemoteDescription({ type: 'answer', sdp: a.sdp }); showPanel('<div class="mh">CONNECTING</div><p>Your friend is on the way in.</p>'); }
+  catch (e) { link.got = false; showPanel('<div class="mh">THAT DIDN&rsquo;T CONNECT</div><p>Try sending a new invite.</p><button class="no" data-act="cancelLink">OK</button>'); }
+}
+if (bc) bc.onmessage = e => { if (e.data && e.data.t === 'reply') takeReply(e.data); };
+const checkStored = () => { try { const m = JSON.parse(localStorage.getItem('arcadeReply')); if (m && Date.now() - m.at < 15 * 60 * 1000) takeReply(m); } catch (e) {} };
+addEventListener('storage', e => { if (e.key === 'arcadeReply') checkStored(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkStored(); });
+addEventListener('focus', checkStored);
+// the connection itself
+let FRIEND = null;
+function wire(dc) {
+  link.dc = dc;
+  const opened = () => { dc.send(JSON.stringify({ t: 'hi', me: ME })); hidePanel(); };
+  // the joining side is handed a channel that may already be open
+  if (dc.readyState === 'open') opened(); else dc.onopen = opened;
+  dc.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } onLinkMessage(m); };
+  dc.onclose = () => { if (FRIEND) { toast(`${FRIEND.me.name} left the arcade`); dropFriend(); } link = null; };
+}
+function nameTag(text, colr) {
+  const c = canvas(512, 96), k = c.getContext('2d'); k.font = "40px 'Press Start 2P'"; k.textAlign = 'center'; k.textBaseline = 'middle';
+  const w = Math.min(500, k.measureText(text).width + 48); k.fillStyle = 'rgba(0,0,0,0.6)'; k.beginPath(); k.roundRect(256 - w / 2, 14, w, 68, 12); k.fill(); k.fillStyle = colr; k.fillText(text, 256, 50);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), transparent: true, depthWrite: false })); s.scale.set(0.62, 0.116, 1); return s;
+}
+function onLinkMessage(m) {
+  if (m.t === 'hi' && m.me && !FRIEND) {
+    const me = { look: (m.me.look | 0) % 4, colr: /^#[0-9a-f]{6}$/i.test(m.me.colr) ? m.me.colr : '#ffffff', name: String(m.me.name || 'FRIEND').slice(0, 12) };
+    const fig = person(me.colr, me.look); scene.add(fig.g); const tag = nameTag(me.name, me.colr); tag.position.y = me.look === 0 ? 1.98 : 1.84; fig.g.add(tag);
+    FRIEND = { me, fig, x: DOORWAY.x, z: DOORWAY.z, yaw: Math.PI, tx: DOORWAY.x, tz: DOORWAY.z, tyaw: Math.PI, si: -1, t: 0 };
+    fig.g.position.set(FRIEND.x, 0, FRIEND.z); toast(`${me.name} walked in`);
+  }
+  else if (m.t === 'p' && FRIEND) { FRIEND.tx = +m.x || 0; FRIEND.tz = +m.z || 0; FRIEND.tyaw = +m.yaw || 0; FRIEND.si = m.si | 0; FRIEND.play = !!m.pl; }
+  else if (m.t === 'bye' && FRIEND) { toast(`${FRIEND.me.name} is playing ${String(m.game || '').slice(0, 20)}`); }
+}
+function dropFriend() { if (!FRIEND) return; scene.remove(FRIEND.fig.g); FRIEND = null; }
+let linkSend = 0;
+function linkTick(dt) {
+  if (link && link.dc && link.dc.readyState === 'open') { linkSend -= dt; if (linkSend < 0) { linkSend = 0.1;
+    link.dc.send(JSON.stringify({ t: 'p', x: +me.x.toFixed(3), z: +me.z.toFixed(3), yaw: +me.yaw.toFixed(3), si: seat ? seat.k : -1, pl: focus >= 0 })); } }
+  if (!FRIEND) return;
+  const F = FRIEND, f = F.fig; F.t += dt;
+  if (F.si >= 0 && SEATS[F.si]) { const st = SEATS[F.si]; F.x = st.x; F.z = st.z; F.yaw = Math.PI / 2; f.sit(); f.g.position.set(F.x, 0.17, F.z); f.g.rotation.y = F.yaw; return; }
+  const k = 1 - Math.exp(-dt * 8), ox = F.x, oz = F.z; F.x += (F.tx - F.x) * k; F.z += (F.tz - F.z) * k;
+  const moving = Math.hypot(F.x - ox, F.z - oz) / Math.max(dt, 1e-3) > 0.15;
+  // the figure faces the way its owner is looking (the camera looks along -z of its yaw)
+  F.yaw += wrap(F.tyaw + Math.PI - F.yaw) * k;
+  f.pose(F.t, moving ? 1 : 0); f.g.position.set(F.x, 0, F.z); f.g.rotation.y = F.yaw;
+}
+
 let asked = null;
 const musicOn = () => !!(window.arcadeMusic && !window.arcadeMusic.paused);
 const MUSIC = ['I love this song.', 'Whoever picked the music in here has great taste.', 'This track is so good. I could play to it all night.', 'Love the music in here.'];
@@ -1957,6 +2100,7 @@ function frame(now) {
   if (focus >= 0) { const m = MACHINES[focus], s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
   npcTick(dt, now / 1000);
+  linkTick(dt);
   if (asked && asked.chat && Math.hypot(me.x - asked.x, me.z - asked.z) > 0.6) { asked = null; hidePanel(); }
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
   // now and then a tube stutters, the way old neon does
@@ -1995,8 +2139,10 @@ function frame(now) {
 $('msg').remove();
 setTimeout(() => $('help').classList.add('off'), 7000);
 requestAnimationFrame(frame);
+// opened from an invite: choose how you look, then join
+{ const h = location.hash; if (h.startsWith('#join=')) { const code = h.slice(6); history.replaceState(null, '', location.pathname + location.search); pickLook(() => prepJoin(code)); } }
 window.arcadeReady = true;
-window.arcadeDebug = { cam, me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
+window.arcadeDebug = { get link() { return link; }, get friend() { return FRIEND; }, cam, me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
 </script>
 </body>
 </html>
