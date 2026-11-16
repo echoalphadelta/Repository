@@ -139,10 +139,16 @@ function beep(freq, dur, type) {
     o.start(); o.stop(audio.currentTime + dur + 0.01);
   } catch (e) {}
 }
+// the run's own song: it starts from the top with each run, loops while you drive, and fades when the run ends
+const song = new Audio('arcade/music/ultrasonic-dash.m4a'); song.loop = true; song.preload = 'auto'; const SONG_VOL = 0.3;
+let fadeT = null;
+function songPlay(restart) { clearInterval(fadeT); if (restart) { try { song.currentTime = 0; } catch (e) {} } song.volume = SONG_VOL; if (soundOn) song.play().catch(() => {}); }
+function songStop() { clearInterval(fadeT); fadeT = setInterval(() => { song.volume = Math.max(0, song.volume - 0.03); if (song.volume <= 0) { clearInterval(fadeT); song.pause(); } }, 60); }
 function toggleSound() {
   soundOn = !soundOn;
   store(SOUND_KEY, soundOn ? '1' : '0');
   document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+  if (!soundOn) { clearInterval(fadeT); song.pause(); } else if (state === 'playing') songPlay(false);
 }
 
 // ---- Drawing -------------------------------------------------------------
@@ -628,12 +634,12 @@ function startGame() {
   for (let i = 0; i < 2; i++, z += GATE_GAP) gates.push(Object.assign(nextGate(), { z }));
   document.getElementById('over').className = 'over hidden';
   state = 'playing';
-  beep(660, 0.06);
+  beep(660, 0.06); songPlay(true);
   requestAnimationFrame(frame);
 }
 
 function win() {
-  state = 'over'; updateFire();
+  state = 'over'; updateFire(); songStop();
   score += 1000 + lives * 500;
   [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => setTimeout(() => beep(f, 0.1), i * 120));
   const list = highScores();
@@ -646,7 +652,7 @@ function win() {
       : scoreTable(-1) + '<span class="go" onclick="startGame()">PRESS START</span>'}`), 600);
 }
 function gameOver() {
-  state = 'over'; updateFire();
+  state = 'over'; updateFire(); songStop();
   [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.12), i * 130));
   const list = highScores();
   const qualifies = score > 0 && (list.length < 10 || score > list[list.length - 1].s);
@@ -680,8 +686,8 @@ const stage = document.getElementById('stage');
 stage.addEventListener('pointerdown', e => { sx = e.clientX; });
 stage.addEventListener('pointerup', e => { if (sx === null) return; const dx = e.clientX - sx; if (Math.abs(dx) > 24) setLane(lane + (dx > 0 ? 1 : -1)); sx = null; });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && state === 'playing') state = 'paused';
-  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+  if (document.hidden && state === 'playing') { state = 'paused'; song.pause(); }
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; songPlay(false); requestAnimationFrame(frame); }
 });
 
 // Scale the pixel canvas to the screen
