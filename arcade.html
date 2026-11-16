@@ -1434,7 +1434,7 @@ let focus = -1, going = null, auto = null, moved = false;
   const m = MACHINES.find(m => m.key === k); if (m) { me.x = m.stand.x; me.z = m.stand.z; Object.assign(me, faceTo(m.screenAt)); } }
 function showFocus(i) {
   if (i === focus) return; focus = i;
-  if (typeof asked !== 'undefined' && asked) { asked = null; hidePanel(); }
+  if (typeof asked !== 'undefined' && asked && !asked.chat) { asked = null; hidePanel(); }
   if (i === -1) { $('hud').classList.remove('on'); closeMenu(); return; }
   if (i === 'bar') { $('name').textContent = served ? DRINKS[served.kind].name : 'THE BAR'; $('best').textContent = served ? DRINKS[served.kind].sub : ''; $('coin').textContent = served ? 'ANOTHER ROUND' : 'ORDER A DRINK'; $('hud').classList.add('on'); return; }
   closeMenu(); $('coin').textContent = 'INSERT COIN';
@@ -1607,7 +1607,7 @@ function spawn() {
   const free = freeMachines(), pair = NPC.length <= NPC_MAX - 2 && Math.random() < 0.35, cols = [...NPC_COLS].sort(() => Math.random() - 0.5);
   // looks: a pair is two different people; only once in a long while the same look in different colours
   const cutA = Math.floor(Math.random() * 4), cutB = Math.random() < 0.06 ? cutA : (cutA + 1 + Math.floor(Math.random() * 3)) % 4;
-  const make = (k, dx, cut) => { const fig = person(cols[k], cut); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
+  const make = (k, dx, cut) => { const fig = person(cols[k], cut); scene.add(fig.g); const n = { fig, x: DOORWAY.x + dx, z: DOORWAY.z, y: 0, yaw: Math.PI, t: Math.random() * 10 }; fig.g.traverse(o => { o.userData.npc = n; }); fig.g.position.set(n.x, 0, n.z); NPC.push(n); return n; };
   const go = (n, spot) => { n.m = null; n.spot = spot; n.path = route(spot.x, spot.z, { x: n.x, z: n.z }); n.state = 'walk'; };
   if (!pair) { if (!free.length) return; const n = make(0, 0, cutA), m = pick(free); m.occ = [n]; sendTo(n, m, 0); n.stay = 25 + Math.random() * 35; return; }
   const r = Math.random(), bar = r > 0.72 ? barPair() : null, talk = !bar && r > 0.4 ? talkSpot() : null;
@@ -1659,15 +1659,24 @@ const BUSY = [
   { say: 'Go for it, I was only watching anyway.', act: 'go' },
 ];
 let asked = null;
+const musicOn = () => !!(window.arcadeMusic && !window.arcadeMusic.paused);
+const MUSIC = ['I love this song.', 'Whoever picked the music in here has great taste.', 'This track is so good. I could play to it all night.', 'Love the music in here.'];
+const SMALL = ['Hey! Good to see you.', 'This place never gets old.', 'Have you tried Fret Fighter yet?', 'Roman Golf is harder than it looks.', "I'm on a streak tonight."];
+function chat(n) {
+  n.yaw = Math.atan2(me.x - n.x, me.z - n.z); asked = { m: null, line: {}, chat: true, x: me.x, z: me.z };
+  const say = musicOn() && Math.random() < 0.6 ? pick(MUSIC) : pick(SMALL);
+  showPanel(`<p>&ldquo;${say}&rdquo;</p><button data-act="npcBye"><b>OK</b></button>`);
+}
 function talkTo(m) {
   const who = m.occ[0], line = pick(BUSY); asked = { m, line };
   who.yaw = Math.atan2(me.x - who.x, me.z - who.z);
   const btns = line.act === 'beat' ? '<button data-act="npcBeat"><b>CHALLENGE ACCEPTED</b></button><button class="no" data-act="npcBye">MAYBE LATER</button>' : '<button data-act="npcBye"><b>OK</b></button>';
-  showPanel(`<div class="mh">${m.name}</div><p>&ldquo;${line.say}&rdquo;</p>${btns}`);
+  const extra = musicOn() && Math.random() < 0.35 ? ' ' + pick(MUSIC) : '';
+  showPanel(`<div class="mh">${m.name}</div><p>&ldquo;${line.say}${extra}&rdquo;</p>${btns}`);
   if (line.act === 'soon') { m.occ.forEach(n => { n.until = Math.min(n.until, 4 + Math.random() * 3); }); }
   if (line.act === 'go') { const occ = m.occ; occ.forEach(n => leave(n)); }
 }
-ACTS.npcBye = () => { hidePanel(); focus = -2; };
+ACTS.npcBye = () => { hidePanel(); if (asked && asked.chat) { asked = null; return; } focus = -2; };
 ACTS.npcBeat = () => { hidePanel(); const m = asked.m; const occ = m.occ || []; occ.forEach(n => leave(n)); play(m.i); };
 
 // take a sip: lift the glass to your mouth, tip it, and the level drops a quarter. If it is still on the counter, pick it up first.
@@ -1732,7 +1741,7 @@ function release(e) {
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ptr, cam);
   const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible);
   if (!hit) return; const i = hit.object.userData.machine;
-  if (i === undefined) { if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.seat !== undefined) { sit(hit.object.userData.seat); return; } if (hit.object.userData.tv) { TV.tune(); return; } if (hit.object.userData.door) { if (Math.hypot(me.x - DOOR.x, me.z - RZ1) < 1.3) exitArcade(); else { walkTo(DOOR); leaving = true; } return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
+  if (i === undefined) { if (hit.object.userData.npc) { chat(hit.object.userData.npc); return; } if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.seat !== undefined) { sit(hit.object.userData.seat); return; } if (hit.object.userData.tv) { TV.tune(); return; } if (hit.object.userData.door) { if (Math.hypot(me.x - DOOR.x, me.z - RZ1) < 1.3) exitArcade(); else { walkTo(DOOR); leaving = true; } return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
   if (i === focus) play(i); else walkTo(MACHINES[i]);
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
@@ -1824,6 +1833,7 @@ function frame(now) {
   if (focus >= 0) { const m = MACHINES[focus], s = m.group.userData.screen, n = new THREE.Vector3(0, 0, 1).applyQuaternion(s.getWorldQuaternion(new THREE.Quaternion()));
     spill.position.copy(m.screenAt).addScaledVector(n, 0.28).add(new THREE.Vector3(0, -0.06, 0)); spill.color.set(m.coin); spill.intensity = 0.35; } else spill.intensity = 0;
   npcTick(dt, now / 1000);
+  if (asked && asked.chat && Math.hypot(me.x - asked.x, me.z - asked.z) > 0.6) { asked = null; hidePanel(); }
   hung.forEach((m, i) => { m.rotation.y += dt * (0.12 + i * 0.03); });
   // now and then a tube stutters, the way old neon does
   if (served) {
@@ -1862,7 +1872,7 @@ $('msg').remove();
 setTimeout(() => $('help').classList.add('off'), 7000);
 requestAnimationFrame(frame);
 window.arcadeReady = true;
-window.arcadeDebug = { me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
+window.arcadeDebug = { cam, me, MACHINES, walkTo, person, PEOPLE, scene, NPC, spawn, play, exitArcade, npcAt(key, side = 0, cut = 0, colr = '#ff3fa4') { const m = MACHINES.find(m => m.key === key), fig = person(colr, cut); scene.add(fig.g); const n = { fig, x: 0, z: 0, y: 0, yaw: 0, t: 0, stay: 999 }; NPC.push(n); (m.occ = m.occ || []).push(n); sendTo(n, m, side); const w = n.path[n.path.length - 1]; n.x = w.x; n.z = w.z; n.path = [w]; return n; } };
 </script>
 </body>
 </html>
