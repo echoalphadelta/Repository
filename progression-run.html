@@ -141,9 +141,14 @@ function beep(freq, dur, type) {
 }
 // the run's own song: it starts from the top with each run, loops while you drive, and fades when the run ends
 const song = new Audio('arcade/music/ultrasonic-dash.m4a'); song.loop = true; song.preload = 'auto'; const SONG_VOL = 0.3;
-let fadeT = null;
-function songPlay(restart) { clearInterval(fadeT); if (restart) { try { song.currentTime = 0; } catch (e) {} } song.volume = SONG_VOL; if (soundOn) song.play().catch(() => {}); }
-function songStop() { clearInterval(fadeT); fadeT = setInterval(() => { song.volume = Math.max(0, song.volume - 0.03); if (song.volume <= 0) { clearInterval(fadeT); song.pause(); } }, 60); }
+// iPhones ignore an audio element's own volume, so the song plays through a volume control that every browser honours
+let fadeT = null, songCtx = null, songGain = null;
+function songHook() { if (songCtx) { if (songCtx.state === 'suspended') songCtx.resume(); return; }
+  try { const AC = window.AudioContext || window.webkitAudioContext; songCtx = new AC(); songGain = songCtx.createGain(); songCtx.createMediaElementSource(song).connect(songGain).connect(songCtx.destination); } catch (e) { songCtx = null; songGain = null; } }
+const setVol = v => { if (songGain) songGain.gain.value = v; else song.volume = v; };
+const getVol = () => songGain ? songGain.gain.value : song.volume;
+function songPlay(restart) { clearInterval(fadeT); songHook(); if (restart) { try { song.currentTime = 0; } catch (e) {} } song.volume = songGain ? 1 : SONG_VOL; setVol(SONG_VOL); if (soundOn) song.play().catch(() => {}); }
+function songStop() { clearInterval(fadeT); fadeT = setInterval(() => { setVol(Math.max(0, getVol() - 0.03)); if (getVol() <= 0) { clearInterval(fadeT); song.pause(); } }, 60); }
 function toggleSound() {
   soundOn = !soundOn;
   store(SOUND_KEY, soundOn ? '1' : '0');
