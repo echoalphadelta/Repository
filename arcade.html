@@ -80,7 +80,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 <div class="menu" id="panel"></div>
 <div class="menu" id="menu">
   <div class="mh">WHAT'LL IT BE?</div>
-  <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL, LIME AND A CHERRY</span></button>
+  <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL ON ICE, WITH LIME</span></button>
   <button data-d="alpha"><b style="color:#ff4a4a">ALPHA</b><span>SPARKLING RED</span></button>
   <button data-d="delta"><b style="color:#4aff7a">DELTA</b><span>GREEN BREW, ICE COLD</span></button>
   <button class="no" id="nope">NOTHING, THANKS</button>
@@ -837,6 +837,40 @@ const signs = [];
 // a flat neon sign: tubes drawn on a canvas, a wide soft halo that lights the wall behind, the coloured tube,
 // and the hot pale core down its middle. The canvas runs well past the drawing on every side, so the halo
 // fades out to nothing instead of stopping at an edge.
+// a smooth curve through points (Catmull-Rom, drawn as bezier pieces)
+function smoothPath(g, P) { g.moveTo(P[0][0], P[0][1]); for (let i = 0; i < P.length - 1; i++) { const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+  g.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]); } }
+// a hurricane glass in neon: the glass in cyan, the drink's surface and bubbles in pink, a lemon slice and a bent
+// straw in yellow. The two sides of the glass are mirror images of one smooth outline.
+// a hurricane glass in neon: the glass in violet, the drink's surface and bubbles in lime, an orange slice on the rim
+// and a pink straw. Built the way a sign is bent: the bowl is one closed loop, open at the rim as an ellipse; the stem
+// is a single tube; the foot a flat bar with rounded ends.
+function tulip(g, w, h, ink) {
+  const u = h, cx = w / 2, X = x => cx + x * u, Y = y => y * u;
+  // half the bowl, rim to the bottom of the bowl
+  const HALF = [[0.168, 0.15], [0.152, 0.22], [0.142, 0.3], [0.16, 0.39], [0.172, 0.46], [0.158, 0.53], [0.11, 0.585], [0.05, 0.612], [0, 0.618]];
+  ink('#b98cff');
+  // the bowl: down the left side, round the bottom, up the right side, in one tube
+  g.beginPath(); smoothPath(g, [...HALF.map(([x, y]) => [X(-x), Y(y)]), ...HALF.slice(0, -1).reverse().map(([x, y]) => [X(x), Y(y)])]); g.stroke();
+  // the rim: the open top of the glass, seen a little from above
+  g.beginPath(); g.ellipse(X(0), Y(0.15), 0.168 * u, 0.026 * u, 0, 0, Math.PI * 2); g.stroke();
+  // the stem, one tube down from the bowl, and the foot, a flat bar with rounded ends
+  // the stem, one tube down to the base, and the base, a long flat oval
+  g.beginPath(); g.moveTo(X(0), Y(0.618)); g.lineTo(X(0), Y(0.822)); g.stroke();
+  g.beginPath(); g.ellipse(X(0), Y(0.842), 0.15 * u, 0.02 * u, 0, 0, Math.PI * 2); g.stroke();
+  // the drink: a gently wavy surface below the rim, bubbles rising through it
+  ink('#7aff6a');
+  g.beginPath(); smoothPath(g, [[X(-0.146), Y(0.27)], [X(-0.08), Y(0.255)], [X(-0.02), Y(0.28)], [X(0.04), Y(0.258)], [X(0.1), Y(0.276)], [X(0.146), Y(0.262)]]); g.stroke();
+  [[-0.06, 0.36, 0.026], [0.055, 0.39, 0.022], [-0.015, 0.46, 0.028], [0.045, 0.5, 0.017]].forEach(([x, y, r]) => { g.beginPath(); g.arc(X(x), Y(y), r * u, 0, Math.PI * 2); g.stroke(); });
+  // an orange slice hooked on the rim: the rind and its segments
+  ink('#ff9a3a');
+  const lx = X(0.185), ly = Y(0.1), lr = 0.062 * u; g.beginPath(); g.arc(lx, ly, lr, 0, Math.PI * 2); g.stroke();
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx + Math.cos(a) * lr * 0.68, ly + Math.sin(a) * lr * 0.68); g.stroke(); }
+  // the straw, rising out of the drink and bent over at the top
+  ink('#ff3fa4');
+  g.beginPath(); g.moveTo(X(-0.02), Y(0.31)); g.lineTo(X(-0.085), Y(0.04)); g.lineTo(X(-0.18), Y(0.015)); g.stroke();
+}
+
 function neonSign(w, h, colr, draw, at, ry, flicker = false) {
   const PX = 400, PAD = 0.32, c = canvas(Math.round((w + 2 * PAD) * PX), Math.round((h + 2 * PAD) * PX)), g = c.getContext('2d');
   g.lineCap = 'round'; g.lineJoin = 'round';
@@ -988,15 +1022,80 @@ const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key ===
   // where you order: stand back from the stools, facing the counter; drinks are set down near its front edge
   const edge = bx - D / 2 - 0.11, surf = H + 0.025;
   BAR = { key: 'bar', name: 'THE BAR', front: edge, top: surf, z0, z1, servX: bx - D / 2 + 0.03, stand: new THREE.Vector3(3.5, 0, z0 + 0.95), screenAt: new THREE.Vector3(edge, surf + 0.15, z0 + 0.95) };
-  // back bar: two shelves on the wall, each lit warm from beneath, with bottles
-  const shelfM = mat({ color: '#1a1a1e', roughness: 0.4, metalness: 0.5 }), glassCols = ['#3a7a3a', '#7a4a1a', '#2a4a8a', '#c8b070', '#8a1a2a', '#e8e8f0', '#5a3a6a'];
-  [1.32, 1.72].forEach(y => {
-    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.025, len - 0.6), shelfM); sh.position.set(RX1 - 0.13, y, (z0 + z1) / 2 + 0.1); scene.add(sh);
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, len - 0.6), new THREE.MeshBasicMaterial({ color: '#ffb46a', toneMapped: false })); strip.position.set(RX1 - 0.24, y - 0.018, (z0 + z1) / 2 + 0.1); scene.add(strip);
-    for (let zz = z0 + 0.5; zz < z1 - 0.35; zz += 0.11 + Math.random() * 0.06) {
-      const col = glassCols[Math.floor(Math.random() * glassCols.length)], hgt = 0.2 + Math.random() * 0.12, glass = new THREE.MeshStandardMaterial({ color: col, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.82, emissive: col, emissiveIntensity: 0.35 });
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, hgt, 16), glass); b.position.set(RX1 - 0.12, y + 0.013 + hgt / 2, zz); scene.add(b);
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.024, 0.09, 12), glass); neck.position.set(RX1 - 0.12, y + 0.013 + hgt + 0.045, zz); scene.add(neck);
+  // back bar: a dark mirror on the wall, two shelves of dark wood with brass edges, lit warm from beneath, lined with
+  // bottles of different shapes, each with its spirit inside, a label and a cap, and a few glasses among them
+  const glassCols = ['#3a7a3a', '#7a4a1a', '#2a4a8a', '#c8b070', '#8a1a2a', '#e8e8f0', '#5a3a6a'];
+  const BRIGHT = ['#ff3fa4', '#3fe8ff', '#ffe23a', '#5cff8a', '#ff7a3a', '#b98cff', '#4a9eff', '#ff4a4a', '#7affd8'];
+  const turnP = (pts, m, seg = 20) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m); return o; };
+  const zc = (z0 + z1) / 2 + 0.1, slen = len - 0.6, wx = RX1 - 0.13;
+  { const mir = new THREE.Mesh(new THREE.PlaneGeometry(slen + 0.1, 1.0), new THREE.MeshStandardMaterial({ color: '#202026', metalness: 1, roughness: 0.12, envMapIntensity: 1.2 })); mir.rotation.y = -Math.PI / 2; mir.position.set(RX1 - 0.013, 1.6, zc); scene.add(mir); }
+  const wood = mat({ color: '#2c1d14', roughness: 0.55 }), brass = mat({ color: '#b8904a', metalness: 0.9, roughness: 0.3 });
+  const glassShell = {}, liquidOf = {}, clearGlass = new THREE.MeshPhysicalMaterial({ color: '#e8eef4', roughness: 0.05, transparent: true, opacity: 0.22, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.8 });
+  const shell = c => glassShell[c] || (glassShell[c] = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.06, transparent: true, opacity: 0.5, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 }));
+  const spirit = c => liquidOf[c] || (liquidOf[c] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.2, transparent: true, opacity: 0.88, emissive: c, emissiveIntensity: 0.22 }));
+  // not a liquor bar: glowing sodas in every colour, flasks with orbs floating in them, test tubes of something
+  // green, and tall cans
+  const SC = 1.4;   // everything on the back bar is shown a size up, so it reads from across the room
+  const glowOf = {}, glow = c => glowOf[c] || (glowOf[c] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.15, transparent: true, opacity: 0.9, emissive: c, emissiveIntensity: 0.55 }));
+  const metalCan = mat({ color: '#c8ccd2', metalness: 0.95, roughness: 0.25 });
+  const canTex = draw => { const c = canvas(256, 256), k = c.getContext('2d'); draw(k); const t = tex(c); return t; };
+  // a tall energy can: dark blue and silver halves, a red sun across the middle
+  const energyTex = canTex(k => { k.fillStyle = '#1c2a6a'; k.fillRect(0, 0, 256, 256); for (let x = 0; x < 256; x += 32) for (let y = 0; y < 256; y += 32) if (((x + y) / 32) % 2 && x >= 128) { k.fillStyle = '#c8ccd6'; k.fillRect(x, y, 32, 32); } else if (x >= 128) { k.fillStyle = '#9aa0b0'; k.fillRect(x, y, 32, 32); }
+    [64, 192].forEach(cx => { k.fillStyle = '#ffcc2a'; k.beginPath(); k.arc(cx, 128, 34, 0, 7); k.fill(); k.fillStyle = '#e8302a'; k.beginPath(); k.arc(cx, 128, 24, 0, 7); k.fill(); }); });
+  // a tall green tea can: soft mint, white and pink blossoms on branches
+  const teaTex = canTex(k => { const gr = k.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#bfe8c8'); gr.addColorStop(1, '#5aa86a'); k.fillStyle = gr; k.fillRect(0, 0, 256, 256);
+    k.strokeStyle = '#6a4a2a'; k.lineWidth = 3; for (let i = 0; i < 3; i++) { k.beginPath(); k.moveTo(i * 90, 256); k.quadraticCurveTo(i * 90 + 40, 150, i * 90 + 80, 60); k.stroke(); }
+    for (let i = 0; i < 26; i++) { const x = Math.random() * 256, y = 40 + Math.random() * 180; k.fillStyle = i % 3 ? '#ffffff' : '#f49ac0'; for (let p = 0; p < 5; p++) { const a = p / 5 * Math.PI * 2; k.beginPath(); k.arc(x + Math.cos(a) * 5, y + Math.sin(a) * 5, 4, 0, 7); k.fill(); } k.fillStyle = '#f4d24a'; k.beginPath(); k.arc(x, y, 2.5, 0, 7); k.fill(); } });
+  const can = (x, y, z, t) => { const h = 0.175, r = 0.031, g2 = new THREE.Group(); g2.position.set(x, y, z); g2.scale.setScalar(SC); g2.rotation.y = Math.random() * 6; scene.add(g2);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h - 0.02, 28, 1, true), new THREE.MeshStandardMaterial({ map: t, roughness: 0.35, metalness: 0.4 })); body.position.y = h / 2; g2.add(body);
+    g2.add(turnP([[0, 0], [r - 0.004, 0], [r, 0.01]], metalCan, 28)); const top = turnP([[r, h - 0.01], [r - 0.004, h], [r - 0.005, h - 0.002], [0, h - 0.004]], metalCan, 28); g2.add(top); };
+  // a glowing soda bottle, rounded at the shoulder
+  const soda = (x, y, z, col) => { const h = 0.24 * (0.9 + Math.random() * 0.2), prof = [[0, 0], [0.03, 0], [0.032, 0.01], [0.032, h * 0.55], [0.026, h * 0.7], [0.013, h * 0.84], [0.012, h], [0, h]];
+    const g2 = new THREE.Group(); g2.position.set(x, y, z); g2.scale.setScalar(SC); scene.add(g2); g2.add(turnP(prof, shell(col), 22));
+    const fill = h * (0.55 + Math.random() * 0.25); g2.add(turnP(prof.filter(([, py]) => py < fill).map(([r, py]) => [Math.max(0, r - 0.003), py + 0.003]).concat([[0.026, fill], [0, fill]]), glow(col), 18));
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.016, 14), metalCan); cap.position.y = h; g2.add(cap); };
+  // a round flask with glowing orbs floating in its liquid
+  const orbs = (x, y, z, col) => { const g2 = new THREE.Group(); g2.position.set(x, y, z); g2.scale.setScalar(SC); scene.add(g2);
+    const prof = [[0, 0], [0.03, 0.003], [0.048, 0.03], [0.05, 0.065], [0.04, 0.1], [0.016, 0.12], [0.014, 0.19], [0.016, 0.195], [0, 0.195]];
+    g2.add(turnP(prof, shell('#d8e4f0'), 26));
+    g2.add(turnP([[0, 0.004], [0.028, 0.007], [0.045, 0.031], [0.046, 0.065], [0.037, 0.098], [0, 0.098]], new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: 0.45, roughness: 0.1 }), 24));
+    const oc = ['#ff3fa4', '#3fe8ff', '#ffe23a', '#5cff8a', '#ff7a3a'];
+    for (let i = 0; i < 9; i++) { const a = Math.random() * Math.PI * 2, rr = Math.random() * 0.03, o = new THREE.Mesh(new THREE.SphereGeometry(0.008 + Math.random() * 0.005, 12, 8), glow(oc[i % oc.length])); o.position.set(Math.cos(a) * rr, 0.02 + Math.random() * 0.07, Math.sin(a) * rr); g2.add(o); }
+    const stop = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.013, 0.02, 14), mat({ color: '#8a6a4a', roughness: 0.8 })); stop.position.y = 0.2; g2.add(stop); };
+  // a little rack of test tubes, the liquid glowing green
+  const tubes = (x, y, z) => { const g2 = new THREE.Group(); g2.position.set(x, y, z); g2.scale.setScalar(SC); g2.rotation.y = Math.PI / 2; scene.add(g2);
+    const rack = mat({ color: '#3a2a20', roughness: 0.7 }); [[0.15, 0.012, 0.05, 0.006], [0.15, 0.012, 0.05, 0.11]].forEach(([w, h, d, yy]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rack); b.position.y = yy; g2.add(b); });
+    [-1, 1].forEach(s2 => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.11, 0.05), rack); leg.position.set(s2 * 0.07, 0.058, 0); g2.add(leg); });
+    [-0.045, 0, 0.045].forEach((tx, i) => { const tube = turnP([[0, -0.0], [0.008, 0.004], [0.011, 0.014], [0.011, 0.15], [0.013, 0.152], [0, 0.152]], clearGlass, 16); tube.position.set(tx, 0.012, 0); g2.add(tube);
+      const lvl = 0.06 + Math.random() * 0.05; const lq = turnP([[0, 0.002], [0.007, 0.005], [0.0095, 0.014], [0.0095, lvl], [0, lvl]], glow(i === 1 ? '#7aff4a' : '#3cff6a'), 14); lq.position.set(tx, 0.012, 0); g2.add(lq);
+      const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.01, 0.016, 12), mat({ color: '#a07a50', roughness: 0.9 })); cork.position.set(tx, 0.17, 0); g2.add(cork); }); };
+  // a few plain bottles of something stronger, no labels: a wine bottle, a round-shouldered spirit, a squat decanter
+  const LIQ = [h => [[0, 0], [0.034, 0], [0.036, 0.01], [0.036, h * 0.6], [0.033, h * 0.68], [0.02, h * 0.78], [0.012, h * 0.85], [0.012, h], [0, h]],
+    h => [[0, 0], [0.04, 0], [0.042, 0.012], [0.042, h * 0.66], [0.035, h * 0.74], [0.014, h * 0.8], [0.013, h], [0, h]],
+    h => [[0, 0], [0.046, 0], [0.048, 0.012], [0.048, h * 0.62], [0.04, h * 0.7], [0.016, h * 0.76], [0.015, h], [0, h]]];
+  const liquor = (x, y, z, col) => { const t = Math.floor(Math.random() * 3), h = [0.3, 0.27, 0.22][t] * (0.92 + Math.random() * 0.14), prof = LIQ[t](h), seg = t === 2 ? 8 : 22;
+    const g2 = new THREE.Group(); g2.position.set(x, y, z); g2.scale.setScalar(SC); g2.rotation.y = Math.random() * 6; scene.add(g2); g2.add(turnP(prof, shell(col), seg));
+    const fill = h * (0.35 + Math.random() * 0.3); g2.add(turnP(prof.filter(([, py]) => py < fill).map(([r, py]) => [Math.max(0, r - 0.003), py + 0.003]).concat([[Math.max(0, prof[2][0] - 0.003), fill], [0, fill]]), spirit(col), seg));
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(prof[prof.length - 2][0] + 0.002, prof[prof.length - 2][0] + 0.002, 0.022, 12), t === 1 ? mat({ color: '#8a6a4a', roughness: 0.8 }) : metalCan); cap.position.y = h - 0.008; g2.add(cap); };
+  const bottle = (x, y, z, col) => { const r = Math.random(); if (r < 0.38) soda(x, y, z, col); else if (r < 0.5) liquor(x, y, z, col); else if (r < 0.64) orbs(x, y, z, col); else if (r < 0.74) tubes(x, y, z); else if (r < 0.87) can(x, y, z, energyTex); else can(x, y, z, teaTex); };
+  // glasses: a tumbler and a tall highball
+  const GLASS = [
+    () => [[0, 0], [0.036, 0], [0.038, 0.004], [0.04, 0.085], [0.036, 0.085], [0.034, 0.012], [0, 0.012]],
+    () => [[0, 0], [0.03, 0], [0.032, 0.004], [0.032, 0.15], [0.029, 0.15], [0.028, 0.012], [0, 0.012]],
+  ];
+  const glass = (x, y, z) => { const o = turnP(pick2(GLASS)(), clearGlass, 24); o.position.set(x, y, z); o.scale.setScalar(SC); scene.add(o); };
+  const pick2 = a => a[Math.floor(Math.random() * a.length)];
+  [1.2, 1.68].forEach((y, row) => {
+    { const c3 = canvas(8, 128), k3 = c3.getContext('2d'), gr3 = k3.createLinearGradient(0, 128, 0, 0), col3 = row ? '#ff3fa4' : '#3fe8ff'; gr3.addColorStop(0, col3); gr3.addColorStop(1, 'rgba(0,0,0,0)'); k3.globalAlpha = 0.55; k3.fillStyle = gr3; k3.fillRect(0, 0, 8, 128);
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(slen, 0.42), new THREE.MeshBasicMaterial({ map: tex(c3), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); back.rotation.y = -Math.PI / 2; back.position.set(RX1 - 0.017, y + 0.23, zc); scene.add(back); }
+    const sh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.03, slen), wood); sh.position.set(wx, y, zc); sh.receiveShadow = true; scene.add(sh);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.034, slen), brass); lip.position.set(wx - 0.132, y, zc); scene.add(lip);
+    [-1, 1].forEach(e => { const br = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.02), brass); br.position.set(RX1 - 0.11, y - 0.045, zc + e * (slen / 2 - 0.12)); scene.add(br); });
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.01, slen), new THREE.MeshBasicMaterial({ color: '#ffb46a', toneMapped: false })); strip.position.set(RX1 - 0.24, y - 0.02, zc); scene.add(strip);
+    for (let zz = z0 + 0.5; zz < z1 - 0.35; zz += (0.105 + Math.random() * 0.04) * SC) {
+      const xx = RX1 - 0.13 + (Math.random() - 0.5) * 0.05;
+      if (Math.random() < 0.08) { glass(xx - 0.02, y + 0.015, zz); if (Math.random() < 0.3) glass(xx + 0.05, y + 0.015, zz + 0.05); }
+      else bottle(xx, y + 0.015, zz, Math.random() < 0.6 ? pick2(BRIGHT) : glassCols[Math.floor(Math.random() * glassCols.length)]);
     }
   });
   // a warm light over the counter
@@ -1026,13 +1125,10 @@ const atMachine = (key, across, out) => { const m = MACHINES.find(m => m.key ===
         const ch = Math.min(MACHINES.length - 1, Math.floor(t / SEG)); g2.drawImage(vid, 0, 0, 640, 360); label(MACHINES[ch].name); tx.needsUpdate = true;
         if (ch !== this.ch) { this.ch = ch; if (this.onTune) this.onTune(); } } };
   }
-  // neon over the back bar: DRINKS in cyan, a cocktail glass in green and pink
+  // neon over the back bar: DRINKS in cyan, and a cocktail
   neonSign(1.1, 0.36, '#3fe8ff', (g2, w, h) => tubeText('Drinks', "italic 800 112px 'Kanit'", w / 2, h / 2)(g2), new THREE.Vector3(RX1 - 0.03, 2.45, 4.38), -Math.PI / 2, true);
-  neonSign(0.55, 0.7, '#5cff8a', (g2, w, h) => {
-    g2.beginPath(); g2.moveTo(w * 0.12, h * 0.14); g2.lineTo(w * 0.88, h * 0.14); g2.lineTo(w * 0.5, h * 0.52); g2.closePath(); g2.stroke();
-    g2.beginPath(); g2.moveTo(w * 0.5, h * 0.52); g2.lineTo(w * 0.5, h * 0.84); g2.stroke(); g2.beginPath(); g2.moveTo(w * 0.28, h * 0.86); g2.lineTo(w * 0.72, h * 0.86); g2.stroke();
-    g2.strokeStyle = '#ff3fa4'; g2.shadowColor = '#ff3fa4'; g2.beginPath(); g2.arc(w * 0.66, h * 0.24, h * 0.06, 0, Math.PI * 2); g2.stroke();
-  }, new THREE.Vector3(RX1 - 0.03, 2.4, z0 + 0.3), -Math.PI / 2);
+  // a cocktail in neon: a violet hurricane glass, a lime drink with bubbles, an orange slice and a pink straw
+  neonSign(0.62, 0.68, '#b98cff', (g2, w, h, ink) => { g2.translate(0, h * 0.01); tulip(g2, w, h * 0.97, ink); }, new THREE.Vector3(RX1 - 0.03, 2.38, z0 + 0.3), -Math.PI / 2);
 }
 const SOLIDS = [...MACHINES, ...PROPS];
 // ---- people: low-polygon figures in the manner of the first 3D console adventures ----
@@ -1269,8 +1365,19 @@ function person(colr, cut = 0) {
 const PEOPLE = [];
 
 // ---- drinks: three glasses built on a lathe, each with its drink inside ----
+// clear glass for the tumbler and the bowl: barely there, so the drink's colour comes through
+const clearGlassMat = () => new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.04, transparent: true, opacity: 0.1, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 0.55 });
 const glassMat = (colr = '#ffffff', op = 0.2, em = '#000000', ei = 0) => new THREE.MeshPhysicalMaterial({ color: colr, roughness: 0.04, metalness: 0, transparent: true, opacity: op, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6, emissive: em, emissiveIntensity: ei });
-const liquidMat = (colr, em, ei, op = 0.88) => new THREE.MeshPhysicalMaterial({ color: colr, emissive: em, emissiveIntensity: ei, roughness: 0.08, clearcoat: 1, transparent: true, opacity: op, depthWrite: false });
+const liquidMat = (colr, em, ei, op = 0.88) => new THREE.MeshPhysicalMaterial({ color: '#ffffff', vertexColors: true, emissive: em, emissiveIntensity: ei * 0.55, roughness: 0.06, clearcoat: 1, transparent: true, opacity: op, depthWrite: false, envMapIntensity: 1.4 });
+// a drink's liquid: darker and richer toward the bottom, lighter where it meets the air, with a glossy surface on top
+function pour(mesh, colr, topY, topR, surface) {
+  const geo = mesh.geometry, p = geo.attributes.position, c = new THREE.Color(colr), lo = c.clone().multiplyScalar(0.62), cols = []; let y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < p.count; i++) { y0 = Math.min(y0, p.getY(i)); y1 = Math.max(y1, p.getY(i)); }
+  for (let i = 0; i < p.count; i++) { const t = (p.getY(i) - y0) / ((y1 - y0) || 1), k = lo.clone().lerp(c, Math.pow(t, 0.7)); cols.push(k.r, k.g, k.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  const top = new THREE.Mesh(new THREE.CircleGeometry(topR, 40), new THREE.MeshPhysicalMaterial({ color: surface || c.clone().lerp(new THREE.Color('#ffffff'), 0.25), roughness: 0.02, clearcoat: 1, transparent: true, opacity: 0.92, depthWrite: false, envMapIntensity: 2 }));
+  top.rotation.x = -Math.PI / 2; top.position.y = topY + 0.0005; mesh.add(top); return mesh;
+}
 const lathe = (pts, m, seg = 48) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m);
 // bubbles: tiny beads rising through the drink, starting again at the bottom when they reach the top;
 // a few can carry on out of the top as fizz, shrinking away
@@ -1292,44 +1399,61 @@ function bubbles(parent, n, y0, y1, rAt, colr, escape = 0) {
   };
 }
 // how full a drink is: the liquid and its bubbles sink toward the bottom of the glass, narrowing with it where the glass narrows
+// make a turned shape square with rounded corners, keeping its size across the flats
+// flat floors in a turned glass shade as flat, without the star a turned shape gets at its centre
+function flatFloors(mesh, floors) { const p = mesh.geometry.attributes.position, n = mesh.geometry.attributes.normal; for (let i = 0; i < p.count; i++) for (const [y, up] of floors) if (Math.abs(p.getY(i) - y) < 1e-4) n.setXYZ(i, 0, up, 0); n.needsUpdate = true; return mesh; }
+function squarish(mesh, flat = false) { const geo = mesh.geometry, p = geo.attributes.position, P = 6;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = flat ? p.getY(i) : p.getZ(i), r = Math.hypot(x, z); if (r < 1e-6) continue; const a = Math.atan2(z, x) + Math.PI / 4, f = 1 / Math.pow(Math.pow(Math.abs(Math.cos(a)), P) + Math.pow(Math.abs(Math.sin(a)), P), 1 / P), k = f;
+    const nx = Math.cos(a - Math.PI / 4) * r * k, nz = Math.sin(a - Math.PI / 4) * r * k; p.setX(i, nx); if (flat) p.setY(i, nz); else p.setZ(i, nz); }
+  geo.computeVertexNormals(); return mesh; }
 const levelOf = (liq, fizz, base, xz) => k => { const on = k > 0.02; liq.visible = fizz.visible = on; if (!on) return; const w = xz(k); for (const o of [liq, fizz]) { o.scale.set(w, k, w); o.position.y = base * (1 - k); } };
 const DRINKS = {
   // Alpha: a wine glass with a deep sparkling red, beads streaming up through it
+  // Alpha: a heavy whisky glass, square with rounded corners and a thick base, of sparkling red
   alpha: { name: 'ALPHA', sub: 'SPARKLING RED', colr: '#ff4a4a', make() {
     const g = new THREE.Group();
-    g.add(lathe([[0, 0], [0.036, 0], [0.036, 0.003], [0.008, 0.007], [0.0045, 0.014], [0.0045, 0.086], [0.009, 0.093], [0.022, 0.098], [0.034, 0.112], [0.042, 0.136], [0.041, 0.162], [0.036, 0.188], [0.032, 0.205]], glassMat()));
-    g.add(lathe([[0, 0.095], [0.02, 0.099], [0.032, 0.113], [0.0395, 0.136], [0.039, 0.152], [0, 0.152]], liquidMat('#c80f2a', '#8a0018', 0.55)));
-    const rAt = y => y < 0.1 ? 0.015 : y < 0.115 ? 0.028 : 0.036;
+    g.add(squarish(lathe([[0, 0], [0.04, 0], [0.043, 0.004], [0.044, 0.012], [0.044, 0.098], [0.04, 0.098], [0.039, 0.026], [0.03, 0.022], [0, 0.022]], clearGlassMat(), 40)));
+    flatFloors(g.children[0], [[0, -1], [0.022, 1]]);
+    const lq = pour(lathe([[0, 0.023], [0.03, 0.023], [0.0385, 0.027], [0.0385, 0.074], [0, 0.074]], liquidMat('#ff0a2e', '#d0001c', 1.0, 0.97), 40), '#ff0a2e', 0.074, 0.0385);
+    squarish(lq); lq.children.forEach(c => squarish(c, true)); g.add(lq);
     const fizz = new THREE.Group(); g.add(fizz);
-    return { g, tick: bubbles(fizz, 34, 0.1, 0.151, rAt, '#ffe0e4', 4), setLevel: levelOf(g.children[1], fizz, 0.095, k => 0.62 + 0.38 * k) };
+    return { g, tick: bubbles(fizz, 30, 0.026, 0.073, () => 0.034, '#ffe0e4', 4), setLevel: levelOf(lq, fizz, 0.023, () => 1) };
   } },
-  // Echo: a cocktail glass of bright blue with a lime wheel on the rim and a cherry on a pick
-  echo: { name: 'ECHO', sub: 'BLUE COCKTAIL, LIME AND A CHERRY', colr: '#4a9eff', make() {
+  // Echo: a round fishbowl glass with no stem, bright blue, two ice cubes floating in it and a lime wheel on the rim
+  echo: { name: 'ECHO', sub: 'BLUE COCKTAIL ON ICE, WITH LIME', colr: '#4a9eff', make() {
     const g = new THREE.Group();
-    g.add(lathe([[0, 0], [0.034, 0], [0.034, 0.003], [0.007, 0.007], [0.004, 0.014], [0.004, 0.1], [0.008, 0.105], [0.058, 0.168]], glassMat()));
-    g.add(lathe([[0, 0.105], [0.007, 0.107], [0.049, 0.156], [0, 0.156]], liquidMat('#1e7bff', '#0a52ff', 0.75, 0.85)));
+    g.add(lathe([[0, 0], [0.024, 0], [0.028, 0.004], [0.045, 0.012], [0.06, 0.03], [0.067, 0.068], [0.061, 0.104], [0.047, 0.123], [0.035, 0.131], [0.036, 0.134]], clearGlassMat(), 56));
+    flatFloors(g.children[0], [[0, -1]]);
+    const lq = pour(lathe([[0, 0.012], [0.024, 0.012], [0.042, 0.018], [0.056, 0.033], [0.0635, 0.068], [0.0595, 0.097], [0, 0.097]], liquidMat('#0a6cff', '#0050ff', 1.15, 0.96), 56), '#0a6cff', 0.097, 0.0595);
+    g.add(lq);
+    // two ice cubes, nearly clear, floating at the surface
+    const iceM = new THREE.MeshPhysicalMaterial({ color: '#d8eeff', roughness: 0.05, transparent: true, opacity: 0.32, clearcoat: 1, depthWrite: false, envMapIntensity: 0.8 });
+    const ice = new THREE.Group(); g.add(ice);
+    [[-0.02, 0.008, 0.4], [0.017, -0.012, -0.5]].forEach(([x, z, r]) => { const c3 = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.024, 0.026), iceM); c3.position.set(x, -0.006, z); c3.rotation.set(0.25, r, 0.15); ice.add(c3); });
     // the lime: rind round the edge, pale flesh in segments
     const c = canvas(128, 128), k = c.getContext('2d');
     k.fillStyle = '#3f8f1c'; k.beginPath(); k.arc(64, 64, 63, 0, 7); k.fill(); k.fillStyle = '#e9f5c8'; k.beginPath(); k.arc(64, 64, 56, 0, 7); k.fill();
     k.fillStyle = '#b8e04a'; for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; k.beginPath(); k.moveTo(64 + Math.cos(a + 0.06) * 6, 64 + Math.sin(a + 0.06) * 6); k.arc(64, 64, 52, a + 0.08, a + Math.PI * 2 / 9 - 0.08); k.closePath(); k.fill(); }
     const lime = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.005, 32), [mat({ color: '#3f8f1c', roughness: 0.5 }), mat({ map: tex(c), roughness: 0.4 }), mat({ map: tex(c), roughness: 0.4 })]);
-    lime.rotation.x = Math.PI / 2; lime.position.set(0.054, 0.168, 0); g.add(lime);
-    // a pick leaning across the glass with a cherry on its end, resting in the drink
-    const a = new THREE.Vector3(-0.026, 0.15, 0.01), b = new THREE.Vector3(0.05, 0.205, -0.012), mid = a.clone().add(b).multiplyScalar(0.5);
-    const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, a.distanceTo(b), 8), mat({ color: '#e8d8b0', roughness: 0.6 })); pick.position.copy(mid); pick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); g.add(pick);
-    const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 20, 14), new THREE.MeshPhysicalMaterial({ color: '#a0081e', roughness: 0.15, clearcoat: 1 })); cherry.position.copy(a).add(new THREE.Vector3(0.004, 0.002, 0)); g.add(cherry);
-    const rAt = y => Math.max(0.006, (y - 0.105) / 0.051 * 0.044);
+    lime.rotation.z = Math.PI / 2; lime.position.set(0, 0.14, 0.037); g.add(lime);
     const fizz = new THREE.Group(); g.add(fizz);
-    return { g, tick: bubbles(fizz, 10, 0.112, 0.155, rAt, '#cfe6ff'), setLevel: levelOf(g.children[1], fizz, 0.105, k => k) };
+    const lvl = levelOf(lq, fizz, 0.012, k => 0.72 + 0.28 * k);
+    // the ice rides on the surface as it goes down
+    return { g, tick: bubbles(fizz, 14, 0.014, 0.095, y => Math.max(0.02, 0.058 - Math.abs(y - 0.068) * 0.6), '#cfe6ff'), setLevel: k => { lvl(k); ice.position.y = 0.097 * k + 0.012 * (1 - k); ice.scale.setScalar(k > 0.3 ? 1 : 0.6 + k); } };
   } },
   // Delta: a green bottle of brew, cold and fizzing, the brew inside glowing
   delta: { name: 'DELTA', sub: 'GREEN BREW, ICE COLD', colr: '#4aff7a', make() {
     const g = new THREE.Group();
     g.add(lathe([[0, 0], [0.029, 0], [0.031, 0.004], [0.031, 0.13], [0.029, 0.15], [0.02, 0.175], [0.0135, 0.195], [0.0115, 0.215], [0.0125, 0.224], [0.013, 0.232], [0.0105, 0.234]], glassMat('#1f9a3a', 0.5, '#0f6a26', 0.35)));
-    g.add(lathe([[0, 0.005], [0.028, 0.006], [0.028, 0.13], [0.026, 0.149], [0.018, 0.172], [0, 0.172]], liquidMat('#7dff7a', '#36ff5a', 1.15, 0.7)));
+    { const lq = pour(lathe([[0, 0.005], [0.028, 0.006], [0.028, 0.13], [0.026, 0.149], [0.018, 0.172], [0, 0.172]], liquidMat('#5aff5a', '#20ff40', 1.3, 0.75)), '#5aff5a', 0.172, 0.0175, '#f2f6e0');
+      // a little head of foam in the neck
+      lq.add(lathe([[0.0172, 0.164], [0.0176, 0.172], [0.015, 0.177], [0, 0.179]], new THREE.MeshStandardMaterial({ color: '#f4f6ea', roughness: 0.9, emissive: '#f4f6ea', emissiveIntensity: 0.15 }))); g.add(lq); }
     // the label: cream band round the middle with the name on it
     const c = canvas(512, 128), k = c.getContext('2d'); k.fillStyle = '#f2ead2'; k.fillRect(0, 0, 512, 128); k.fillStyle = '#1f7a34'; k.fillRect(0, 10, 512, 6); k.fillRect(0, 112, 512, 6);
-    k.font = "56px 'Zen Dots'"; k.textAlign = 'center'; k.textBaseline = 'middle'; k.fillText('DELTA', 128, 66); k.fillText('DELTA', 384, 66);
+    // the logo, twice round the bottle: a green triangle, and the name beside it
+    k.font = "48px 'Zen Dots'"; k.textAlign = 'center'; k.textBaseline = 'middle';
+    [0, 256].forEach(x0 => { k.fillStyle = '#1fa83a'; k.beginPath(); k.moveTo(x0 + 42, 30); k.lineTo(x0 + 70, 92); k.lineTo(x0 + 14, 92); k.closePath(); k.fill();
+      k.fillStyle = '#1f7a34'; k.fillText('DELTA', x0 + 160, 66); });
     const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0318, 0.0318, 0.05, 48, 1, true), mat({ map: tex(c), roughness: 0.6 })); label.position.y = 0.075; g.add(label);
     const rAt = y => y < 0.13 ? 0.026 : Math.max(0.008, 0.026 - (y - 0.13) / 0.042 * 0.018);
     const fizz = new THREE.Group(); g.add(fizz);
