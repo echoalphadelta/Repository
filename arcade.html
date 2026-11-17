@@ -1665,8 +1665,12 @@ const $ = id => document.getElementById(id);
 const touchy = matchMedia('(pointer: coarse)').matches;
 $('help').innerHTML = touchy ? 'TAP THE FLOOR OR A MACHINE TO GO THERE<br>DRAG LEFT TO WALK, RIGHT TO LOOK' : 'CLICK THE FLOOR OR A MACHINE TO GO THERE<br>DRAG TO LOOK, OR WALK WITH WASD';
 let focus = -1, going = null, auto = null, moved = false;
-// start where you left off, standing at that machine, or else just inside the door
-{ let k = null; try { k = localStorage.getItem('arcadeAt'); } catch (e) {} k = new URLSearchParams(location.search).get('at') || k;
+// you come in through the door, just inside it and facing the room. Back from one of the games, you're
+// standing at that machine again.
+{ me.x = DOOR.x; me.z = RZ1 - 1.0; me.yaw = 0;
+  let from = ''; try { from = new URL(document.referrer).pathname.split('/').pop(); } catch (e) {}
+  let k = MACHINES.some(m => m.href === from) ? (() => { try { return localStorage.getItem('arcadeAt'); } catch (e) { return null; } })() : null;
+  k = new URLSearchParams(location.search).get('at') || k;
   const m = MACHINES.find(m => m.key === k); if (m) { me.x = m.stand.x; me.z = m.stand.z; Object.assign(me, faceTo(m.screenAt)); } }
 function showFocus(i) {
   if (i === focus) return; focus = i;
