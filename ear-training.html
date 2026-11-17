@@ -519,7 +519,6 @@ function shoot(cx, cy) {
     });
     return;
   }
-  if (!note) return;
   const live = ALL.filter(s => s.state === 'ride' || s.state === 'wob');
   const hit = ray.intersectObjects(live.map(s => s.hit), false)[0];
   let slot = null, local = null, point;
@@ -551,7 +550,7 @@ function land(s, at, local) {
     note = null; held = true; setTimeout(() => state === 'play' && newNote(), 1600);
   } else {
     // a wrong one takes a dent and rattles; no penalty beyond losing your streak, this is practice
-    dud(s.pc); combo = 0;
+    dud(s.pc); if (note !== null) combo = 0;
     const d = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), dentMat); d.scale.setScalar(rnd(0.08, 0.1)); d.position.copy(local); d.rotation.z = rnd(0, 6); s.mesh.add(d); s.dents.push(d);
     s.state = 'wob'; s.wob = 1;
   }
@@ -563,9 +562,8 @@ function frame(now) {
   const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now; simT += dt;
   if (state === 'play') {
     if (sign.state === 'up') sign.reset(1e9);
-    if (!held) timeLeft -= dt;
-    if (timeLeft <= 5 && Math.ceil(timeLeft) !== lastTick) { lastTick = Math.ceil(timeLeft); sfx.tick(); }
-    if (timeLeft <= 0) finish();
+    // no clock: you keep shooting as long as you like. Your best is kept as you go.
+    if (score > best()) store(HS_KEY, String(score));
   }
   BELTS.forEach(b => { b.tex.offset.x -= b.dir * b.speed * dt / 0.5; });
   ALL.forEach(s => {
