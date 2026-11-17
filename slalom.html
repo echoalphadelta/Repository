@@ -135,10 +135,21 @@ function tone(freq, dur, type, slide, vol) {
     o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur);
   } catch (e) {}
 }
+// the run's own song: it starts from the top with each run, loops while you ski, and fades when the run ends.
+// iPhones ignore an audio element's own volume, so it plays through a volume control that every browser honours.
+const song = new Audio('arcade/music/arcade-brawl.m4a'); song.loop = true; song.preload = 'auto'; const SONG_VOL = 0.3;
+let fadeT = null, songCtx = null, songGain = null;
+function songHook() { if (songCtx) { if (songCtx.state === 'suspended') songCtx.resume(); return; }
+  try { const AC = window.AudioContext || window.webkitAudioContext; songCtx = new AC(); songGain = songCtx.createGain(); songCtx.createMediaElementSource(song).connect(songGain).connect(songCtx.destination); } catch (e) { songCtx = null; songGain = null; } }
+const setVol = v => { if (songGain) songGain.gain.value = v; else song.volume = v; };
+const getVol = () => songGain ? songGain.gain.value : song.volume;
+function songPlay(restart) { clearInterval(fadeT); songHook(); if (restart) { try { song.currentTime = 0; } catch (e) {} } song.volume = songGain ? 1 : SONG_VOL; setVol(SONG_VOL); if (soundOn) song.play().catch(() => {}); }
+function songStop() { clearInterval(fadeT); fadeT = setInterval(() => { setVol(Math.max(0, getVol() - 0.03)); if (getVol() <= 0) { clearInterval(fadeT); song.pause(); } }, 60); }
 function toggleSound() {
   soundOn = !soundOn;
   store(SOUND_KEY, soundOn ? '1' : '0');
   document.getElementById('snd').textContent = soundOn ? 'SND ON' : 'SND OFF';
+  if (!soundOn) { clearInterval(fadeT); song.pause(); } else if (state === 'playing') songPlay(false);
 }
 
 // ---- The mountain, seen from straight above ------------------------------
@@ -376,6 +387,7 @@ const ICON = {
 };
 function bestFor(r) { const t = times()[r] || []; return t.length ? fmt(t[0].s) : ''; }
 function showStart() {
+  if (state === 'playing') songStop();
   state = 'start';
   overlay(`<h2>SLALOM</h2>
     <p>Steer down the mountain through the gate whose note is the <b>number</b> shown. Miss the trees.</p>
@@ -390,13 +402,13 @@ function startRun(id) {
   scatter();
   passedRows = 0; time = 0; penalties = 0; hits = 0; flash = 0; lastT = 0; steer = 0;
   rx = LW / 2; ry = 40; dir = 3; spd = 20; crashT = 0; trail = []; spray = [];
-  hideOverlay(); state = 'playing';
+  hideOverlay(); state = 'playing'; songPlay(true);
   [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'square', 0, 0.04), i * 180));
   requestAnimationFrame(frame);
 }
 let finalTime = 0;
 function finish() {
-  state = 'over';
+  state = 'over'; songStop();
   finalTime = time + penalties;
   updateStrip();
   [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'triangle'), i * 100));
@@ -435,8 +447,8 @@ function fit() {
 }
 window.addEventListener('resize', fit);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && state === 'playing') state = 'paused';
-  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; requestAnimationFrame(frame); }
+  if (document.hidden && state === 'playing') { state = 'paused'; song.pause(); }
+  else if (!document.hidden && state === 'paused') { state = 'playing'; lastT = 0; songPlay(false); requestAnimationFrame(frame); }
 });
 
 soundOn = load(SOUND_KEY) !== '0';

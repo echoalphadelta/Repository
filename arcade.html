@@ -2104,7 +2104,7 @@ addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1;
 // ---- music: three songs, one picked at random, then another when it ends ----
 // Browsers only allow sound after a tap or a key, so the first song starts then. MUSIC OFF is remembered.
 {
-  const SONGS = ['horizons-gift', 'fading-lights', 'always-a-way'], song = new Audio(), VOL = 0.1; song.volume = VOL; song.preload = 'none';
+  const SONGS = ['horizons-gift', 'fading-lights', 'lost-in-snow'], song = new Audio(), VOL = 0.1; song.volume = VOL; song.preload = 'none';
   // iPhones ignore an audio element's own volume and always play it at full, so the level is set on a volume control
   // the song is played through instead, which every browser honours
   let ctx = null;
