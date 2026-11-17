@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Echo Alpha Delta">
+<meta name="application-name" content="Echo Alpha Delta">
+<title>Ear Training | Echo Alpha Delta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
+<script type="importmap">{ "imports": { "three": "./lib/three.module.min.js", "three/addons/": "./lib/jsm/" } }</script>
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #c9a27a; }
+body { color: #fff8ec; font-family: 'Archivo Black', 'Arial Black', sans-serif; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
+a, button { font: inherit; color: inherit; }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.t { position: fixed; text-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 0 14px rgba(0,0,0,0.35); pointer-events: none; }
+#back { top: max(12px, env(safe-area-inset-top)); left: 14px; font-size: 13px; text-decoration: none; pointer-events: auto; }
+#snd { top: max(12px, env(safe-area-inset-top)); right: 14px; font-size: 13px; background: none; border: none; padding: 0; pointer-events: auto; cursor: pointer; }
+#score { top: max(10px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; font-size: 30px; line-height: 1; }
+#clock { top: calc(max(10px, env(safe-area-inset-top)) + 36px); left: 50%; width: 46%; height: 6px; transform: translateX(-50%); background: rgba(0,0,0,0.3); border-radius: 3px; overflow: hidden; }
+#clock i { display: block; height: 100%; width: 100%; background: #ffd23a; transform-origin: left; }
+#clock.low i { background: #ff5a2a; }
+#msg { left: 0; right: 0; top: 24%; text-align: center; font-size: 42px; opacity: 0; transition: opacity 0.2s; }
+#msg.on { opacity: 1; }
+#msg.good { color: #ffd23a; }
+#replay { bottom: max(16px, env(safe-area-inset-bottom)); left: 14px; font-size: 15px; background: none; border: none; padding: 6px 0; pointer-events: auto; cursor: pointer; }
+#intro { left: 0; right: 0; top: 13%; text-align: center; }
+#intro h1 { margin: 0; font-weight: 400; font-size: clamp(44px, 14vw, 84px); line-height: 0.95; }
+#intro .s { margin-top: 12px; font-size: 22px; color: #ffd23a; }
+@keyframes blink { 50% { opacity: 0; } }
+.play #intro { display: none; }
+body:not(.play) #score, body:not(.play) #clock, body:not(.play) #replay { display: none; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<a id="back" class="t" href="arcade.html">&lt; ARCADE</a>
+<button id="snd" class="t">SOUND ON</button>
+<div id="score" class="t">0</div>
+<div id="clock" class="t"><i></i></div>
+<div id="msg" class="t"></div>
+<button id="replay" class="t">&#9654; REPLAY NOTE</button>
+<div id="intro" class="t"><h1>EAR<br>TRAINING</h1><div class="s">&#128264; Sound on! &#128264;</div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { Sky } from 'three/addons/objects/Sky.js';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+
+// ---- the notes ---------------------------------------------------------------------
+// all twelve notes, an octave up from C6. A black key goes by one name or the other for a whole round,
+// never both at once, so the belts never offer C# and Db side by side.
+const NAMES = [['C'], ['C#', 'Db'], ['D'], ['D#', 'Eb'], ['E'], ['F'], ['F#', 'Gb'], ['G'], ['G#', 'Ab'], ['A'], ['A#', 'Bb'], ['B']];
+const PCS = NAMES.map((_, i) => i), freq = pc => 1046.5 * Math.pow(2, pc / 12);
+let spell = NAMES.map(n => n[0]);
+const shown = pc => spell[pc].replace('#', '\u266F').replace(/^([A-G])b$/, '$1\u266D');
+const ROUND_S = 60;
+const GLYPHS = {"C":"M 402 700 Q 555 700 644 624 Q 733 547 733 405 L 733 405 L 522 405 Q 522 465 491 500 Q 459 535 401 535 L 401 535 Q 334 535 303 493 Q 271 451 271 376 L 271 376 L 271 312 Q 271 238 303 196 Q 334 153 399 153 L 399 153 Q 463 153 496 186 Q 529 219 529 279 L 529 279 L 733 279 Q 733 138 647 63 Q 560 -12 402 -12 L 402 -12 Q 226 -12 136 78 Q 45 168 45 344 L 45 344 Q 45 520 136 610 Q 226 700 402 700 L 402 700 Z","D":"M 372 688 Q 733 688 733 344 L 733 344 Q 733 0 372 0 L 372 0 L 74 0 L 74 688 L 372 688 Z M 295 523 L 295 165 L 368 165 Q 507 165 507 314 L 507 314 L 507 374 Q 507 523 368 523 L 368 523 L 295 523 Z","E":"M 74 0 L 74 688 L 669 688 L 669 523 L 295 523 L 295 428 L 615 428 L 615 270 L 295 270 L 295 165 L 676 165 L 676 0 L 74 0 Z","F":"M 74 0 L 74 688 L 630 688 L 630 523 L 295 523 L 295 405 L 583 405 L 583 247 L 295 247 L 295 0 L 74 0 Z","G":"M 420 700 Q 519 700 598 670 Q 677 640 724 582 Q 770 523 770 439 L 770 439 L 559 439 Q 559 482 521 509 Q 483 535 429 535 L 429 535 Q 351 535 311 494 Q 271 452 271 376 L 271 376 L 271 312 Q 271 236 311 195 Q 351 153 429 153 L 429 153 Q 483 153 521 179 Q 559 204 559 244 L 559 244 L 403 244 L 403 384 L 770 384 L 770 0 L 656 0 L 634 68 Q 540 -12 388 -12 L 388 -12 Q 217 -12 131 78 Q 45 167 45 344 L 45 344 Q 45 519 143 610 Q 240 700 420 700 L 420 700 Z","A":"M 769 0 L 535 0 L 506 97 L 265 97 L 236 0 L 10 0 L 261 688 L 518 688 L 769 0 Z M 384 496 L 311 251 L 460 251 L 388 496 L 384 496 Z","B":"M 532 688 Q 584 688 628 667 Q 671 645 697 606 Q 722 567 722 519 L 722 519 Q 722 392 607 359 L 607 359 L 607 355 Q 738 325 738 183 L 738 183 Q 738 129 712 88 Q 685 46 639 23 Q 593 0 538 0 L 538 0 L 74 0 L 74 688 L 532 688 Z M 295 537 L 295 420 L 447 420 Q 469 420 484 436 Q 498 451 498 474 L 498 474 L 498 484 Q 498 506 483 522 Q 468 537 447 537 L 447 537 L 295 537 Z M 295 278 L 295 160 L 463 160 Q 485 160 500 176 Q 514 191 514 214 L 514 214 L 514 224 Q 514 247 500 263 Q 485 278 463 278 L 463 278 L 295 278 Z"};
+
+const HS_KEY = 'earTrainingBest', SOUND_KEY = 'arcadeSound';
+const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const load = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+let soundOn = load(SOUND_KEY) !== '0';
+
+// ---- sound: struck steel -------------------------------------------------------------
+let ac = null, out = null, noiseBuf = null;
+function audio() {
+  if (!ac) {
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 4;
+      out = ac.createGain(); out.gain.value = 0.9; out.connect(comp).connect(ac.destination);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { ac = null; }
+  }
+  if (ac && ac.state === 'suspended') ac.resume();
+  return soundOn && ac;
+}
+function partial(f, vol, dur, t, dest = out) {
+  const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(dest); o.start(t); o.stop(t + dur + 0.05);
+}
+function burst(dur, type, freq, q, vol, t, dest = out) {
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = noiseBuf; s.loop = true; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(dest); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.05);
+}
+// a sheet of steel struck by a pellet: a bright tick, a clear fundamental that rings, quick metal overtones
+function ring(pc, when = 0, vol = 0.5, long = 1) {
+  if (!audio()) return;
+  const t = ac.currentTime + when, f = freq(pc);
+  partial(f, vol, 2.2 * long, t); partial(f * 2, vol * 0.12, 0.9 * long, t);
+  partial(f * 2.76, vol * 0.18, 0.4 * long, t); partial(f * 5.4, vol * 0.07, 0.15, t);
+  partial(f * 1.003, vol * 0.25, 1.8 * long, t);
+  burst(0.025, 'highpass', 5000, 0.7, vol * 0.5, t);
+}
+function dud(pc) {
+  if (!audio()) return;
+  const t = ac.currentTime, lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1300; lp.connect(out);
+  partial(freq(pc), 0.14, 0.15, t, lp); burst(0.1, 'lowpass', 650, 0.8, 0.55, t); partial(140, 0.3, 0.12, t);
+}
+const sfx = {
+  shot() { if (!audio()) return; const t = ac.currentTime; burst(0.012, 'highpass', 3000, 0.7, 0.5, t); burst(0.07, 'bandpass', 1300, 1.2, 0.35, t + 0.004); partial(320, 0.12, 0.04, t); },
+  clatter() { if (!audio()) return; const t = ac.currentTime; [0, 0.07, 0.16].forEach((d, i) => burst(0.06, 'bandpass', 2200 - i * 400, 2, 0.25 / (i + 1), t + d)); },
+  miss() { if (!audio()) return; burst(0.1, 'lowpass', 500, 0.8, 0.22, ac.currentTime + 0.1); },
+  buzz() { if (!audio()) return; const t = ac.currentTime; partial(110, 0.25, 0.5, t); partial(116, 0.2, 0.5, t); },
+  tick() { if (!audio()) return; burst(0.02, 'highpass', 6000, 1, 0.2, ac.currentTime); },
+};
+
+// ---- the scene -----------------------------------------------------------------------
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.62;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog('#d8b894', 45, 260);
+const camera = new THREE.PerspectiveCamera(46, 1, 0.03, 20000); scene.add(camera);
+const EYE = new THREE.Vector3(0, 1.6, 0), LOOK = new THREE.Vector3(0, 1.15, -14);
+
+// a low desert sun from behind the left shoulder, the sky dusty and warm
+const sunDir = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 22), THREE.MathUtils.degToRad(-30)).normalize();
+const sky = new Sky(); sky.scale.setScalar(15000); scene.add(sky);
+Object.entries({ turbidity: 8, rayleigh: 1.2, mieCoefficient: 0.008, mieDirectionalG: 0.85 }).forEach(([k, v]) => sky.material.uniforms[k].value = v);
+sky.material.uniforms.sunPosition.value.copy(sunDir);
+const sun = new THREE.DirectionalLight('#ffd9a8', 3.4); sun.position.copy(sunDir).multiplyScalar(40).add(new THREE.Vector3(0, 0, -14));
+sun.target.position.set(0, 0, -14); scene.add(sun, sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 14, bottom: -14, near: 1, far: 100 });
+scene.add(new THREE.HemisphereLight('#f2dcc0', '#7a5a3a', 0.55));
+new EXRLoader().load('arcade/junkyard-sky.exr', t => {
+  const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromEquirectangular(t).texture; t.dispose(); pm.dispose();
+});
+
+// ---- textures, drawn in code ---------------------------------------------------------
+const cnv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const tex = (c, rep = [1, 1], srgb = true) => { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); t.anisotropy = 8; return t; };
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function noiseField(n, seed) {
+  const g = new Float32Array(n * n); let s = seed * 9301 + 49297;
+  for (let i = 0; i < g.length; i++) { s = (s * 9301 + 49297) % 233280; g[i] = s / 233280; }
+  return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const at = (a, b) => g[((b % n + n) % n) * n + ((a % n + n) % n)];
+    return (at(xi, yi) * (1 - u) + at(xi + 1, yi) * u) * (1 - v) + (at(xi, yi + 1) * (1 - u) + at(xi + 1, yi + 1) * u) * v; };
+}
+const fbm = (f, x, y, oct = 4) => { let a = 0, amp = 0.5, fr = 1; for (let i = 0; i < oct; i++) { a += amp * f(x * fr, y * fr); amp *= 0.5; fr *= 2; } return a; };
+function paint(w, h, fn) { const c = cnv(w, h), g = c.getContext('2d'), im = g.createImageData(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const [r, gg, b] = fn(x, y), i = (y * w + x) * 4; im.data[i] = r; im.data[i + 1] = gg; im.data[i + 2] = b; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); return c; }
+const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+function sandTex() {
+  const n1 = noiseField(32, 3), n2 = noiseField(64, 8);
+  return paint(512, 512, (x, y) => {
+    const a = fbm(n1, x / 16, y / 16), b = n2(x / 3, y / 3);
+    let c = mix([176, 138, 98], [208, 172, 128], a);
+    c = mix(c, [128, 96, 66], Math.max(0, 0.42 - a) * 1.8);                 // packed dirt
+    if (b > 0.82) c = mix(c, [96, 80, 66], 0.6);                              // gravel
+    return mix(c, [0, 0, 0], Math.random() * 0.08);
+  });
+}
+// rusted steel: bare grey worn through orange, dark pits
+function rustTex(seed, base = [120, 112, 104]) {
+  const n1 = noiseField(32, seed), n2 = noiseField(64, seed + 5);
+  return paint(256, 256, (x, y) => {
+    const a = fbm(n1, x / 18, y / 18), b = n2(x / 4, y / 4);
+    let c = mix(base, [150, 78, 36], Math.min(1, Math.max(0, (a - 0.38) * 2.4)));
+    c = mix(c, [74, 40, 22], Math.max(0, b - 0.7) * 2);
+    return mix(c, [0, 0, 0], Math.random() * 0.08);
+  });
+}
+// a painted panel, faded and scratched, rust coming through at the edges and in streaks
+function paintedTex(colr, seed) {
+  const n1 = noiseField(32, seed), n2 = noiseField(32, seed + 11), P = hex(colr);
+  return paint(256, 256, (x, y) => {
+    const a = fbm(n1, x / 20, y / 20), streak = n2(x / 6, y / 40), edge = Math.min(x, y, 255 - x, 255 - y) / 255;
+    let c = mix(P, [236, 226, 210], a * 0.25);                                          // sun-faded
+    const rust = Math.max(0, (a - 0.55) * 3) + Math.max(0, (streak - 0.72) * 3) + Math.max(0, 0.06 - edge) * 10;
+    c = mix(c, [142, 72, 34], Math.min(1, rust));
+    if (Math.random() < 0.004) c = [200, 196, 190];                                     // bright scratches
+    return mix(c, [0, 0, 0], Math.random() * 0.07);
+  });
+}
+function beltTex() {
+  const c = cnv(256, 64), g = c.getContext('2d'); g.fillStyle = '#26221f'; g.fillRect(0, 0, 256, 64);
+  for (let x = 0; x < 256; x += 16) { g.fillStyle = '#3a3430'; g.fillRect(x, 0, 5, 64); g.fillStyle = '#141210'; g.fillRect(x + 5, 0, 2, 64); }
+  for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(160,130,100,${Math.random() * 0.2})`; g.fillRect(Math.random() * 256, Math.random() * 64, 2, 1); }
+  return c;
+}
+function dentTex() {
+  // a dark crater with a bright rim, where a pellet punched into the sheet
+  const c = cnv(64, 64), g = c.getContext('2d'), r = g.createRadialGradient(30, 30, 1, 32, 32, 30);
+  r.addColorStop(0, 'rgba(20,16,14,0.95)'); r.addColorStop(0.35, 'rgba(60,52,46,0.85)'); r.addColorStop(0.55, 'rgba(230,226,220,0.7)'); r.addColorStop(0.75, 'rgba(90,80,72,0.3)'); r.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64); return c;
+}
+function softDot(rgb) { const c = cnv(64, 64), g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, `rgba(${rgb},1)`); r.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return c; }
+
+// ---- the yard --------------------------------------------------------------------------
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({ map: tex(sandTex(), [160, 160]), roughness: 1, envMapIntensity: 0.6 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const RUST = [0, 1, 2].map(i => new THREE.MeshStandardMaterial({ map: tex(rustTex(20 + i)), roughness: 0.85, metalness: 0.3, envMapIntensity: 0.6 }));
+const shadowed = o => { o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; };
+function add(geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = m.receiveShadow = true; scene.add(m); return m; }
+
+// crushed cars stacked like bricks off to the sides, leaving open sky behind the belts
+const CAR_COLORS = ['#8a2a22', '#2c4a6e', '#c9b48a', '#3e5a3a', '#6a6a6e', '#b8642a', '#d8d2c4', '#5a2e4a'];
+const carMats = CAR_COLORS.map((c, i) => new THREE.MeshStandardMaterial({ map: tex(paintedTex(c, 40 + i)), roughness: 0.75, metalness: 0.35, envMapIntensity: 0.7 }));
+const carGeo = new THREE.BoxGeometry(1.7, 0.75, 1.25, 4, 2, 3);
+{ const p = carGeo.attributes.position; for (let i = 0; i < p.count; i++) { p.setX(i, p.getX(i) + rnd(-0.04, 0.04)); p.setY(i, p.getY(i) + rnd(-0.04, 0.04)); p.setZ(i, p.getZ(i) + rnd(-0.04, 0.04)); } carGeo.computeVertexNormals(); }
+function carStack(x, z, cols, rows, ry = 0) {
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows - (c % 2 && Math.random() < 0.5 ? 1 : 0); r++) {
+    const ox = (c - (cols - 1) / 2) * 1.75 + rnd(-0.08, 0.08);
+    add(carGeo, pick(carMats), x + Math.cos(ry) * ox, 0.375 + r * 0.76, z - Math.sin(ry) * ox, 0, ry + rnd(-0.08, 0.08), rnd(-0.03, 0.03));
+  }
+}
+carStack(-10.5, -21, 3, 3, 0.6); carStack(11, -23, 3, 4, -0.6); carStack(-14, -34, 4, 3, 0.3); carStack(15, -36, 4, 2, -0.3); carStack(-7.5, -11, 2, 2, 0.9);
+// tyres in piles, oil drums, a few sheets of scrap leaning about
+const tyreGeo = new THREE.TorusGeometry(0.32, 0.12, 12, 28), tyreMat = new THREE.MeshStandardMaterial({ color: '#1c1a19', roughness: 0.9 });
+function tyres(x, z, n) { for (let i = 0; i < n; i++) add(tyreGeo, tyreMat, x + rnd(-0.05, 0.05), 0.12 + i * 0.235, z + rnd(-0.05, 0.05), Math.PI / 2, 0, 0); }
+tyres(-4.2, -6, 4); tyres(-4.9, -6.4, 2); tyres(4.6, -11, 5); tyres(-6.5, -16, 3); tyres(7.5, -18, 4);
+const drumGeo = new THREE.CylinderGeometry(0.29, 0.29, 0.88, 24);
+[[3.8, -5.5, '#2c4a6e'], [4.4, -5.9, '#8a2a22'], [-5.8, -12, '#3e5a3a'], [6.4, -14, '#b8642a'], [-3.6, -20.5, '#2c4a6e']].forEach(([x, z, c], i) =>
+  add(drumGeo, new THREE.MeshStandardMaterial({ map: tex(paintedTex(c, 70 + i)), roughness: 0.7, metalness: 0.4 }), x, 0.44, z, 0, rnd(0, 6), 0));
+add(drumGeo, RUST[1], -3.2, 0.29, -9, 0, 0.4, Math.PI / 2);
+
+// ---- the conveyor belts: near, middle, far; each runs the other way to the one before -----
+const LH = 0.62, K = LH / 700, THICK = 0.014;
+const BELTS = [
+  { z: -8, h: 0.55, dir: 1, speed: 1.0, gap: 1.85, pts: 100 },
+  { z: -13.5, h: 1.35, dir: -1, speed: 1.25, gap: 2.0, pts: 150 },
+  { z: -19.5, h: 2.35, dir: 1, speed: 1.5, gap: 2.15, pts: 200 },
+];
+const HALF = 21, beltMap = tex(beltTex(), [HALF * 2 / 0.5, 1]);
+BELTS.forEach((b, bi) => {
+  const W = 0.62, g = new THREE.Group(); g.position.set(0, 0, b.z); scene.add(g);
+  b.tex = beltMap.clone(); b.tex.needsUpdate = true; b.tex.repeat.set(HALF * 2 / 0.5, 1);
+  const rubber = new THREE.MeshStandardMaterial({ map: b.tex, roughness: 0.85, envMapIntensity: 0.4 });
+  const top = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, 0.05, W), [rubber, rubber, rubber, rubber, rubber, rubber]); top.position.y = b.h - 0.025; g.add(top);
+  // side rails, legs braced in X, and rollers showing under the belt
+  const rail = RUST[bi % 3];
+  [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, 0.14, 0.05), rail); r.position.set(0, b.h - 0.06, s * (W / 2 + 0.03)); g.add(r); });
+  for (let x = -HALF + 1; x < HALF; x += 2.6) {
+    [-1, 1].forEach(s => { const l = new THREE.Mesh(new THREE.BoxGeometry(0.07, b.h - 0.12, 0.07), rail); l.position.set(x, (b.h - 0.12) / 2, s * (W / 2 + 0.03)); g.add(l); });
+    if (b.h > 1) { const br = new THREE.Mesh(new THREE.BoxGeometry(0.04, Math.hypot(b.h - 0.2, W), 0.04), rail); br.position.set(x, (b.h - 0.12) / 2, 0); br.rotation.x = Math.atan2(W, b.h - 0.2); g.add(br); }
+  }
+  for (let x = -HALF + 0.4; x < HALF; x += 0.8) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, W, 10), rail); r.rotation.x = Math.PI / 2; r.position.set(x, b.h - 0.1, 0); g.add(r); }
+  shadowed(g);
+  b.slots = [];
+});
+
+// ---- the letters: cut from sheet steel, painted once, now chipped and rusting ---------------
+const ADV = { C: 778, D: 778, E: 722, F: 667, G: 833, A: 778, B: 778 };
+// where a small welded bar joins each letter to its sharp or flat: from inside the letter's metal, at this height
+const TIE = { C: [560, 40], D: [520, 40], E: [600, 40], F: [520, 280], G: [700, 40], A: [700, 40], B: [600, 40] };
+const V = (x, y, ox) => new THREE.Vector2((x + ox) * K, y * K);
+const poly = (pts, ox) => new THREE.Shape(pts.map(([x, y]) => V(x, y, ox)));
+// a music sharp: two upright stems crossed by two heavy bars rising to the right
+const sharp = ox => [poly([[90, 40], [160, 40], [160, 640], [90, 640]], ox), poly([[230, 80], [300, 80], [300, 680], [230, 680]], ox),
+  poly([[30, 190], [360, 270], [360, 370], [30, 290]], ox), poly([[30, 410], [360, 490], [360, 590], [30, 510]], ox)];
+// a music flat: a tall stem and a round bowl at its foot, open in the middle
+function flat(ox) {
+  const stem = poly([[30, 0], [110, 0], [110, 700], [30, 700]], ox);
+  const P = (x, y) => V(x, y, ox).toArray();
+  const bowl = new THREE.Shape(); bowl.moveTo(...P(100, 0)); bowl.lineTo(...P(100, 360));
+  bowl.quadraticCurveTo(...P(180, 430), ...P(250, 400)); bowl.quadraticCurveTo(...P(330, 350), ...P(300, 250));
+  bowl.quadraticCurveTo(...P(260, 140), ...P(100, 0));
+  const hole = new THREE.Path(); hole.moveTo(...P(110, 110)); hole.quadraticCurveTo(...P(220, 190), ...P(230, 255));
+  hole.quadraticCurveTo(...P(235, 320), ...P(190, 330)); hole.quadraticCurveTo(...P(150, 335), ...P(110, 300)); hole.lineTo(...P(110, 110));
+  bowl.holes.push(hole); return [stem, bowl];
+}
+const geos = {};
+function geoFor(name) {
+  if (geos[name]) return geos[name];
+  const ch = name[0], sp = new THREE.ShapePath(), t = GLYPHS[ch].split(' ');
+  for (let i = 0; i < t.length;) {
+    const c = t[i++], n = () => +t[i++] * K;
+    if (c === 'M') sp.moveTo(n(), n()); else if (c === 'L') sp.lineTo(n(), n());
+    else if (c === 'Q') { const a = n(), b = n(), x = n(), y = n(); sp.quadraticCurveTo(a, b, x, y); }
+  }
+  const shapes = sp.toShapes();
+  if (name.length > 1) {
+    const ox = ADV[ch] + (name[1] === '#' ? 20 : 30), [x0, y0] = TIE[ch], x1 = ox + (name[1] === '#' ? 130 : 80);
+    shapes.push(...(name[1] === '#' ? sharp(ox) : flat(ox)), poly([[x0, y0], [x1, y0], [x1, y0 + 70], [x0, y0 + 70]], 0));
+  }
+  const geo = new THREE.ExtrudeGeometry(shapes, { depth: THICK, curveSegments: 8, bevelEnabled: false });
+  geo.computeBoundingBox(); const bb = geo.boundingBox;
+  geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -THICK / 2);
+  // stretch the front face's coordinates over the paint texture
+  const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 0.7, uv.getY(i) / 0.7);
+  geo.computeBoundingBox(); return geos[name] = geo;
+}
+const SHEET = ['#e8c23a', '#d8d2c4', '#c23a2a', '#4a7a9a', '#9a9a96', '#e07a2a', '#5a8a4a'].map((c, i) => new THREE.MeshStandardMaterial({ map: tex(paintedTex(c, 90 + i)), roughness: 0.6, metalness: 0.45, envMapIntensity: 0.8, side: THREE.DoubleSide }));
+const dentMat = new THREE.MeshBasicMaterial({ map: tex(dentTex()), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, fog: true });
+// the stand: a strip of angle iron bolted to the belt, the letter welded on
+const footGeo = new THREE.BoxGeometry(0.5, 0.03, 0.12), footMat = RUST[0];
+const hitGeo = new THREE.BoxGeometry(0.85, LH + 0.14, 0.08), hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
+const ALL = [];
+BELTS.forEach((b, bi) => {
+  const n = Math.round(HALF * 2 / b.gap);
+  for (let i = 0; i < n; i++) {
+    const body = new THREE.Group(), mesh = new THREE.Mesh(geoFor('C'), pick(SHEET)); mesh.castShadow = mesh.receiveShadow = true;
+    const foot = new THREE.Mesh(footGeo, footMat); foot.position.y = 0.015; foot.castShadow = true;
+    const hit = new THREE.Mesh(hitGeo, hitMat); hit.position.y = LH / 2;
+    body.add(mesh, foot, hit); scene.add(body);
+    const s = { belt: b, bi, body, mesh, hit, x: -HALF + (i + 0.5) * (HALF * 2 / n), pc: 0, state: 'ride', dents: [], wob: 0, vel: new THREE.Vector3(), spin: 0, tilt: rnd(-0.04, 0.04) };
+    hit.userData.slot = s; b.slots.push(s); ALL.push(s);
+  }
+});
+function dress(s, pc) {
+  s.pc = pc; s.mesh.geometry = geoFor(spell[pc]); s.mesh.material = pick(SHEET);
+  const bb = s.mesh.geometry.boundingBox; s.hit.scale.x = (bb.max.x - bb.min.x + 0.16) / 0.85;
+  s.dents.forEach(d => s.mesh.remove(d)); s.dents = [];
+  s.state = 'ride'; s.body.visible = true; s.wob = 0; s.mesh.position.set(0, 0.03, 0); s.mesh.rotation.set(0, 0, 0); s.tilt = rnd(-0.05, 0.05);
+}
+function place(s) { s.body.position.set(s.x, s.belt.h, s.belt.z); }
+
+// ---- the toy rifle: a red plastic copy of a bolt-action rifle --------------------------
+const rifle = new THREE.Group(), recoilG = new THREE.Group(), muzzle = new THREE.Object3D();
+{
+  const red = new THREE.MeshPhysicalMaterial({ color: '#d8261a', roughness: 0.32, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: 0.4 });
+  const dark = new THREE.MeshPhysicalMaterial({ color: '#7e0c10', roughness: 0.45 });
+  const black = new THREE.MeshStandardMaterial({ color: '#141416', roughness: 0.45 });
+  const orange = new THREE.MeshPhysicalMaterial({ color: '#ff7a14', roughness: 0.4, clearcoat: 0.5 });
+  const inner = new THREE.Group(); inner.rotation.y = -Math.PI / 2; inner.position.z = 0.32; recoilG.add(inner); rifle.add(recoilG);
+  const sh = new THREE.Shape();
+  sh.moveTo(-0.34, 0.012); sh.lineTo(-0.16, 0.03); sh.quadraticCurveTo(-0.1, 0.03, -0.07, 0.012); sh.lineTo(-0.02, 0.022);
+  sh.lineTo(0.44, 0.02); sh.quadraticCurveTo(0.47, 0.018, 0.47, 0.0); sh.lineTo(0.47, -0.012); sh.lineTo(0.06, -0.026);
+  sh.quadraticCurveTo(0.03, -0.03, 0.02, -0.04); sh.lineTo(-0.035, -0.11); sh.quadraticCurveTo(-0.05, -0.122, -0.075, -0.112);
+  sh.lineTo(-0.06, -0.045); sh.quadraticCurveTo(-0.12, -0.06, -0.33, -0.1); sh.lineTo(-0.345, -0.098); sh.closePath();
+  const sg = new THREE.ExtrudeGeometry(sh, { depth: 0.036, curveSegments: 12, bevelEnabled: true, bevelThickness: 0.009, bevelSize: 0.008, bevelSegments: 4 }); sg.translate(0, 0, -0.018);
+  inner.add(new THREE.Mesh(sg, red));
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.12, 0.05), black); pad.position.set(-0.352, -0.044, 0); inner.add(pad);
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.002, 0.003), dark); seam.position.set(0.06, 0.031, 0); inner.add(seam);
+  const cyl = (r1, r2, len, m, x, y) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, len, 24), m); c.rotation.z = -Math.PI / 2; c.position.set(x + len / 2, y, 0); inner.add(c); };
+  cyl(0.019, 0.019, 0.2, red, -0.02, 0.038); cyl(0.011, 0.012, 0.56, red, 0.18, 0.04); cyl(0.0135, 0.0135, 0.03, orange, 0.735, 0.04);
+  muzzle.position.set(0.77, 0.04, 0); inner.add(muzzle);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.018, 0.003), black); blade.position.set(0.72, 0.058, 0); inner.add(blade);
+  [-1, 1].forEach(s => { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.016, 0.005), black); ear.position.set(0.16, 0.058, s * 0.006); inner.add(ear); });
+  const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.05, 10), red); bolt.rotation.x = Math.PI / 2 - 0.4; bolt.position.set(0.02, 0.03, 0.03); inner.add(bolt);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.009, 16, 12), red); knob.position.set(0.02, 0.02, 0.054); inner.add(knob);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.004, 8, 20, Math.PI), red); guard.rotation.z = Math.PI; guard.position.set(0.035, -0.026, 0); inner.add(guard);
+}
+camera.add(rifle);
+const aimAt = new THREE.Vector3().copy(LOOK), aimM = new THREE.Matrix4(), ORIGIN = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+function aimRifle() {
+  // part of the way from resting on the middle of the yard toward the shot, so it stays in view
+  const to = camera.worldToLocal(aimAt.clone()).sub(rifle.position).normalize();
+  const dir = new THREE.Vector3(0, 0, -5).sub(rifle.position).normalize().lerp(to, 0.55).normalize();
+  rifle.quaternion.setFromRotationMatrix(aimM.lookAt(dir, ORIGIN, UP));
+}
+
+// ---- sparks, dust, pellets -------------------------------------------------------------
+const FX = [], dustTex = tex(softDot('210,180,140')), sparkTex = tex(softDot('255,200,90'));
+function sprites(at, txr, color, n, size, speed, up, life, g, add) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: txr, color, transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, opacity: add ? 1 : 0.6 }));
+    s.position.copy(at); s.scale.setScalar(size * rnd(0.6, 1.2)); scene.add(s);
+    FX.push({ o: s, v: new THREE.Vector3(rnd(-1, 1) * speed, rnd(0.2, 1) * up, rnd(-1, 0.4) * speed), life: life * rnd(0.6, 1.2), age: 0, g, grow: add ? 0 : size, op: add ? 1 : 0.6 });
+  }
+}
+const pelletMat = new THREE.MeshStandardMaterial({ color: '#f2b21a', roughness: 0.3, emissive: '#6a4400' });
+function pellet(from, slot, local, point, onLand) {
+  const p = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), pelletMat); p.position.copy(from); scene.add(p);
+  FX.push({ o: p, from: from.clone(), slot, local, point, k: 0, speed: 50 / Math.max(1, from.distanceTo(point)), onLand, pellet: true });
+}
+function tickFX(dt) {
+  for (let i = FX.length - 1; i >= 0; i--) {
+    const f = FX[i];
+    if (f.pellet) {
+      f.k += dt * f.speed;
+      const to = f.slot ? f.slot.mesh.localToWorld(f.local.clone()) : f.point;      // follow a letter as it rides
+      f.o.position.lerpVectors(f.from, to, Math.min(1, f.k));
+      if (f.k >= 1) { scene.remove(f.o); FX.splice(i, 1); f.onLand(to); } continue;
+    }
+    f.age += dt; f.v.y += f.g * dt; f.o.position.addScaledVector(f.v, dt);
+    if (f.grow) f.o.scale.addScalar(f.grow * dt);
+    f.o.material.opacity = f.op * (1 - f.age / f.life);
+    if (f.age > f.life) { scene.remove(f.o); FX.splice(i, 1); }
+  }
+}
+
+// ---- the START sign: a painted steel plate on two posts, shot to begin ---------------------
+const sign = (() => {
+  const c = cnv(512, 192), g = c.getContext('2d'), t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const draw = () => {
+    g.drawImage(paintedTex('#e8c23a', 7), 0, 0, 512, 192);
+    g.fillStyle = '#1a1612'; g.font = "128px 'Archivo Black'"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('START', 256, 102);
+    // the paint on the lettering is worn through in places
+    for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '232,194,58' : '150,80,40'},0.8)`; g.fillRect(Math.random() * 512, Math.random() * 192, rnd(1, 4), rnd(1, 3)); }
+    [[16, 16], [496, 16], [16, 176], [496, 176]].forEach(([x, y]) => { g.fillStyle = '#5a4a3a'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); });
+    t.needsUpdate = true;
+  };
+  draw(); document.fonts && document.fonts.load("128px 'Archivo Black'").then(draw);
+  const W = 1.5, H = W * 192 / 512, root = new THREE.Group(); root.position.set(0, 0, -6.2); scene.add(root);
+  const face = new THREE.MeshStandardMaterial({ map: t, roughness: 0.6, metalness: 0.4, envMapIntensity: 0.8 }), edge = RUST[2];
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.015), [edge, edge, edge, edge, face, edge]); plate.castShadow = true;
+  const holder = new THREE.Group(); holder.add(plate); root.add(holder);
+  const TOP = 1.45, posts = [-1, 1].map(sx => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.06, TOP - H, 0.06), RUST[0]); p.position.set(sx * W * 0.38, (TOP - H) / 2, -0.04); p.castShadow = true; root.add(p); return p; });
+  const s = { root, plate, holder, state: 'up', vel: new THREE.Vector3(), spin: 0, delay: 0 };
+  s.place = () => { holder.position.set(0, TOP - H / 2, 0); holder.rotation.set(0, 0, 0); };
+  s.reset = (delay = 0) => { s.state = 'wait'; s.delay = delay; holder.visible = false; s.place(); };
+  const showPosts = v => posts.forEach(p => p.visible = v);
+  s.tick = dt => {
+    if (s.state === 'wait') { s.delay -= dt; if (s.delay <= 0) { s.state = 'up'; holder.visible = true; showPosts(true); } }
+    else if (s.state === 'up') holder.rotation.x = Math.sin(simT * 2) * 0.01;
+    else if (s.state === 'fly') {
+      s.vel.y -= 9.8 * dt; holder.position.addScaledVector(s.vel, dt); holder.rotation.x += s.spin * dt;
+      if (holder.position.y < 0.05) { s.state = 'down'; holder.visible = false; showPosts(false); sprites(root.localToWorld(holder.position.clone()).setY(0.1), dustTex, '#c8a880', 6, 0.3, 0.7, 0.6, 1, -0.3); }
+    }
+  };
+  s.place(); return s;
+})();
+
+// ---- the game ----------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+let state = 'intro', note = null, score = 0, combo = 0, hits = 0, timeLeft = ROUND_S, noteAt = 0, simT = 0, recoil = 0, lastTick = 0;
+const best = () => +(load(HS_KEY) || 0);
+let msgT = 0;
+function say(t, good, ms = 900) { const m = $('msg'); m.textContent = t; m.classList.toggle('good', !!good); m.classList.add('on'); clearTimeout(msgT); msgT = setTimeout(() => m.classList.remove('on'), ms); }
+const onScreen = s => { const p = s.body.position.clone(); p.y += LH / 2; p.project(camera); return Math.abs(p.x) < 0.85 && p.z < 1; };
+// the note must be out there somewhere you can see; if not, the next letter coming on gets it
+function ensureNote() {
+  if (ALL.some(s => s.pc === note && s.state === 'ride' && onScreen(s))) return;
+  const entering = ALL.filter(s => s.state === 'ride' && !onScreen(s)).sort((a, b) => edgeDist(a) - edgeDist(b))[0];
+  if (entering) dress(entering, note);
+}
+// how far a letter still has to travel before it comes into view
+function edgeDist(s) { const lim = viewHalf(s.belt); return s.belt.dir > 0 ? (s.x < -lim ? -lim - s.x : 99) : (s.x > lim ? s.x - lim : 99); }
+function viewHalf(b) { const d = EYE.z - b.z, hf = Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect); return Math.tan(hf) * d * 0.9; }
+function newNote() {
+  let n; do { n = pick(PCS); } while (n === note);
+  note = n; ensureNote(); noteAt = simT; playNote();
+}
+function playNote() { ring(note, 0, 0.5); }   // the mystery note, on its own
+function start() {
+  state = 'play'; document.body.classList.add('play'); score = 0; combo = 0; hits = 0; timeLeft = ROUND_S; note = null;
+  spell = NAMES.map(n => pick(n)); ALL.forEach(s => dress(s, pick(PCS))); audio(); hud(); setTimeout(newNote, 400);
+}
+function finish() {
+  state = 'over'; $('msg').classList.remove('on');
+  const b = best(); if (score > b) store(HS_KEY, String(score));
+  sfx.buzz();
+  $('intro').innerHTML = `<h1>${score}</h1><div class="s">${score > b ? 'NEW BEST' : 'BEST ' + Math.max(b, score)}</div>`;
+  document.body.classList.remove('play'); sign.reset(1.2);
+}
+function hud() { $('score').textContent = score; }
+
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function shoot(cx, cy) {
+  ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  if (state !== 'play') {
+    // before a round, only the START sign counts
+    audio(); const from = muzzle.getWorldPosition(new THREE.Vector3());
+    const h = sign.state === 'up' && ray.intersectObject(sign.plate, false)[0];
+    const point = h ? h.point : (ray.intersectObject(ground, false)[0] || { point: ray.ray.at(40, new THREE.Vector3()) }).point;
+    aimAt.copy(point); recoil = 1; sfx.shot();
+    pellet(from, null, null, point, at => {
+      if (!h || sign.state !== 'up') { sfx.miss(); return; }
+      [0, 4, 7].forEach((pc, i) => ring(pc, i * 0.09, 0.4)); sfx.clatter();
+      sprites(at, sparkTex, '#ffffff', 12, 0.06, 2.5, 2.5, 0.35, -6, true);
+      sign.state = 'fly'; sign.vel.set(rnd(-0.3, 0.3), 2.6, -2.4); sign.spin = -7;
+      setTimeout(start, 700);
+    });
+    return;
+  }
+  if (!note) return;
+  const live = ALL.filter(s => s.state === 'ride' || s.state === 'wob');
+  const hit = ray.intersectObjects(live.map(s => s.hit), false)[0];
+  let slot = null, local = null, point;
+  if (hit) {
+    slot = hit.object.userData.slot;
+    const onSheet = ray.intersectObject(slot.mesh, false)[0];
+    point = onSheet ? onSheet.point : slot.mesh.localToWorld(new THREE.Vector3(0, LH * 0.5, 0));
+    local = slot.mesh.worldToLocal(point.clone()); local.z = THICK / 2 + 0.001;
+  } else {
+    const h = ray.intersectObject(ground, false)[0]; point = h ? h.point : ray.ray.at(40, new THREE.Vector3());
+  }
+  aimAt.copy(point); recoil = 1; sfx.shot();
+  pellet(muzzle.getWorldPosition(new THREE.Vector3()), slot, local, point, at => land(slot, at, local));
+}
+function land(s, at, local) {
+  if (state !== 'play') return;
+  if (!s) { sfx.miss(); sprites(at, dustTex, '#c8a880', 3, 0.15, 0.3, 0.5, 0.8, -0.3); return; }
+  if (s.state !== 'ride' && s.state !== 'wob') return;
+  if (s.pc === note) {
+    // a clean hit rings the note and knocks the letter clean off the belt
+    ring(note, 0, 0.55, 1.1); sfx.clatter();
+    sprites(at, sparkTex, '#ffffff', 10, 0.06, 2.5, 2.5, 0.35, -6, true);
+    s.state = 'fly'; s.vel.set(s.belt.dir * s.belt.speed + rnd(-0.4, 0.4), rnd(2.2, 3.2), rnd(-2.6, -1.6)); s.spin = rnd(-9, -6); s.spinY = rnd(-3, 3);
+    const quick = Math.max(0, 1 - (simT - noteAt) / 4);                       // the faster you find it, the more it pays
+    combo++; hits++;
+    const pts = Math.round((s.belt.pts + 150 * quick) * Math.min(combo, 5));
+    score += pts; hud(); say(`${shown(note)}  +${pts}`, true, 800);
+    note = null; setTimeout(() => state === 'play' && newNote(), 650);
+  } else {
+    // a wrong one takes a dent and rattles; no penalty beyond losing your streak, this is practice
+    dud(s.pc); combo = 0;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), dentMat); d.scale.setScalar(rnd(0.08, 0.1)); d.position.copy(local); d.rotation.z = rnd(0, 6); s.mesh.add(d); s.dents.push(d);
+    s.state = 'wob'; s.wob = 1; say(`NOT ${shown(s.pc)}`, false, 700);
+  }
+}
+
+// ---- each frame --------------------------------------------------------------------------
+let last = 0;
+function frame(now) {
+  const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now; simT += dt;
+  if (state === 'play') {
+    if (sign.state === 'up') sign.reset(1e9);
+    timeLeft -= dt;
+    if (timeLeft <= 5 && Math.ceil(timeLeft) !== lastTick) { lastTick = Math.ceil(timeLeft); sfx.tick(); }
+    $('clock').firstChild.style.transform = `scaleX(${Math.max(0, timeLeft / ROUND_S)})`; $('clock').classList.toggle('low', timeLeft < 10);
+    if (timeLeft <= 0) finish();
+  }
+  BELTS.forEach(b => { b.tex.offset.x -= b.dir * b.speed * dt / 0.5; });
+  ALL.forEach(s => {
+    if (s.state === 'ride' || s.state === 'wob') {
+      s.x += s.belt.dir * s.belt.speed * dt;
+      if (s.x > HALF) { s.x -= HALF * 2; dress(s, pick(PCS)); }
+      if (s.x < -HALF) { s.x += HALF * 2; dress(s, pick(PCS)); }
+      place(s);
+      // a little judder from the belt, a real rattle when hit
+      s.wob = Math.max(0, s.wob - dt * 2);
+      s.mesh.rotation.x = s.tilt + Math.sin(simT * 13 + s.x * 3) * 0.01 + Math.sin(s.wob * 30) * 0.12 * s.wob;
+      if (s.state === 'wob' && !s.wob) s.state = 'ride';
+    } else if (s.state === 'fly') {
+      s.vel.y -= 9.8 * dt; s.body.position.addScaledVector(s.vel, dt);
+      s.mesh.rotation.x += s.spin * dt; s.mesh.rotation.y += s.spinY * dt;
+      if (s.body.position.y < 0.05) { s.state = 'gone'; s.body.visible = false; sprites(s.body.position.clone().setY(0.1), dustTex, '#c8a880', 5, 0.25, 0.6, 0.6, 1, -0.3); }
+    } else if (s.state === 'gone') {
+      // the empty spot rides on round to come back with a new letter
+      s.x += s.belt.dir * s.belt.speed * dt;
+      if (Math.abs(s.x) > HALF) { s.x -= Math.sign(s.x) * HALF * 2; dress(s, pick(PCS)); place(s); }
+    }
+  });
+  if (state === 'play' && note && Math.floor(simT * 2) !== Math.floor((simT - dt) * 2)) ensureNote();
+  camera.position.set(EYE.x + Math.sin(simT * 0.7) * 0.004, EYE.y + Math.sin(simT * 1.1) * 0.004, EYE.z); camera.lookAt(LOOK);
+  recoil = Math.max(0, recoil - dt * 5); aimRifle(); recoilG.position.z = -recoil * 0.035; recoilG.rotation.x = recoil * 0.05;
+  sign.tick(dt); tickFX(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+// ---- input -------------------------------------------------------------------------------
+canvas.addEventListener('pointerdown', e => shoot(e.clientX, e.clientY));
+$('intro').style.pointerEvents = 'none';
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); ray.ray.at(14, aimAt);
+});
+$('replay').addEventListener('click', () => { if (state === 'play' && note) playNote(); });
+$('snd').addEventListener('click', () => { soundOn = !soundOn; store(SOUND_KEY, soundOn ? '1' : '0'); $('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF'; });
+$('snd').textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' && state === 'play') { e.preventDefault(); if (note) playNote(); }
+});
+function fit() {
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+  camera.fov = w < h ? 46 : 32; camera.updateProjectionMatrix();
+  rifle.position.set(w < h ? 0.1 : 0.2, w < h ? -0.2 : -0.24, 0.2);
+}
+addEventListener('resize', fit);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) last = 0; });
+fit();
+ALL.forEach(s => { dress(s, pick(PCS)); place(s); });
+requestAnimationFrame(frame);
+window.yardDebug = { sign, ALL, dress, setSpell: v => spell = v, EYE, LOOK, camera, get note() { return note; }, get state() { return state; }, shoot, onScreen };
+</script>
+</body>
+</html>
