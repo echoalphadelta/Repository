@@ -107,7 +107,7 @@ canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 <div class="menu" id="menu">
   <div class="mh">WHAT'LL IT BE?</div>
   <button data-d="echo"><b style="color:#4a9eff">ECHO</b><span>BLUE COCKTAIL ON ICE, WITH LIME</span></button>
-  <button data-d="alpha"><b style="color:#ff4a4a">ALPHA</b><span>SPARKLING RED</span></button>
+  <button data-d="alpha"><b style="color:#ff4a4a">ALPHA</b><span>SPARKLING RED, WITH A CHERRY</span></button>
   <button data-d="delta"><b style="color:#4aff7a">DELTA</b><span>GREEN BREW, ICE COLD</span></button>
   <button class="no" id="nope">NOTHING, THANKS</button>
 </div>
@@ -766,7 +766,9 @@ function wallTarget(o) {
     const cyl = (r, len, m, x, y) => { const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 20), m); c.rotation.z = -Math.PI / 2; c.position.set(x + len / 2, y, 0); gun.add(c); };
     cyl(0.019, 0.2, red, -0.02, 0.008); cyl(0.0115, 0.56, red, 0.18, 0.01); cyl(0.0135, 0.03, orange, 0.735, 0.01);
     // the barrel runs down the line into the cup, the grip turned toward you
-    gun.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), down); gun.rotateX(Math.PI);
+    // turned so its whole side, stock to muzzle, faces you as you come over from the entrance door
+    { const view = new THREE.Vector3(-0.75, 0.1, 0.66).normalize(), side = view.sub(down.clone().multiplyScalar(view.dot(down))).normalize();
+      gun.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(down.clone(), side.clone().cross(down).normalize(), side)); }
     gun.position.copy(cupAt).addScaledVector(down, -0.5);
     gun.traverse(m => { if (m.isMesh) { m.castShadow = true; m.userData.etGun = true; } });
     cab.userData.gun = gun; cab.userData.gunHome = { p: gun.position.clone(), q: gun.quaternion.clone() }; cab.userData.post = new THREE.Vector3(0, 0, Z);
@@ -1519,13 +1521,25 @@ const levelOf = (liq, fizz, base, xz) => k => { const on = k > 0.02; liq.visible
 const DRINKS = {
   // Alpha: a wine glass with a deep sparkling red, beads streaming up through it
   // Alpha: a heavy whisky glass, square with rounded corners and a thick base, of sparkling red
-  alpha: { name: 'ALPHA', sub: 'SPARKLING RED', colr: '#ff4a4a', make() {
+  alpha: { name: 'ALPHA', sub: 'SPARKLING RED, WITH A CHERRY', colr: '#ff4a4a', make() {
     const g = new THREE.Group();
     g.add(squarish(lathe([[0, 0], [0.04, 0], [0.043, 0.004], [0.044, 0.012], [0.044, 0.098], [0.04, 0.098], [0.039, 0.026], [0.03, 0.022], [0, 0.022]], clearGlassMat(), 40)));
     flatFloors(g.children[0], [[0, -1], [0.022, 1]]);
     const lq = pour(lathe([[0, 0.023], [0.03, 0.023], [0.0385, 0.027], [0.0385, 0.074], [0, 0.074]], liquidMat('#ff0a2e', '#d0001c', 1.0, 0.97), 40), '#ff0a2e', 0.074, 0.0385);
     squarish(lq); lq.children.forEach(c => squarish(c, true)); g.add(lq);
     const fizz = new THREE.Group(); g.add(fizz);
+    // a little silver cocktail sword leaning across from the rim, a cherry pushed onto its blade
+    { const steel = mat({ color: '#dcdee2', metalness: 0.9, roughness: 0.25 }), pick = new THREE.Group();
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.0034, 0.075, 0.0012), steel); blade.position.y = 0.0375; pick.add(blade);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.0024, 0.008, 4), steel); tip.rotation.x = Math.PI; tip.position.y = -0.004; pick.add(tip);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.0025, 0.0025), steel); guard.position.y = 0.076; pick.add(guard);
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.0016, 0.0016, 0.016, 8), steel); grip.position.y = 0.0855; pick.add(grip);
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 10, 8), steel); pommel.position.y = 0.0945; pick.add(pommel);
+      const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.011, 20, 14), new THREE.MeshPhysicalMaterial({ color: '#a8001a', roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 }));
+      cherry.scale.set(1, 0.92, 1); cherry.position.y = 0.05; pick.add(cherry);
+      const stemPts = [new THREE.Vector3(0, 0.06, 0), new THREE.Vector3(0.004, 0.068, 0.002), new THREE.Vector3(0.007, 0.079, 0.004)];
+      pick.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(stemPts), 12, 0.0009, 5), mat({ color: '#5a3a1a', roughness: 0.8 })));
+      pick.position.set(-0.012, 0.052, 0.006); pick.rotation.set(0.15, 0, -0.5); g.add(pick); }
     return { g, tick: bubbles(fizz, 30, 0.026, 0.073, () => 0.034, '#ffe0e4', 4), setLevel: levelOf(lq, fizz, 0.023, () => 1) };
   } },
   // Echo: a round fishbowl glass with no stem, bright blue, two ice cubes floating in it and a lime wheel on the rim
