@@ -21,18 +21,22 @@ a, button { font: inherit; color: inherit; }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .t { position: fixed; text-shadow: 0 1px 3px rgba(0,0,0,0.55); pointer-events: none; }
 /* the note being asked for: a speaker that sends out rings for as long as the note sounds. Tap it to hear it again. */
-#ear { top: max(16px, env(safe-area-inset-top)); left: 50%; width: 54px; height: 54px; margin-left: -27px; border-radius: 50%; border: 1.5px solid rgba(246,242,234,0.8); background: rgba(20,16,12,0.35); display: grid; place-items: center; pointer-events: auto; cursor: pointer; padding: 0; }
-#ear svg { width: 24px; height: 24px; }
-#ear::before, #ear::after { content: ''; position: absolute; inset: -1.5px; border-radius: 50%; border: 1.5px solid rgba(246,242,234,0.9); opacity: 0; }
-#ear.on::before { animation: wave 1.1s ease-out 2; }
-#ear.on::after { animation: wave 1.1s ease-out 0.45s 2; }
-@keyframes wave { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.3); opacity: 0; } }
+/* buttons are small painted steel plates, drawn in the game's own lettering */
+.plate { position: fixed; padding: 0; border: none; background: none; cursor: pointer; pointer-events: auto; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45)); }
+.plate img { display: block; width: 100%; height: auto; }
+#ear { bottom: max(18px, env(safe-area-inset-bottom)); left: 14px; width: 200px; }
+#ear.on { animation: ping 0.55s ease-out 2; }
+@keyframes ping { 0% { transform: translateY(0) scale(1); filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(255,214,140,0)); }
+  30% { transform: translateY(-2px) scale(1.06); filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 14px rgba(255,214,140,0.85)); }
+  100% { transform: translateY(0) scale(1); filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45)) drop-shadow(0 0 0 rgba(255,214,140,0)); } }
+#home { top: max(14px, env(safe-area-inset-top)); left: 12px; width: 112px; }
 body:not(.play) #ear { display: none; }
 </style>
 </head>
 <body>
 <canvas id="gl"></canvas>
-<button id="ear" class="t" aria-label="Hear the note again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+<button id="ear" class="plate" aria-label="Target tone: hear the note again"><img alt=""></button>
+<a id="home" class="plate" href="arcade.html" aria-label="Back to the arcade"><img alt=""></a>
 
 <script type="module">
 import * as THREE from 'three';
@@ -463,6 +467,31 @@ const board = (() => {
   };
 })();
 board.title();
+
+// ---- the two buttons, painted like the board: dark steel, old coloured letters, rust ----
+function plateURL(text, W, H, px, icon) {
+  const c = cnv(W, H), g = c.getContext('2d'), COLS = ['#d8d2c4', '#e07a2a', '#4a7a9a', '#c23a2a', '#5a8a4a', '#e8c23a', '#9a9a96'];
+  g.drawImage(paintedTex('#3e4044', 13), 0, 0, W, H);
+  const lt = cnv(W, H), lg = lt.getContext('2d'); lg.font = `${px}px 'Archivo Black'`; lg.textBaseline = 'middle';
+  const iw = icon === 'speaker' ? H * 0.82 : icon ? H * 0.62 : 0; while (lg.measureText(text).width + iw > W - 34 && px > 10) lg.font = `${--px}px 'Archivo Black'`;
+  const tw = lg.measureText(text).width; let x = (W - tw - iw) / 2 + iw;
+  if (icon === 'speaker') { const ix = (W - tw - iw) / 2 - 4, cy = H / 2, k = H / 100; lg.fillStyle = COLS[2];
+    lg.beginPath(); lg.moveTo(ix, cy - 12 * k); lg.lineTo(ix + 14 * k, cy - 12 * k); lg.lineTo(ix + 30 * k, cy - 27 * k); lg.lineTo(ix + 30 * k, cy + 27 * k); lg.lineTo(ix + 14 * k, cy + 12 * k); lg.lineTo(ix, cy + 12 * k); lg.fill();
+    lg.strokeStyle = COLS[1]; lg.lineWidth = 7 * k; [20, 34].forEach(r => { lg.beginPath(); lg.arc(ix + 30 * k, cy, r * k, -0.8, 0.8); lg.stroke(); }); }
+  if (icon === 'back') { const ix = (W - tw - iw) / 2 + 2, cy = H / 2, k = H / 100; lg.fillStyle = COLS[3];
+    lg.beginPath(); lg.moveTo(ix, cy); lg.lineTo(ix + 24 * k, cy - 22 * k); lg.lineTo(ix + 24 * k, cy - 9 * k); lg.lineTo(ix + 44 * k, cy - 9 * k); lg.lineTo(ix + 44 * k, cy + 9 * k); lg.lineTo(ix + 24 * k, cy + 9 * k); lg.lineTo(ix + 24 * k, cy + 22 * k); lg.fill(); }
+  [...text].forEach((ch, k) => { if (ch !== ' ') { lg.fillStyle = COLS[k % COLS.length]; lg.fillText(ch, x, H / 2 + 2); } x += lg.measureText(ch).width; });
+  lg.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < W * H / 40; i++) { lg.fillStyle = Math.random() < 0.6 ? `rgba(142,72,34,${0.4 + Math.random() * 0.5})` : 'rgba(26,24,22,0.7)'; lg.fillRect(Math.random() * W, Math.random() * H, rnd(1, 4), rnd(1, 3)); }
+  g.drawImage(lt, 0, 0);
+  [[9, 9], [W - 9, 9], [9, H - 9], [W - 9, H - 9]].forEach(([bx, by]) => { g.fillStyle = '#5a4a3a'; g.beginPath(); g.arc(bx, by, 4, 0, 7); g.fill(); });
+  return c.toDataURL('image/png');
+}
+function paintButtons() {
+  document.querySelector('#ear img').src = plateURL('TARGET TONE', 380, 100, 40, 'speaker');
+  document.querySelector('#home img').src = plateURL('ARCADE', 224, 80, 34, 'back');
+}
+paintButtons(); document.fonts && document.fonts.load("40px 'Archivo Black'").then(paintButtons);
 
 // ---- the game ----------------------------------------------------------------------------
 const $ = id => document.getElementById(id);
