@@ -770,6 +770,9 @@ function wallTarget(o) {
     gun.position.copy(cupAt).addScaledVector(down, -0.5);
     gun.traverse(m => { if (m.isMesh) { m.castShadow = true; m.userData.etGun = true; } });
     cab.userData.gun = gun; cab.userData.gunHome = { p: gun.position.clone(), q: gun.quaternion.clone() }; cab.userData.post = new THREE.Vector3(0, 0, Z);
+    // a generous unseen grab area round the rifle and its post, so a tap anywhere near them picks it up
+    const grab = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.9, 12), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    grab.position.set(0, 0.95, Z + 0.15); grab.userData.etGun = true; cab.add(grab);
     const pts = []; for (let i = 0; i <= 60; i++) { const t = i / 60, a = t * Math.PI * 12; pts.push(new THREE.Vector3(Math.cos(a) * 0.018 + 0.05, 0.9 - t * 0.4, Z + 0.06 + Math.sin(a) * 0.018)); }
     cab.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200, 0.004, 6), rubber)); }
   return cab;
