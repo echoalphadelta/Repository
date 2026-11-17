@@ -721,30 +721,28 @@ function wallTarget(o) {
   const FZ = 0.026, ring = (r0, r1, m, z) => { const r = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 96), m); r.position.set(0, TY, FZ + z); cab.add(r); };
   const steelM = mat({ color: '#d4d8de', roughness: 0.38, metalness: 0.7, emissive: '#26282c' }), groove = mat({ color: '#3a3c40', roughness: 0.5, metalness: 0.8 });
   ring(R0, 0.79, steelM, 0.001); ring(R0, R0 + 0.012, groove, 0.0015); [0.66, 0.725].forEach(r => ring(r, r + 0.006, groove, 0.0015)); ring(0.785, 0.79, groove, 0.0015);
-  // the display: black, the name painted on in the game's heavy lettering, chipped and rusting like the yard's letters
+  // the display: black, START in a crosshair, in the game's heavy lettering, chipped and rusting like the yard's letters
   const c = canvas(1024, 1024), lc = canvas(1024, 1024), g = lc.getContext('2d');
   // each letter its own colour of old paint, as the cut letters in the game are
   const SHEET_COLS = ['#d8d2c4', '#c23a2a', '#4a7a9a', '#e07a2a', '#5a8a4a', '#9a9a96', '#e8c23a'];
   const spellOut = (gc, word, cx, cy, px, k0) => { gc.font = `${px}px 'Archivo Black'`; gc.textAlign = 'left'; gc.textBaseline = 'middle';
     let x = cx - gc.measureText(word).width / 2; [...word].forEach((ch, k) => { gc.fillStyle = SHEET_COLS[(k0 + k * 3) % SHEET_COLS.length]; gc.fillText(ch, x, cy); x += gc.measureText(ch).width; }); };
-  spellOut(g, 'EAR', 512, 330, 190, 0); g.font = "190px 'Archivo Black'"; spellOut(g, 'TRAINING', 512, 520, fitPx(g, 'TRAINING', "'Archivo Black'", 190, 760), 1);
+  spellOut(g, 'START', 512, 520, 170, 2);
   g.globalCompositeOperation = 'source-atop';
-  for (let i = 0; i < 2600; i++) { const r = Math.random(); g.fillStyle = r < 0.45 ? `rgba(150,72,30,${0.3 + Math.random() * 0.5})` : r < 0.6 ? 'rgba(5,5,5,0.9)' : `rgba(255,236,170,${Math.random() * 0.3})`; g.fillRect(Math.random() * 1024, 200 + Math.random() * 420, 2 + Math.random() * 7, 2 + Math.random() * 5); }
-  { const bg = c.getContext('2d'); bg.fillStyle = '#050505'; bg.fillRect(0, 0, 1024, 1024); bg.drawImage(lc, 0, 0); }
+  for (let i = 0; i < 1600; i++) { const r = Math.random(); g.fillStyle = r < 0.45 ? `rgba(150,72,30,${0.3 + Math.random() * 0.5})` : r < 0.6 ? 'rgba(5,5,5,0.9)' : `rgba(255,236,170,${Math.random() * 0.3})`; g.fillRect(Math.random() * 1024, 400 + Math.random() * 240, 2 + Math.random() * 7, 2 + Math.random() * 5); }
+  { const bg = c.getContext('2d'); bg.fillStyle = '#050505'; bg.fillRect(0, 0, 1024, 1024);
+    // the crosshair: a ring, four arms that stop short of the middle, small marks along them
+    bg.strokeStyle = 'rgba(214,206,192,0.55)'; bg.lineWidth = 5; bg.beginPath(); bg.arc(512, 512, 330, 0, Math.PI * 2); bg.stroke();
+    bg.lineWidth = 4; [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => { bg.beginPath(); bg.moveTo(512 + dx * 400, 512 + dy * 400); bg.lineTo(512 + dx * 250, 512 + dy * 250); bg.stroke();
+      for (let k = 1; k <= 3; k++) { const r = 250 + k * 40, px = -dy, py = dx; bg.beginPath(); bg.moveTo(512 + dx * r + px * 14, 512 + dy * r + py * 14); bg.lineTo(512 + dx * r - px * 14, 512 + dy * r - py * 14); bg.stroke(); } });
+    bg.drawImage(lc, 0, 0); }
   const scr = new THREE.Group(); scr.position.set(0, TY, FZ + 0.0015); cab.add(scr); cab.userData.screen = scr;
   scr.add(new THREE.Mesh(new THREE.CircleGeometry(R0, 96), new THREE.MeshStandardMaterial({ color: '#000', emissive: '#ffffff', emissiveMap: tex(c), emissiveIntensity: 0.9, roughness: 0.25 })));
-  // START: a painted steel plate bolted to the lower half of the screen. Shoot it to play.
-  { const pc = canvas(512, 180), pg = pc.getContext('2d'); pg.drawImage(rustyPaint(512, 180, '#4a4c50', 0.6), 0, 0);
-    const lt = canvas(512, 180), lg = lt.getContext('2d'); spellOut(lg, 'START', 256, 96, 118, 2);
-    lg.globalCompositeOperation = 'source-atop'; lg.drawImage(rustyPaint(512, 180, 'rgba(0,0,0,0)', 0.8), 0, 0); pg.drawImage(lt, 0, 0);
-    [[16, 16], [496, 16], [16, 164], [496, 164]].forEach(([x, y]) => { pg.fillStyle = '#5a4a3a'; pg.beginPath(); pg.arc(x, y, 6, 0, 7); pg.fill(); });
-    const edge = mat({ color: '#7a6a4a', roughness: 0.6, metalness: 0.5 });
-    const hinge = new THREE.Group(); hinge.position.set(0, TY - 0.36, FZ + 0.01); cab.add(hinge);
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.148, 0.012), [edge, edge, edge, edge, mat({ map: tex(pc), roughness: 0.55, metalness: 0.35 }), edge]);
-    plate.position.y = 0.074; plate.castShadow = true; plate.userData.etStart = true; hinge.add(plate);
-    // knocked flat by a shot, then it stands back up
-    let knock = 0; cab.userData.knock = () => { knock = 1; };
-    WALL_TICKS.push(dt => { if (knock > 0) knock = Math.max(0, knock - dt * 0.8); hinge.rotation.x = -Math.sin(Math.min(1, (1 - knock) * 4) * Math.PI / 2) * 1.3 * Math.min(1, knock * 3); }); }
+  // the name on the wall above the screen, in the same old painted letters
+  { const nc = canvas(1024, 170), ng = nc.getContext('2d'); spellOut(ng, 'EAR TRAINING', 512, 92, fitPx(ng, 'EAR TRAINING', "'Archivo Black'", 130, 980), 0);
+    ng.globalCompositeOperation = 'source-atop'; ng.drawImage(rustyPaint(1024, 170, 'rgba(0,0,0,0)', 0.8), 0, 0);
+    const nt = tex(nc), name = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9 * 170 / 1024), new THREE.MeshStandardMaterial({ map: nt, emissive: '#ffffff', emissiveMap: nt, emissiveIntensity: 0.35, transparent: true, alphaTest: 0.3, roughness: 0.6, metalness: 0.3 }));
+    name.position.set(0, TY + 0.79 + 0.24, 0.02); cab.add(name); }
   // in front: a post with a holster cup, the red toy rifle standing in it muzzle down, leaning back toward you
   { const postM = mat({ color: '#ffffff', map: tex(rustyPaint(128, 256, '#3a3a3c', 0.4)), roughness: 0.6, metalness: 0.6 }), Z = 0.75;
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.04, 28), postM); base.position.set(0, 0.02, Z); cab.add(base);
@@ -755,7 +753,7 @@ function wallTarget(o) {
     const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.032, 0.3, 20, 1, true), mat({ color: '#1a1a1a', roughness: 0.7, side: THREE.DoubleSide }));
     cup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), down.clone().negate()); cup.position.copy(cupAt).addScaledVector(down, 0.08); cab.add(cup);
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.12), postM); arm.position.set(0, 0.88, Z + 0.02); cab.add(arm);
-    const red = new THREE.MeshPhysicalMaterial({ color: '#d8261a', roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+    const red = new THREE.MeshPhysicalMaterial({ color: '#c8201a', roughness: 0.5, clearcoat: 0.15, clearcoatRoughness: 0.5 });
     const orange = new THREE.MeshPhysicalMaterial({ color: '#ff7a14', roughness: 0.4, clearcoat: 0.5 });
     const gun = new THREE.Group(); cab.add(gun);
     const sh = new THREE.Shape();
@@ -770,7 +768,8 @@ function wallTarget(o) {
     // the barrel runs down the line into the cup, the grip turned toward you
     gun.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), down); gun.rotateX(Math.PI);
     gun.position.copy(cupAt).addScaledVector(down, -0.5);
-    gun.traverse(m => { if (m.isMesh) m.castShadow = true; });
+    gun.traverse(m => { if (m.isMesh) { m.castShadow = true; m.userData.etGun = true; } });
+    cab.userData.gun = gun; cab.userData.gunHome = { p: gun.position.clone(), q: gun.quaternion.clone() }; cab.userData.post = new THREE.Vector3(0, 0, Z);
     const pts = []; for (let i = 0; i <= 60; i++) { const t = i / 60, a = t * Math.PI * 12; pts.push(new THREE.Vector3(Math.cos(a) * 0.018 + 0.05, 0.9 - t * 0.4, Z + 0.06 + Math.sin(a) * 0.018)); }
     cab.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 200, 0.004, 6), rubber)); }
   return cab;
@@ -1760,14 +1759,64 @@ $('next').onclick = e => { e.stopPropagation(); step(1); };
 let leaving = false;
 function exitArcade() { if (going) return; leaving = false; auto = null; stand(); const look0 = cam.position.clone().add(cam.getWorldDirection(new THREE.Vector3()).multiplyScalar(1.5));
   going = { door: true, t: 0, from: cam.position.clone(), look0, href: 'index.html' }; $('hud').classList.remove('on'); }
+// ---- the Ear Training rifle: pick it up off its post and shoot the screen to start ----
 let startAC = null;
-function shootStart(i) {
-  // a pellet ringing off steel: a bright tick and a high clean note, then away into the game
-  try { startAC = startAC || new (window.AudioContext || window.webkitAudioContext)(); const t = startAC.currentTime;
-    [[1046.5, 0.35, 1.6], [1046.5 * 2.76, 0.08, 0.3], [1318.5, 0.2, 1.2]].forEach(([f, v, d], k) => { const o = startAC.createOscillator(), gn = startAC.createGain(); o.frequency.value = f;
-      gn.gain.setValueAtTime(0, t + k * 0.06); gn.gain.linearRampToValueAtTime(v, t + k * 0.06 + 0.003); gn.gain.exponentialRampToValueAtTime(0.0001, t + k * 0.06 + d); o.connect(gn).connect(startAC.destination); o.start(t + k * 0.06); o.stop(t + k * 0.06 + d + 0.05); }); } catch (e) {}
-  MACHINES[i].group.userData.knock(); setTimeout(() => play(i), 550);
+const RIFLE = { on: false, rig: new THREE.Group(), kick: new THREE.Group(), r: 0, rv: 0, aimQ: new THREE.Quaternion(), aimT: 0, flash: null };
+RIFLE.rig.add(RIFLE.kick);
+{ const c = canvas(64, 64), g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,240,200,1)'); gr.addColorStop(0.4, 'rgba(255,190,90,0.8)'); gr.addColorStop(1, 'rgba(255,150,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  RIFLE.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(c), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 })); RIFLE.flash.scale.setScalar(0.12); RIFLE.flash.position.set(-0.8, 0.01, 0); }
+const etMachine = () => MACHINES.find(m => m.key === 'et');
+function pickUpRifle() {
+  const m = etMachine(), gun = m.group.userData.gun; if (RIFLE.on) return;
+  if (!cam.parent) scene.add(cam);
+  RIFLE.rig.position.set(0.13, -0.19, 0); RIFLE.rig.quaternion.identity(); cam.add(RIFLE.rig);
+  // the rifle's barrel runs along its own x; turn it to point away from you, butt at the shoulder
+  RIFLE.kick.add(gun); gun.position.set(0, 0, -0.3); gun.quaternion.setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+  gun.traverse(o => { if (o.isMesh) o.castShadow = false; }); gun.add(RIFLE.flash); RIFLE.flash.position.set(0.8, 0.01, 0);
+  RIFLE.on = true;
 }
+function holsterRifle() {
+  if (!RIFLE.on) return; const m = etMachine(), gun = m.group.userData.gun, home = m.group.userData.gunHome;
+  m.group.add(gun); gun.position.copy(home.p); gun.quaternion.copy(home.q); gun.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  cam.remove(RIFLE.rig); RIFLE.on = false; RIFLE.r = RIFLE.rv = 0;
+}
+// a heavy toy shot: a deep thump under a crack, a short tail, the bolt worked back and forward
+function rifleSound() {
+  try { startAC = startAC || new (window.AudioContext || window.webkitAudioContext)(); if (startAC.state === 'suspended') startAC.resume();
+    const ac = startAC, t = ac.currentTime, out = ac.createGain(); out.gain.value = 0.8; out.connect(ac.destination);
+    const nb = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const burst = (dur, type, f, q, v, at) => { const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), gn = ac.createGain(); s.buffer = nb; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+      gn.gain.setValueAtTime(v, at); gn.gain.exponentialRampToValueAtTime(0.0001, at + dur); s.connect(fl).connect(gn).connect(out); s.start(at); s.stop(at + dur + 0.05); };
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.16);
+    g.gain.setValueAtTime(0.75, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2); o.connect(g).connect(out); o.start(t); o.stop(t + 0.25);
+    burst(0.016, 'highpass', 4000, 0.7, 0.6, t); burst(0.07, 'bandpass', 1700, 0.8, 0.65, t + 0.002); burst(0.4, 'lowpass', 650, 0.7, 0.14, t + 0.02);
+    burst(0.025, 'bandpass', 3300, 3, 0.32, t + 0.24); burst(0.025, 'bandpass', 2300, 3, 0.32, t + 0.36); } catch (e) {}
+}
+// a hit on the screen: the steel rings a high clean note
+function screenRing() {
+  try { const ac = startAC, t = ac.currentTime + 0.05;
+    [[1046.5, 0.3, 1.6], [1046.5 * 2.76, 0.07, 0.3], [1318.5, 0.18, 1.2]].forEach(([f, v, d], k) => { const o = ac.createOscillator(), gn = ac.createGain(); o.frequency.value = f;
+      gn.gain.setValueAtTime(0, t + k * 0.06); gn.gain.linearRampToValueAtTime(v, t + k * 0.06 + 0.003); gn.gain.exponentialRampToValueAtTime(0.0001, t + k * 0.06 + d); o.connect(gn).connect(ac.destination); o.start(t + k * 0.06); o.stop(t + k * 0.06 + d + 0.05); }); } catch (e) {}
+}
+function fireRifle(hit) {
+  rifleSound(); RIFLE.rv += 14; RIFLE.flash.material.opacity = 1;
+  // swing part of the way toward where you shot
+  const dir = ray.ray.direction.clone().applyQuaternion(cam.getWorldQuaternion(new THREE.Quaternion()).invert());
+  const aim = new THREE.Vector3(0, 0, -1).lerp(dir, 0.6).normalize();
+  RIFLE.aimQ.setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), aim, new THREE.Vector3(0, 1, 0))); RIFLE.aimT = 1.2;
+  const m = etMachine();
+  if (hit && m && hit.object.parent === m.group.userData.screen && !going) { screenRing(); setTimeout(() => play(m.i), 450); }
+}
+WALL_TICKS.push(dt => {
+  if (!RIFLE.on) return;
+  RIFLE.rv += (-320 * RIFLE.r - 22 * RIFLE.rv) * dt; RIFLE.r += RIFLE.rv * dt;
+  RIFLE.kick.position.z = RIFLE.r * 0.08; RIFLE.kick.rotation.x = RIFLE.r * 0.2;
+  RIFLE.flash.material.opacity = Math.max(0, RIFLE.flash.material.opacity - dt * 14);
+  RIFLE.aimT = Math.max(0, RIFLE.aimT - dt); RIFLE.rig.quaternion.slerp(RIFLE.aimT > 0 ? RIFLE.aimQ : new THREE.Quaternion(), Math.min(1, dt * (RIFLE.aimT > 0 ? 18 : 3)));
+  // walk away from the post and it goes back in its holster
+  const m = etMachine(), post = m.group.localToWorld(m.group.userData.post.clone());
+  if (!going && Math.hypot(me.x - post.x, me.z - post.z) > 2.8) holsterRifle();
+});
 function play(i = focus) {
   if (i >= 0 && link && link.dc && link.dc.readyState === 'open' && !going) try { link.dc.send(JSON.stringify({ t: 'bye', game: MACHINES[i].name })); } catch (e) {}
   if (i === 'bar') { openMenu(); return; }
@@ -2181,15 +2230,17 @@ function release(e) {
   const t = taps.get(e.pointerId); taps.delete(e.pointerId);
   if (!t || e.type !== 'pointerup' || Math.hypot(e.clientX - t.x, e.clientY - t.y) > 10 || performance.now() - t.t > 400) return;
   ptr.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ptr, cam);
-  const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible);
+  const hit = ray.intersectObjects(scene.children, true).find(h => h.object !== marker && h.object.visible && !(RIFLE.on && h.object.userData.etGun));
+  // holding the Ear Training rifle, every tap is a shot
+  if (RIFLE.on) { fireRifle(hit); return; }
+  if (hit && hit.object.userData.etGun) { pickUpRifle(); return; }
   if (!hit) return; const i = hit.object.userData.machine;
-  if (hit.object.userData.etStart && !going) { shootStart(i); return; }
   if (i === undefined) { if (hit.object.userData.npc) { chat(hit.object.userData.npc); return; } if (hit.object.userData.drink) { sip(); return; } if (hit.object.userData.seat !== undefined) { sit(hit.object.userData.seat); return; } if (hit.object.userData.tv) { TV.tune(); return; } if (hit.object.userData.door) { if (Math.hypot(me.x - DOOR.x, me.z - RZ1) < 1.3) exitArcade(); else { walkTo(DOOR); leaving = true; } return; } if (hit.object.userData.bar) { if (focus === 'bar') openMenu(); else walkTo(BAR); return; } walkToSpot(hit.point.x, hit.point.z); return; }
   if (i === focus) play(i); else walkTo(MACHINES[i]);
 }
 r.domElement.addEventListener('pointerup', release); r.domElement.addEventListener('pointercancel', release);
 // coming back to this page from a game with the back button
-addEventListener('pageshow', e => { if (e.persisted) { going = null; focus = -1; $('fade').classList.remove('on'); $('fade').style.transition = ''; DOOR.hinge.rotation.y = 0; DOOR.beyond.material.opacity = 0; } });
+addEventListener('pageshow', e => { if (e.persisted) { holsterRifle(); going = null; focus = -1; $('fade').classList.remove('on'); $('fade').style.transition = ''; DOOR.hinge.rotation.y = 0; DOOR.beyond.material.opacity = 0; } });
 
 // ---- music: three songs, one picked at random, then another when it ends ----
 // Browsers only allow sound after a tap or a key, so the first song starts then. MUSIC OFF is remembered.
