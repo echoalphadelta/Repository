@@ -768,7 +768,7 @@ function wallTarget(o) {
     // the barrel runs down the line into the cup, the grip turned toward you
     // turned so its whole side, stock to muzzle, faces you as you come over from the entrance door
     { const view = new THREE.Vector3(-0.75, 0.1, 0.66).normalize(), side = view.sub(down.clone().multiplyScalar(view.dot(down))).normalize();
-      gun.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(down.clone(), side.clone().cross(down).normalize(), side)); }
+      gun.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(down.clone(), down.clone().cross(side).normalize(), side.clone().negate())); }   // grip toward the floor
     gun.position.copy(cupAt).addScaledVector(down, -0.5);
     gun.traverse(m => { if (m.isMesh) { m.castShadow = true; m.userData.etGun = true; } });
     cab.userData.gun = gun; cab.userData.gunHome = { p: gun.position.clone(), q: gun.quaternion.clone() }; cab.userData.post = new THREE.Vector3(0, 0, Z);
