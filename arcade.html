@@ -772,7 +772,7 @@ const RX0 = -ROOM.W / 2, RX1 = ROOM.W / 2, RZ0 = -ROOM.D / 2, RZ1 = ROOM.D / 2;
 // where each machine stands: x, z, and which way it faces (0 faces the entrance)
 const PLACE = {
   ss: [-4, RZ0 + 0.03, 0], pr: [-2, RZ0 + 0.03, 0], nb: [0, RZ0 + 0.03, 0], ng: [2, RZ0 + 0.03, 0], tn: [4, RZ0 + 0.03, 0],
-  dt: [RX0 + 0.03, -2.6, Math.PI / 2], ww: [RX0 + 0.03, -0.6, Math.PI / 2], pl: [RX0 + 0.03, 1.7, Math.PI / 2],
+  dt: [RX0 + 0.03, -2.6, Math.PI / 2], ww: [RX0 + 0.03, 1.95, Math.PI / 2], pl: [RX0 + 0.03, -0.1, Math.PI / 2],
   ff: [RX1 - 0.03, -2.6, -Math.PI / 2], sl: [RX1 - 0.03, -0.6, -Math.PI / 2],
   ni: [0, 0.4, 0],
 };
@@ -1664,7 +1664,7 @@ function walkToSpot(x, z) {
 const marker = new THREE.Mesh(new THREE.RingGeometry(0.16, 0.2, 40), new THREE.MeshBasicMaterial({ color: '#f4f1ea', transparent: true, opacity: 0.6, depthWrite: false }));
 marker.rotation.x = -Math.PI / 2; marker.visible = false; scene.add(marker);
 // the machines in the order you meet them going round the room
-const ROUND = ['pl', 'ww', 'dt', 'ss', 'pr', 'nb', 'ng', 'tn', 'ff', 'sl', 'bar', 'ni'].map(k => k === 'bar' ? BAR : MACHINES.find(m => m.key === k));
+const ROUND = ['ww', 'pl', 'dt', 'ss', 'pr', 'nb', 'ng', 'tn', 'ff', 'sl', 'bar', 'ni'].map(k => k === 'bar' ? BAR : MACHINES.find(m => m.key === k));
 function step(d) {
   let i = ROUND.indexOf(focus === 'bar' ? BAR : MACHINES[focus]);
   if (i < 0) { // not at one: start from the machine nearest you in that direction round the room
