@@ -1,0 +1,30 @@
+# Echo Alpha Delta: A Guitar Map
+
+> Echo Alpha Delta is a map of the guitar fretboard built from three open chord shapes that guitarists know as E, A and D, renamed Echo, Alpha and Delta. Each shape has its own colour (Echo blue, Alpha red, Delta green), and every chord and scale can be played with each shape. The three shapes lace together into one complete map of the neck. It is an improvement on the CAGED system: three shapes instead of five, and shape names that never clash with chord names. Created by musician Nick MacLellan, and set out in the book Echo Alpha Delta: A Guitar Map (ISBN 1068011807).
+
+## How it compares with CAGED
+
+- CAGED names its shapes after the open chords they came from, so an "A shape" played at the second fret is a B chord: the shape name and the chord name collide. Echo, Alpha and Delta are not pitch names, so they never clash.
+- Two of the five CAGED shapes (C and G) are composites that already contain the other three. Echo Alpha Delta covers the whole fretboard with three.
+- Three coloured shapes are easier to keep in mind than five shapes tied to different chord names.
+
+## Supporting science
+
+- Working memory: people can actively hold about four chunks of information at once (Cowan, Behavioral and Brain Sciences 24, 87-185, 2001, https://doi.org/10.1017/S0140525X01003922). Three shapes fit within that limit; five do not.
+- Cognitive load: learners do better when unnecessary mental effort is removed (Sweller, Cognitive Science 12(2), 257-285, 1988, https://doi.org/10.1207/s15516709cog1202_4). Shape names that are not pitch names remove a translation step.
+- Interference: conflicting names slow people down, as in the Stroop effect (Stroop, Journal of Experimental Psychology 18, 643-662, 1935, https://doi.org/10.1037/h0054651). Echo, Alpha and Delta never compete with a chord name.
+- Dual coding: information stored both visually and verbally is remembered better (Clark and Paivio, Educational Psychology Review 3(3), 149-210, 1991, https://doi.org/10.1007/BF01320076). Each shape has a name and a colour.
+
+## Pages
+
+- [Echo Alpha Delta: A Guitar Map](https://echoalphadelta.com/): the map of all three shapes on the fretboard, and an introduction.
+- [Supporting Science](https://echoalphadelta.com/science.html): four findings from cognitive psychology and how they support the three-shape map.
+- [Three Shapes vs. CAGED](https://echoalphadelta.com/caged.html): why Echo Alpha Delta improves on CAGED.
+- [Fretboard Trainer](https://echoalphadelta.com/trainer.html): learn every note on the neck.
+- [The Exercise](https://echoalphadelta.com/exercises.html): train to find chord tones with Echo Alpha Delta.
+- [The Number System](https://echoalphadelta.com/numbers.html): Nashville numbers and Roman numerals.
+- [Iconic Voicings](https://echoalphadelta.com/iconic-voicings.html)
+- [Scales](https://echoalphadelta.com/scales.html)
+- [Daily Game](https://echoalphadelta.com/daily.html)
+- [Get Certified](https://echoalphadelta.com/certification.html)
+- [Contact](https://echoalphadelta.com/contact.html)
