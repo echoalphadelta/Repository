@@ -21,18 +21,18 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://echoalphadelta.com/share-image.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Jura:wght@400;600;700&family=Orbitron:wght@400&family=Turret+Road:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jura:wght@400;600;700&family=Orbitron:wght@400&family=Turret+Road:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 * { -webkit-tap-highlight-color: transparent; }
 button:active, a:active { opacity: 1 !important; }
 
 html, body { margin: 0; padding: 0; background: #000000; }
 * { box-sizing: border-box; }
-body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-height: 1.85; }
+body { color: #f0ede8; font-size: 115%; font-family: 'Turret Road', monospace; line-height: 1.85; }
 .page { max-width: 680px; margin: 0 auto; padding: 20px 24px 80px; position: relative; }
 .back-link {
   display: inline-flex; align-items: center; justify-content: center;
-  font-family: 'Jura', monospace; font-size: 0.65rem; font-weight: 700;
+  font-family: 'Turret Road', monospace; font-size: 0.65rem; font-weight: 700;
   letter-spacing: 0.06em; text-decoration: none;
   width: 128px; height: 46px; padding: 0;
   background: radial-gradient(ellipse at 45% 40%, #0d110d 0%, #050807 100%);
@@ -46,14 +46,14 @@ body { color: #f0ede8; font-size: 115%; font-family: 'Jura', monospace; line-hei
 .back-link:hover {
 
 }
-h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 22px 0 22px 0; line-height: 32px; height: 32px; text-align: center; }
-.subtitle { position: absolute; top: 20px; left: calc(24px + (100% - 48px) * 0.85); transform: translateX(-50%); white-space: nowrap; height: 46px; display: flex; align-items: center; margin: 0; font-family: 'Orbitron', 'Jura', sans-serif; font-size: 0.9rem; color: #f5a623; letter-spacing: 0.06em; }
+h1 { font-family: 'Turret Road', monospace; font-size: 1.65rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #39ff14; text-shadow: 0 0 16px rgba(57,255,20,0.4); margin: 22px 0 22px 0; line-height: 32px; height: 32px; text-align: center; }
+.subtitle { position: absolute; top: 20px; left: calc(24px + (100% - 48px) * 0.85); transform: translateX(-50%); white-space: nowrap; height: 46px; display: flex; align-items: center; margin: 0; font-family: 'Orbitron', 'Turret Road', sans-serif; font-size: 0.9rem; color: #f5a623; letter-spacing: 0.06em; }
 
-.chord-counter { font-family: 'Orbitron', 'Jura', sans-serif; font-size: 0.7rem; letter-spacing: 0.06em; color: #f0ede8; margin-bottom: 26px; text-transform: uppercase; line-height: 24px; height: 24px; text-align: center; }
+.chord-counter { font-family: 'Orbitron', 'Turret Road', sans-serif; font-size: 0.7rem; letter-spacing: 0.06em; color: #f0ede8; margin-bottom: 26px; text-transform: uppercase; line-height: 24px; height: 24px; text-align: center; }
 .progress-dots { display: inline-flex; gap: 6px; margin-left: 10.6px; vertical-align: middle; position: relative; top: -1px; }
 .round-label { margin-left: calc(14px + 0.06em); }
 .progress-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid; box-sizing: border-box; }
-.shape-badge { font-family: 'Jura', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 12px; line-height: 24px; height: 24px; }
+.shape-badge { font-family: 'Turret Road', monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; margin-bottom: 12px; line-height: 24px; height: 24px; }
 .fretboard-wrap { margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; background: #080808; }
 .fretboard-wrap { margin-left: -16px; margin-right: -16px; }
 @media (min-width: 760px) { .fretboard-wrap { margin-left: -70px; margin-right: -70px; } }
@@ -73,7 +73,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 
 }
 .guess-vint-val {
-  font-family: 'Jura', monospace; font-weight: 700; font-size: 0.9rem;
+  font-family: 'Turret Road', monospace; font-weight: 700; font-size: 0.9rem;
   color: #a8d8ea; letter-spacing: 0.04em;
   text-shadow: 0 0 7px rgba(168,216,234,0.8), 0 0 16px rgba(168,216,234,0.35);
   pointer-events: none;
@@ -92,7 +92,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 .guess-vint { padding-bottom: 7px; box-sizing: border-box; }
 .guess-vint-caret { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); color: #a8d8ea; opacity: 0.55; filter: drop-shadow(0 0 3px rgba(168,216,234,0.5)); pointer-events: none; }
 .submit-btn {
-  font-family: 'Jura', monospace; font-size: 1rem;
+  font-family: 'Turret Road', monospace; font-size: 1rem;
   font-weight: 600; letter-spacing: 0.08em; text-indent: 0.08em; line-height: 1;
   width: 120px; height: 120px; padding: 0;
   -webkit-appearance: none; appearance: none;
@@ -108,11 +108,11 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 }
 .submit-btn:hover { }
 .submit-btn:disabled { opacity: 0.35; cursor: default; }
-.feedback { font-family: 'Jura', monospace; font-size: 1.25rem; font-weight: 600; letter-spacing: 0.06em; padding: 6px 0; margin-bottom: 16px; text-align: center; }
+.feedback { font-family: 'Turret Road', monospace; font-size: 1.25rem; font-weight: 600; letter-spacing: 0.06em; padding: 6px 0; margin-bottom: 16px; text-align: center; }
 .feedback.hit { color: #2ecc71; text-shadow: 0 0 10px rgba(46,204,113,0.35); }
 .feedback.miss { color: #e74c3c; text-shadow: 0 0 10px rgba(231,76,60,0.3); }
 .next-btn {
-  font-family: 'Jura', monospace; font-size: 0.65rem;
+  font-family: 'Turret Road', monospace; font-size: 0.65rem;
   font-weight: 700; letter-spacing: 0.06em;
   width: 160px; height: 56px; padding: 0;
   display: block; margin: 0 auto;
@@ -128,9 +128,9 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 .next-btn:hover { }
 
 .score-emojis { font-size: 2.4rem; letter-spacing: 0.15em; text-align: center; margin-bottom: 8px; }
-.score-tally { font-family: 'Jura', monospace; font-size: 0.7rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); text-align: center; margin-bottom: 28px; }
+.score-tally { font-family: 'Turret Road', monospace; font-size: 0.7rem; letter-spacing: 0.06em; color: rgba(240,237,232,0.35); text-align: center; margin-bottom: 28px; }
 .result-rows { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 52px; }
-.result-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; width: 100%; max-width: 320px; min-height: 92px; padding: 16px 24px; box-sizing: border-box; border-radius: 10px; font-family: 'Jura', monospace; font-size: 0.78rem; line-height: 1.3; }
+.result-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; width: 100%; max-width: 320px; min-height: 92px; padding: 16px 24px; box-sizing: border-box; border-radius: 10px; font-family: 'Turret Road', monospace; font-size: 0.78rem; line-height: 1.3; }
 .result-row { border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 6%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 22%, transparent); }
 .result-row .r-info { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
 .result-row .r-shape { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.04em; }
@@ -142,7 +142,7 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 .share-btn {
   display: block; margin: 0 auto;
   width: 190px; height: 62px; padding: 0;
-  font-family: 'Jura', monospace; font-size: 0.8rem;
+  font-family: 'Turret Road', monospace; font-size: 0.8rem;
   font-weight: 700; letter-spacing: 0.06em;
   background: radial-gradient(ellipse at 45% 40%, #110e00 0%, #080600 100%);
   color: #f5a623; border: 1px solid rgba(235,205,155,0.45);
@@ -154,6 +154,10 @@ h1 { font-family: 'Jura', monospace; font-size: 1.65rem; font-weight: 600; lette
 .share-msg { margin-top: 32px; }
 
 .coming-soon { font-size: 0.78rem; color: rgba(240,237,232,0.38); text-align: center; padding: 60px 0; letter-spacing: 0.08em; }
+
+/* buttons keep Jura; the text around them is in Turret Road */
+button, input[type="button"], input[type="submit"], .back-link, .home-link, .nav-text-link, .daily-circle-link, .trainer-link, .enharmonic-link,
+.nav-pill-gold, .nav-pill-ice, .nav-pill-pink, .nav-pill-silver, .toggle, .mode-toggle, .note-buttons, [class*="-btn"], [class*="btn-"] { font-family: 'Jura', monospace !important; }
 </style>
 </head>
 <body>
@@ -487,7 +491,7 @@ function showSharePanel(text) {
     document.getElementById('sharePanelText').select();
     return;
   }
-  msg.innerHTML = '<textarea id="sharePanelText" readonly style="width:100%;background:#111;color:#f0ede8;border:1px solid rgba(245,166,35,0.45);outline:none;border-radius:4px;padding:10px;font-family:Jura,monospace;font-size:0.75rem;line-height:1.7;resize:none;height:90px;display:block;-webkit-user-select:all;user-select:all;">' + text.replace(/</g, '&lt;') + '</textarea><p style="text-align:center;font-size:0.65rem;color:rgba(240,237,232,0.35);letter-spacing: 0.06em;margin:8px 0 0;">Long-press to select &amp; copy</p>';
+  msg.innerHTML = '<textarea id="sharePanelText" readonly style="width:100%;background:#111;color:#f0ede8;border:1px solid rgba(245,166,35,0.45);outline:none;border-radius:4px;padding:10px;font-family:Turret Road,monospace;font-size:0.75rem;line-height:1.7;resize:none;height:90px;display:block;-webkit-user-select:all;user-select:all;">' + text.replace(/</g, '&lt;') + '</textarea><p style="text-align:center;font-size:0.65rem;color:rgba(240,237,232,0.35);letter-spacing: 0.06em;margin:8px 0 0;">Long-press to select &amp; copy</p>';
   var ta = document.getElementById('sharePanelText');
   ta.focus();
   ta.select();
